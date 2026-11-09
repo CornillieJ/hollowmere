@@ -11,6 +11,15 @@ import * as THREE from 'three';
 /** Mouse buttons exposed as key codes so `Input` can treat them like keys. */
 export const MOUSE_CODES = ['Mouse0', 'Mouse1', 'Mouse2', 'Mouse3', 'Mouse4'] as const;
 
+/** Pixels of wheel travel that make one notch; a classic wheel sends about 100. */
+const WHEEL_NOTCH = 90;
+const WHEEL_LINE = 33;
+const WHEEL_PAGE = 600;
+/** Milliseconds of quiet that end one scroll gesture. */
+const WHEEL_GESTURE_GAP = 180;
+/** Shortest time between two counted steps, in milliseconds. */
+const WHEEL_STEP_INTERVAL = 90;
+
 export class Mouse {
     /** Cursor position in pixels, origin top-left. */
     readonly position = new THREE.Vector2();
@@ -18,7 +27,11 @@ export class Mouse {
     readonly ndc = new THREE.Vector2();
     /** Movement since the last frame in pixels, only non-zero while pointer locked. */
     readonly movement = new THREE.Vector2();
-    /** Wheel steps accumulated this frame, positive scrolls down. */
+    /**
+     * Whole wheel notches this frame, positive scrolls down. Smooth wheels and
+     * touchpads send dozens of tiny events per notch; they are added up and
+     * counted as one step per notch's worth of travel.
+     */
     readonly scroll = { delta: 0 };
 
     private readonly down = new Set<string>();
@@ -32,6 +45,9 @@ export class Mouse {
     private readonly onMouseDown: (event: MouseEvent) => void;
     private readonly onMouseUp: (event: MouseEvent) => void;
     private readonly onWheel: (event: WheelEvent) => void;
+    private wheelTravel = 0;
+    private lastWheel = 0;
+    private lastStep = 0;
     private readonly onContextMenu: (event: MouseEvent) => void;
     private readonly onLockChange: () => void;
     private readonly onLockError: () => void;
@@ -68,7 +84,22 @@ export class Mouse {
         };
 
         this.onWheel = (event) => {
-            this.scroll.delta += Math.sign(event.deltaY);
+            // Normalise to pixels: some browsers report lines or pages instead.
+            const pixels = event.deltaY * (event.deltaMode === 1 ? WHEEL_LINE : event.deltaMode === 2 ? WHEEL_PAGE : 1);
+            const now = performance.now();
+            // A pause ends a gesture: leftovers from the last flick must not tip the next one over.
+            if (now - this.lastWheel > WHEEL_GESTURE_GAP) this.wheelTravel = 0;
+            this.lastWheel = now;
+            this.wheelTravel += pixels;
+            while (Math.abs(this.wheelTravel) >= WHEEL_NOTCH) {
+                const direction = Math.sign(this.wheelTravel);
+                this.wheelTravel -= direction * WHEEL_NOTCH;
+                // One step per notch, and a short refractory time so a single
+                // flick of a free-spinning wheel never skips a whole row.
+                if (now - this.lastStep < WHEEL_STEP_INTERVAL) continue;
+                this.lastStep = now;
+                this.scroll.delta += direction;
+            }
         };
 
         this.onContextMenu = (event) => {

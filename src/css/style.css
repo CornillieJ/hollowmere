@@ -321,6 +321,30 @@ footer {
 	transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
 }
 
+.menu-slider {
+	display: grid;
+	gap: 6px;
+	padding: 8px 4px;
+	text-align: left;
+}
+
+.menu-slider-head {
+	display: flex;
+	justify-content: space-between;
+	font-size: 14px;
+}
+
+.menu-slider-value {
+	color: var(--ui-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.menu-slider input[type='range'] {
+	width: 100%;
+	accent-color: var(--ui-accent);
+	cursor: pointer;
+}
+
 .menu-button:hover,
 .menu-button:focus-visible {
 	border-color: var(--ui-accent);

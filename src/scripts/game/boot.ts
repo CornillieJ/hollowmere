@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 import { createThirdPersonGame } from '../templates/third-person-game';
+import type { GameFlow } from '../core/game-state';
 import { DayCycle } from '../game/daycycle';
 import { Farm, type CropDefinition } from '../game/farm';
 import { fitModel } from '../helpers/transform';
@@ -45,6 +46,31 @@ const CROPS: CropDefinition[] = [
     { id: 'pumpkin', name: 'Pumpkin', seed: 'pumpkin-seed', produce: 'pumpkin', stages: 4, stageSeconds: [70, 70, 70, 70], height: 0.8, colors: [0x5f8a52, 0x7a9a52, 0xb07a3a, 0xd0702a] },
 ];
 
+/** Look speed relative to the template default, remembered on this machine. */
+const LOOK_BASE = 0.0012;
+let lookScale = readLookScale();
+/** Set once the template is up; the menu callbacks are built before it exists. */
+let controlsRef: { flow: GameFlow; look: { sensitivity: number } } | undefined;
+
+function readLookScale(): number {
+    try {
+        const stored = Number(localStorage.getItem('hollowmere.look'));
+        return stored > 0 ? stored : 1;
+    } catch {
+        return 1;
+    }
+}
+
+function setLookScale(scale: number): void {
+    lookScale = scale;
+    try {
+        localStorage.setItem('hollowmere.look', String(scale));
+    } catch {
+        // Private windows may refuse storage; the setting still applies for this visit.
+    }
+    if (controlsRef) controlsRef.look.sensitivity = LOOK_BASE * scale;
+}
+
 export async function boot(): Promise<void> {
     const cat = createFolk({ species: 'cat', fur: 0x2b2522, accent: 0xd9b8a0, clothes: 0x6b4f3a });
 
@@ -70,9 +96,32 @@ export async function boot(): Promise<void> {
                 { action: 'inventory', label: '🎒' },
             ],
         },
-        flow: { pointerLock: true, crosshairWhen: [] },
+        flow: {
+            pointerLock: true,
+            crosshairWhen: [],
+            pauseMenu: {
+                title: 'Paused',
+                buttons: [
+                    { label: 'Resume', primary: true, action: () => controlsRef?.flow.resume() },
+                    {
+                        label: 'Mouse sensitivity',
+                        slider: {
+                            min: 0.2,
+                            max: 2,
+                            step: 0.05,
+                            value: () => lookScale,
+                            onChange: (value) => setLookScale(value),
+                            format: (value) => `${Math.round(value * 100)}%`,
+                        },
+                    },
+                    { label: 'Main menu', action: () => controlsRef?.flow.quit() },
+                ],
+            },
+        },
         game: { stats: false, exposeDebug: true },
     });
+    controlsRef = { flow: world.flow, look: world.controls.look };
+    setLookScale(lookScale);
     animatePlayer(game, new FolkAnimator(cat));
 
     //#region Look

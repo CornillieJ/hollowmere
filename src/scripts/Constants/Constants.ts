@@ -34,7 +34,8 @@ export const CAMERA = {
     FOV: 60,
     NEAR: 0.05,
     FAR: 400,
-    LOOK_SENSITIVITY: 0.0022,
+    // Radians per pixel. 0.0012 is a calm third person default; games expose a slider.
+    LOOK_SENSITIVITY: 0.0012,
     MIN_PITCH: -Math.PI / 2 + 0.05,
     MAX_PITCH: Math.PI / 2 - 0.05,
     /** Third person: distance and height behind the character. */

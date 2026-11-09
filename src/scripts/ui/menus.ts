@@ -10,10 +10,53 @@ import { button, clearChildren, div, setText, setVisible } from '../helpers/dom'
  */
 export type MenuButton = {
     label: string;
-    action: () => void;
+    /** Run on press. Not needed for a slider. */
+    action?: () => void;
     /** Rendered with the primary style, use for "Resume" or "Start". */
     primary?: boolean;
+    /** Show a slider instead of a button: volume, sensitivity, brightness. */
+    slider?: MenuSlider;
 };
+
+export type MenuSlider = {
+    min: number;
+    max: number;
+    step?: number;
+    /** Read when the menu is shown, so it always opens on the current value. */
+    value: () => number;
+    onChange: (value: number) => void;
+    /** How the value reads next to the label, e.g. `(v) => Math.round(v * 100) + '%'`. */
+    format?: (value: number) => string;
+};
+
+/** A labelled range input that calls back on every change. */
+export function createSlider(parent: HTMLElement, label: string, slider: MenuSlider): HTMLElement {
+    const row = div('menu-slider', undefined, parent);
+    const head = div('menu-slider-head', undefined, row);
+    div('menu-slider-label', label, head);
+    const readout = div('menu-slider-value', '', head);
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = String(slider.min);
+    input.max = String(slider.max);
+    input.step = String(slider.step ?? (slider.max - slider.min) / 100);
+    const show = (value: number): void => setText(readout, slider.format?.(value) ?? value.toFixed(2));
+    input.addEventListener('input', () => {
+        const value = Number(input.value);
+        show(value);
+        slider.onChange(value);
+    });
+    // Keyboard arrows on a focused slider must not also walk the player around.
+    input.addEventListener('keydown', (event) => event.stopPropagation());
+    row.appendChild(input);
+    const sync = (): void => {
+        input.value = String(slider.value());
+        show(slider.value());
+    };
+    sync();
+    (row as HTMLElement & { sync?: () => void }).sync = sync;
+    return row;
+}
 
 export type MenuConfig = {
     title: string;
@@ -67,7 +110,8 @@ export class Menus {
 
         const actions = div('menu-actions', undefined, card);
         for (const entry of config.buttons) {
-            button(entry.label, entry.action, { className: entry.primary ? 'menu-button is-primary' : 'menu-button', parent: actions });
+            if (entry.slider) createSlider(actions, entry.label, entry.slider);
+            else button(entry.label, () => entry.action?.(), { className: entry.primary ? 'menu-button is-primary' : 'menu-button', parent: actions });
         }
         if (config.hint) div('menu-hint', config.hint, card);
         return panel;
@@ -90,6 +134,7 @@ export class Menus {
         if (this.currentId === id) return;
         if (this.currentId) setVisible(this.panels.get(this.currentId) as HTMLElement, false);
         this.currentId = id;
+        for (const row of panel.querySelectorAll<HTMLElement & { sync?: () => void }>('.menu-slider')) row.sync?.();
         setVisible(panel, true);
         this.layer?.show();
         for (const listener of this.openListeners) listener(id);
