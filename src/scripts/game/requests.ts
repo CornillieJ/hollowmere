@@ -1,0 +1,145 @@
+/**
+ * Errands: characters ask for items, the player brings them, and gets paid.
+ *
+ * The delivery loop of a farming or courier game in one small class: requests
+ * are drawn from a pool, each has a deadline in days, and handing one in takes
+ * the items from an inventory and reports the reward. What a reward means
+ * (money, friendship, an unlock) is up to the game.
+ */
+export type RequestTemplate = {
+    /** Who may ask for this. Omit to let anyone ask. */
+    from?: string[];
+    itemId: string;
+    /** A fixed amount, or a range to roll from. */
+    amount: number | [number, number];
+    /** Money paid per item. */
+    pricePerItem: number;
+    /** Friendship gained on delivery. */
+    friendship?: number;
+    /** Days to deliver. */
+    days?: number;
+    /** What they say when asking. `{amount}` and `{item}` are filled in. */
+    text?: string;
+};
+
+export type Request = {
+    id: number;
+    from: string;
+    itemId: string;
+    amount: number;
+    reward: number;
+    friendship: number;
+    dueDay: number;
+    text: string;
+};
+
+export type RequestBoardOptions = {
+    templates: RequestTemplate[];
+    /** Characters who can ask. */
+    people: string[];
+    /** At most this many open requests at once. */
+    maxOpen?: number;
+    /** The current day number. */
+    day: () => number;
+    /** Item names for the request text. */
+    itemName?: (itemId: string) => string;
+    random?: () => number;
+};
+
+export type RequestInventory = {
+    count: (itemId: string) => number;
+    remove: (itemId: string, amount: number) => boolean;
+};
+
+export class RequestBoard {
+    readonly open: Request[] = [];
+
+    private readonly options: RequestBoardOptions;
+    private readonly listeners = new Set<() => void>();
+    private nextId = 1;
+
+    constructor(options: RequestBoardOptions) {
+        this.options = options;
+    }
+
+    /** Requests a person has open. */
+    from(person: string): Request[] {
+        return this.open.filter((request) => request.from === person);
+    }
+
+    /** Draw new requests until the board is full. Call it each morning. */
+    refill(): Request[] {
+        const random = this.options.random ?? Math.random;
+        const added: Request[] = [];
+        const max = this.options.maxOpen ?? 3;
+        let attempts = 0;
+        while (this.open.length < max && attempts < 20) {
+            attempts += 1;
+            const template = this.options.templates[Math.floor(random() * this.options.templates.length)];
+            if (!template) break;
+            const candidates = (template.from ?? this.options.people).filter((person) => this.from(person).length === 0);
+            const person = candidates[Math.floor(random() * candidates.length)];
+            if (!person) continue;
+            const amount = Array.isArray(template.amount) ? template.amount[0] + Math.floor(random() * (template.amount[1] - template.amount[0] + 1)) : template.amount;
+            const name = this.options.itemName?.(template.itemId) ?? template.itemId;
+            const request: Request = {
+                id: this.nextId++,
+                from: person,
+                itemId: template.itemId,
+                amount,
+                reward: amount * template.pricePerItem,
+                friendship: template.friendship ?? 30,
+                dueDay: this.options.day() + (template.days ?? 3),
+                text: (template.text ?? 'Could you bring me {amount} {item}?').replace('{amount}', String(amount)).replace('{item}', name),
+            };
+            this.open.push(request);
+            added.push(request);
+        }
+        if (added.length > 0) this.notify();
+        return added;
+    }
+
+    /** Drop requests past their deadline. Returns the ones that lapsed. */
+    expire(): Request[] {
+        const today = this.options.day();
+        const lapsed = this.open.filter((request) => request.dueDay < today);
+        if (lapsed.length === 0) return lapsed;
+        for (const request of lapsed) this.open.splice(this.open.indexOf(request), 1);
+        this.notify();
+        return lapsed;
+    }
+
+    /** True when the inventory holds enough to hand the request in. */
+    canFulfil(request: Request, inventory: RequestInventory): boolean {
+        return inventory.count(request.itemId) >= request.amount;
+    }
+
+    /** Take the items and close the request. Returns it, or `undefined` when short. */
+    fulfil(request: Request, inventory: RequestInventory): Request | undefined {
+        if (!this.open.includes(request) || !this.canFulfil(request, inventory)) return undefined;
+        if (!inventory.remove(request.itemId, request.amount)) return undefined;
+        this.open.splice(this.open.indexOf(request), 1);
+        this.notify();
+        return request;
+    }
+
+    onChange(listener: () => void): () => void {
+        this.listeners.add(listener);
+        return () => this.listeners.delete(listener);
+    }
+
+    toJSON(): { open: Request[]; nextId: number } {
+        return { open: this.open.map((request) => ({ ...request })), nextId: this.nextId };
+    }
+
+    fromJSON(data: { open?: Request[]; nextId?: number } | undefined): void {
+        this.open.length = 0;
+        this.open.push(...(data?.open ?? []));
+        this.nextId = data?.nextId ?? this.open.length + 1;
+        this.notify();
+    }
+
+    private notify(): void {
+        for (const listener of this.listeners) listener();
+    }
+}

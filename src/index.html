@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+	<title>Three.js Game</title>
+	<!-- Inline empty icon: stops the browser from requesting a favicon it will not find. -->
+	<link rel="icon" href="data:,">
+	<link rel="stylesheet" href="./css/style.css">
+	<script type="module" src="./scripts/logic.js"></script>
+</head>
+<body>
+	<canvas class="webgl"></canvas>
+
+	<!-- Overlay root: every UI module mounts its DOM here, never directly on body. -->
+	<div id="ui-root"></div>
+
+	<footer>
+		<small>Copyright Cornillie Jeffrey</small>
+	</footer>
+</body>
+</html>

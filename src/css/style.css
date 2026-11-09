@@ -1,0 +1,1301 @@
+/* ==========================================================================
+   threejs-game-start: base stylesheet
+   The 3D view fills the window. Every UI module mounts into #ui-root and
+   toggles a `is-hidden` class, so the layout here only has to be sane.
+   ========================================================================== */
+
+:root {
+	--ui-font: 'Inter', 'Segoe UI', system-ui, sans-serif;
+	--ui-fg: #f4f6fb;
+	--ui-muted: #a7adba;
+	--ui-bg: rgba(10, 12, 18, 0.82);
+	--ui-bg-soft: rgba(10, 12, 18, 0.55);
+	--ui-accent: #59d3ff;
+	--ui-danger: #ff5a5a;
+	--ui-success: #6ce09a;
+	--ui-radius: 10px;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	background: #05060a;
+	color: var(--ui-fg);
+	font-family: var(--ui-font);
+}
+
+canvas.webgl {
+	position: fixed;
+	inset: 0;
+	display: block;
+	width: 100%;
+	height: 100%;
+	outline: none;
+	touch-action: none;
+}
+
+footer {
+	position: fixed;
+	bottom: 4px;
+	right: 10px;
+	z-index: 5;
+	color: var(--ui-muted);
+	opacity: 0.5;
+	pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   Overlay root and shared helpers
+   -------------------------------------------------------------------------- */
+
+#ui-root {
+	position: fixed;
+	inset: 0;
+	z-index: 10;
+	pointer-events: none;
+}
+
+#ui-root .click-through {
+	pointer-events: none;
+}
+
+.is-hidden {
+	display: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Crosshair
+   -------------------------------------------------------------------------- */
+
+.crosshair {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 22px;
+	height: 22px;
+	transform: translate(-50%, -50%);
+	opacity: 0.85;
+}
+
+.crosshair::before,
+.crosshair::after {
+	content: '';
+	position: absolute;
+	background: var(--ui-fg);
+	box-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+}
+
+.crosshair::before {
+	left: 50%;
+	top: 0;
+	width: 2px;
+	height: 100%;
+	transform: translateX(-50%);
+}
+
+.crosshair::after {
+	top: 50%;
+	left: 0;
+	height: 2px;
+	width: 100%;
+	transform: translateY(-50%);
+}
+
+.crosshair.is-active::before,
+.crosshair.is-active::after {
+	background: var(--ui-accent);
+}
+
+/* --------------------------------------------------------------------------
+   HUD
+   -------------------------------------------------------------------------- */
+
+.hud {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+.hud-bar {
+	position: absolute;
+	bottom: 28px;
+	left: 28px;
+	display: grid;
+	gap: 8px;
+	min-width: 220px;
+}
+
+.hud-label {
+	display: flex;
+	justify-content: space-between;
+	font-size: 12px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--ui-muted);
+}
+
+.hud-track {
+	height: 12px;
+	border-radius: 999px;
+	background: var(--ui-bg);
+	overflow: hidden;
+}
+
+.hud-fill {
+	height: 100%;
+	width: 100%;
+	background: var(--ui-success);
+	transition: width 120ms linear, background 200ms linear;
+}
+
+.hud-fill.is-low {
+	background: var(--ui-danger);
+}
+
+.hud-stats {
+	position: absolute;
+	top: 20px;
+	left: 28px;
+	display: flex;
+	gap: 22px;
+	font-size: 22px;
+	font-weight: 600;
+}
+
+.hud-stat-value {
+	color: var(--ui-fg);
+}
+
+.hud-stat-label {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	color: var(--ui-muted);
+}
+
+.hud-objective {
+	position: absolute;
+	top: 20px;
+	right: 28px;
+	max-width: 320px;
+	padding: 10px 14px;
+	border-radius: var(--ui-radius);
+	background: var(--ui-bg-soft);
+	font-size: 13px;
+	line-height: 1.45;
+}
+
+/* --------------------------------------------------------------------------
+   Interaction prompt
+   -------------------------------------------------------------------------- */
+
+.prompt {
+	position: absolute;
+	top: 58%;
+	left: 50%;
+	transform: translate(-50%, 0);
+	padding: 8px 14px;
+	border-radius: 999px;
+	background: var(--ui-bg);
+	font-size: 14px;
+	white-space: nowrap;
+}
+
+.prompt-key {
+	display: inline-block;
+	min-width: 22px;
+	margin-right: 8px;
+	padding: 1px 6px;
+	border: 1px solid var(--ui-muted);
+	border-radius: 5px;
+	font-size: 12px;
+	text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+   Floating text and toasts
+   -------------------------------------------------------------------------- */
+
+.float-text {
+	position: absolute;
+	transform: translate(-50%, -50%);
+	font-size: 18px;
+	font-weight: 700;
+	text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+	will-change: transform, opacity;
+}
+
+.toast-stack {
+	position: absolute;
+	top: 84px;
+	left: 50%;
+	transform: translateX(-50%);
+	display: grid;
+	gap: 8px;
+	justify-items: center;
+}
+
+.toast {
+	padding: 8px 16px;
+	border-radius: 999px;
+	background: var(--ui-bg);
+	font-size: 14px;
+	animation: toast-in 180ms ease-out;
+}
+
+@keyframes toast-in {
+	from {
+		opacity: 0;
+		transform: translateY(-8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* --------------------------------------------------------------------------
+   Menus
+   -------------------------------------------------------------------------- */
+
+.menu {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	background: radial-gradient(circle at 50% 40%, rgba(16, 22, 34, 0.7), rgba(4, 5, 10, 0.94));
+	pointer-events: auto;
+	backdrop-filter: blur(3px);
+}
+
+.menu-panel {
+	display: grid;
+	gap: 18px;
+	min-width: 300px;
+	padding: 34px 38px;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 16px;
+	background: var(--ui-bg);
+	box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+	text-align: center;
+}
+
+.menu-title {
+	margin: 0;
+	font-size: 30px;
+	letter-spacing: 0.02em;
+}
+
+.menu-subtitle {
+	margin: -10px 0 0;
+	font-size: 13px;
+	color: var(--ui-muted);
+}
+
+.menu-actions {
+	display: grid;
+	gap: 10px;
+}
+
+.menu-button {
+	padding: 11px 18px;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: var(--ui-radius);
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--ui-fg);
+	font: inherit;
+	font-size: 15px;
+	cursor: pointer;
+	transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.menu-button:hover,
+.menu-button:focus-visible {
+	border-color: var(--ui-accent);
+	background: rgba(89, 211, 255, 0.14);
+	outline: none;
+}
+
+.menu-button:active {
+	transform: translateY(1px);
+}
+
+.menu-button.is-primary {
+	border-color: var(--ui-accent);
+	background: rgba(89, 211, 255, 0.2);
+	font-weight: 600;
+}
+
+.menu-hint {
+	font-size: 12px;
+	color: var(--ui-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Debug overlay
+   -------------------------------------------------------------------------- */
+
+.debug-info {
+	position: absolute;
+	bottom: 10px;
+	left: 28px;
+	font-family: ui-monospace, monospace;
+	font-size: 11px;
+	line-height: 1.5;
+	color: var(--ui-muted);
+	white-space: pre;
+}
+
+/* --------------------------------------------------------------------------
+   Loading screen
+   -------------------------------------------------------------------------- */
+
+.loading {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	background: #05060a;
+	pointer-events: auto;
+}
+
+.loading-inner {
+	display: grid;
+	gap: 12px;
+	justify-items: center;
+	width: 260px;
+}
+
+.loading-track {
+	width: 100%;
+	height: 6px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.12);
+	overflow: hidden;
+}
+
+.loading-fill {
+	height: 100%;
+	width: 0%;
+	background: var(--ui-accent);
+	transition: width 150ms ease-out;
+}
+
+.loading-label {
+	font-size: 12px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--ui-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Choice dialog
+   A small modal for "pick one of these", e.g. pawn promotion.
+   -------------------------------------------------------------------------- */
+
+.choice-dialog {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	background: rgba(4, 5, 10, 0.72);
+	backdrop-filter: blur(3px);
+	pointer-events: auto;
+	z-index: 20;
+}
+
+.choice-card {
+	display: grid;
+	gap: 12px;
+	min-width: 260px;
+	max-width: 420px;
+	padding: 22px 24px;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 14px;
+	background: var(--ui-bg);
+	box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.choice-eyebrow {
+	font-size: 10px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--ui-muted);
+}
+
+.choice-title {
+	font-size: 19px;
+	font-weight: 700;
+}
+
+.choice-options {
+	display: grid;
+	gap: 8px;
+}
+
+.choice-option {
+	padding: 10px 12px;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: var(--ui-radius);
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--ui-fg);
+	font: inherit;
+	font-size: 14px;
+	text-align: left;
+	cursor: pointer;
+	transition: background 120ms ease, border-color 120ms ease;
+}
+
+.choice-option:hover:not(:disabled),
+.choice-option:focus-visible:not(:disabled) {
+	border-color: var(--ui-accent);
+	background: rgba(89, 211, 255, 0.14);
+	outline: none;
+}
+
+.choice-option.is-primary {
+	border-color: var(--ui-accent);
+	background: rgba(89, 211, 255, 0.18);
+}
+
+.choice-option:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+
+.choice-description {
+	margin-top: 3px;
+	font-size: 12px;
+	color: var(--ui-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Build bar
+   A row of cards for "pick something to place or buy".
+   -------------------------------------------------------------------------- */
+
+.build-bar {
+	position: absolute;
+	bottom: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	display: grid;
+	gap: 8px;
+	padding: 12px 14px 14px;
+	min-width: min(720px, 96vw);
+	max-width: 96vw;
+	background: linear-gradient(180deg, rgba(10, 12, 18, 0.55), rgba(10, 12, 18, 0.92));
+	border-top: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 14px 14px 0 0;
+	pointer-events: auto;
+	backdrop-filter: blur(6px);
+}
+
+.build-bar-header {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.build-bar-label {
+	font-size: 10px;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	color: var(--ui-muted);
+}
+
+.build-bar-resources {
+	font-size: 13px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+
+.build-bar-list {
+	display: flex;
+	gap: 8px;
+	overflow-x: auto;
+	padding-bottom: 2px;
+}
+
+.build-card {
+	--build-accent: var(--ui-accent);
+	position: relative;
+	flex: 0 0 132px;
+	display: grid;
+	gap: 3px;
+	padding: 9px 10px;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-top: 3px solid var(--build-accent);
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.04);
+	cursor: pointer;
+	transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.build-card:hover:not(.is-disabled) {
+	background: rgba(255, 255, 255, 0.09);
+	transform: translateY(-2px);
+}
+
+.build-card.is-selected {
+	border-color: var(--build-accent);
+	background: rgba(89, 211, 255, 0.16);
+	box-shadow: 0 0 0 1px var(--build-accent) inset;
+}
+
+.build-card.is-disabled {
+	opacity: 0.42;
+	cursor: default;
+}
+
+.build-card-top {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.build-card-icon {
+	font-size: 15px;
+}
+
+.build-card-name {
+	flex: 1;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.build-card-hotkey {
+	padding: 1px 5px;
+	border: 1px solid var(--ui-muted);
+	border-radius: 4px;
+	font-size: 10px;
+	color: var(--ui-muted);
+}
+
+.build-card-description {
+	font-size: 11px;
+	line-height: 1.35;
+	color: var(--ui-muted);
+}
+
+.build-card-detail {
+	font-size: 11px;
+	color: var(--ui-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.build-card-cost {
+	font-size: 12px;
+	font-weight: 700;
+	color: #ffe08a;
+}
+
+.build-card-cost.is-too-expensive {
+	color: var(--ui-danger);
+}
+
+/* --------------------------------------------------------------------------
+   Inventory and shop
+   One panel for both: the bag lists what you carry, the shop lists prices.
+   -------------------------------------------------------------------------- */
+
+.inventory {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	background: rgba(4, 5, 10, 0.72);
+	backdrop-filter: blur(3px);
+	pointer-events: auto;
+}
+
+.inventory-panel {
+	display: grid;
+	grid-template-rows: auto auto 1fr auto auto;
+	gap: 12px;
+	width: min(760px, 92vw);
+	max-height: min(620px, 88vh);
+	padding: 20px 22px;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 16px;
+	background: var(--ui-bg);
+	box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.inventory-header {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.inventory-title {
+	font-size: 22px;
+	font-weight: 700;
+}
+
+.inventory-resources {
+	font-size: 14px;
+	font-weight: 600;
+	color: #ffe08a;
+	font-variant-numeric: tabular-nums;
+}
+
+.inventory-filters {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.inventory-filter {
+	padding: 5px 10px;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--ui-muted);
+	font: inherit;
+	font-size: 12px;
+	text-transform: capitalize;
+	cursor: pointer;
+}
+
+.inventory-filter.is-selected {
+	border-color: var(--ui-accent);
+	background: rgba(89, 211, 255, 0.16);
+	color: var(--ui-fg);
+}
+
+.inventory-grid {
+	display: grid;
+	grid-template-columns: repeat(5, 1fr);
+	gap: 8px;
+	overflow-y: auto;
+	align-content: start;
+	padding: 2px;
+}
+
+.inventory-slot {
+	--slot-accent: rgba(255, 255, 255, 0.16);
+	position: relative;
+	aspect-ratio: 1;
+	display: grid;
+	place-items: center;
+	border: 1px solid var(--slot-accent);
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.04);
+	cursor: pointer;
+	transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.inventory-slot:hover {
+	background: rgba(255, 255, 255, 0.09);
+	transform: translateY(-2px);
+}
+
+.inventory-slot.is-selected {
+	border-color: var(--ui-accent);
+	background: rgba(89, 211, 255, 0.16);
+	box-shadow: 0 0 0 1px var(--ui-accent) inset;
+}
+
+.inventory-slot.is-locked {
+	opacity: 0.4;
+}
+
+.inventory-slot.is-locked::after {
+	content: '🔒';
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	font-size: 18px;
+}
+
+.inventory-slot-icon {
+	font-size: 24px;
+	line-height: 1;
+}
+
+.inventory-slot-count {
+	position: absolute;
+	right: 6px;
+	bottom: 4px;
+	font-size: 12px;
+	font-weight: 700;
+	text-shadow: 0 1px 3px #000;
+}
+
+.inventory-slot-price {
+	position: absolute;
+	left: 6px;
+	bottom: 4px;
+	font-size: 11px;
+	font-weight: 700;
+	color: #ffe08a;
+	text-shadow: 0 1px 3px #000;
+}
+
+.inventory-slot.rarity-uncommon { --slot-accent: rgba(108, 224, 154, 0.6); }
+.inventory-slot.rarity-rare { --slot-accent: rgba(89, 211, 255, 0.7); }
+.inventory-slot.rarity-epic { --slot-accent: rgba(196, 91, 217, 0.7); }
+.inventory-slot.rarity-legendary { --slot-accent: rgba(255, 209, 102, 0.85); }
+
+.inventory-detail {
+	display: grid;
+	gap: 6px;
+	padding: 12px 14px;
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.04);
+	min-height: 128px;
+}
+
+.inventory-detail-heading {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.inventory-detail-icon {
+	font-size: 26px;
+}
+
+.inventory-detail-name {
+	font-size: 16px;
+	font-weight: 700;
+}
+
+.inventory-detail-meta {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	color: var(--ui-muted);
+}
+
+.inventory-detail-text {
+	font-size: 13px;
+	line-height: 1.45;
+}
+
+.inventory-detail-lore {
+	font-size: 12px;
+	font-style: italic;
+	color: var(--ui-muted);
+}
+
+.inventory-detail-stat {
+	font-size: 12px;
+	color: #9fe7ff;
+	font-variant-numeric: tabular-nums;
+}
+
+.inventory-detail-locked {
+	margin-top: 4px;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--ui-danger);
+}
+
+.inventory-detail-empty {
+	display: grid;
+	place-items: center;
+	height: 100%;
+	color: var(--ui-muted);
+	font-size: 13px;
+}
+
+.inventory-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 4px;
+}
+
+.inventory-actions .menu-button {
+	flex: 1;
+}
+
+.inventory-footer {
+	font-size: 12px;
+	color: var(--ui-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Touch controls
+   A joystick and action buttons, shown when a finger is detected. Plain DOM, so
+   they cost no draw calls and scale with the device pixel ratio.
+   -------------------------------------------------------------------------- */
+
+.touch-controls {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+.touch-stick {
+	position: absolute;
+	left: 26px;
+	bottom: 26px;
+	width: 132px;
+	height: 132px;
+	border-radius: 50%;
+	border: 2px solid rgba(255, 255, 255, 0.22);
+	background: rgba(10, 12, 18, 0.32);
+	pointer-events: auto;
+	touch-action: none;
+}
+
+.touch-stick.is-active {
+	border-color: var(--ui-accent);
+	background: rgba(89, 211, 255, 0.12);
+}
+
+.touch-knob {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 56px;
+	height: 56px;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.5);
+	transform: translate(-50%, -50%);
+	pointer-events: none;
+}
+
+.touch-buttons {
+	position: absolute;
+	right: 22px;
+	bottom: 30px;
+	display: grid;
+	grid-template-columns: repeat(2, auto);
+	gap: 12px;
+	justify-items: end;
+	align-items: end;
+}
+
+.touch-button {
+	min-width: 66px;
+	min-height: 66px;
+	display: grid;
+	place-items: center;
+	padding: 0 12px;
+	border: 2px solid rgba(255, 255, 255, 0.24);
+	border-radius: 50%;
+	background: rgba(10, 12, 18, 0.44);
+	color: #f4f6fb;
+	font-size: 22px;
+	font-weight: 700;
+	user-select: none;
+	pointer-events: auto;
+	touch-action: none;
+	transition: background 90ms ease, transform 90ms ease, border-color 90ms ease;
+}
+
+.touch-button.is-primary {
+	border-color: var(--ui-accent);
+	background: rgba(89, 211, 255, 0.2);
+}
+
+.touch-button.is-down {
+	background: rgba(255, 255, 255, 0.34);
+	transform: scale(0.94);
+}
+
+/* Fullscreen affordance, and a canvas that fills the visible viewport even with
+   a mobile address bar in the way. */
+.fullscreen-button {
+	position: fixed;
+	top: 10px;
+	right: 10px;
+	z-index: 30;
+	width: 40px;
+	height: 40px;
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	border-radius: 10px;
+	background: rgba(10, 12, 18, 0.6);
+	color: var(--ui-fg);
+	font-size: 18px;
+	cursor: pointer;
+	pointer-events: auto;
+}
+
+html,
+body {
+	height: 100dvh;
+	overscroll-behavior: none;
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-tap-highlight-color: transparent;
+}
+
+canvas.webgl {
+	height: 100dvh;
+	touch-action: none;
+}
+
+/* --------------------------------------------------------------------------
+   Minimap
+   -------------------------------------------------------------------------- */
+
+/* Top right, under the objective: the bottom left belongs to the health bar and the touch stick. */
+.minimap {
+	position: absolute;
+	top: 64px;
+	right: 24px;
+	pointer-events: none;
+	filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+
+@media (max-width: 700px) {
+	.minimap {
+		top: 52px;
+		right: 8px;
+	}
+}
+
+/* --------------------------------------------------------------------------
+   Chess side panel
+   -------------------------------------------------------------------------- */
+
+.chess-panel {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+	bottom: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	width: 280px;
+	padding: 18px;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 14px;
+	background: var(--ui-bg);
+	box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+	color: var(--ui-fg);
+	font-family: var(--ui-font);
+	pointer-events: auto;
+	backdrop-filter: blur(6px);
+}
+
+.chess-title {
+	font-size: 20px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+}
+
+.chess-turn {
+	padding: 10px 12px;
+	border-radius: var(--ui-radius);
+	background: rgba(255, 255, 255, 0.06);
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.chess-turn.is-check {
+	background: rgba(255, 90, 90, 0.22);
+	color: #ffd0d0;
+}
+
+.chess-status {
+	min-height: 1.3em;
+	font-size: 13px;
+	color: var(--ui-muted);
+}
+
+.chess-status.is-good { color: var(--ui-success); }
+.chess-status.is-bad { color: var(--ui-danger); }
+
+.chess-captures {
+	display: grid;
+	gap: 6px;
+}
+
+.chess-capture-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+	font-size: 12px;
+	color: var(--ui-muted);
+}
+
+.chess-capture-pieces {
+	font-size: 17px;
+	line-height: 1;
+	color: var(--ui-fg);
+}
+
+.chess-section-label {
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--ui-muted);
+}
+
+.chess-moves {
+	flex: 1;
+	min-height: 60px;
+	overflow-y: auto;
+	padding: 6px;
+	border-radius: var(--ui-radius);
+	background: rgba(0, 0, 0, 0.25);
+	font-family: ui-monospace, 'JetBrains Mono', monospace;
+	font-size: 13px;
+}
+
+.chess-move-row {
+	display: grid;
+	grid-template-columns: 32px 1fr 1fr;
+	padding: 2px 4px;
+}
+
+.chess-move-row:nth-child(odd) { background: rgba(255, 255, 255, 0.03); }
+.chess-move-number { color: var(--ui-muted); }
+
+.chess-actions,
+.chess-difficulty-row {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+
+.chess-difficulty-row { grid-template-columns: repeat(3, 1fr); }
+
+.chess-difficulty {
+	display: grid;
+	gap: 6px;
+}
+
+.chess-button {
+	padding: 8px 10px;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: var(--ui-radius);
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--ui-fg);
+	font: inherit;
+	font-size: 13px;
+	cursor: pointer;
+	text-transform: capitalize;
+	transition: background 120ms ease, border-color 120ms ease;
+}
+
+.chess-button:hover:not(:disabled),
+.chess-button:focus-visible {
+	border-color: var(--ui-accent);
+	background: rgba(89, 211, 255, 0.14);
+	outline: none;
+}
+
+.chess-button.is-primary {
+	border-color: var(--ui-accent);
+	background: rgba(89, 211, 255, 0.2);
+}
+
+.chess-button:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+
+/* On a phone the panel becomes a compact strip under the board. */
+@media (max-width: 760px) {
+	.chess-panel {
+		top: auto;
+		left: 8px;
+		right: 8px;
+		bottom: 8px;
+		width: auto;
+		max-height: 38vh;
+		padding: 12px;
+		gap: 8px;
+	}
+
+	.chess-title,
+	.chess-captures,
+	.chess-section-label { display: none; }
+
+	.chess-moves {
+		flex: none;
+		max-height: 56px;
+	}
+
+	.chess-actions { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* --------------------------------------------------------------------------
+   Hotbar
+   -------------------------------------------------------------------------- */
+
+.hotbar {
+	position: absolute;
+	left: 50%;
+	bottom: 18px;
+	display: flex;
+	gap: 6px;
+	padding: 6px;
+	border-radius: 12px;
+	background: rgba(10, 12, 18, 0.55);
+	transform: translateX(-50%);
+	pointer-events: auto;
+}
+
+.hotbar-slot {
+	position: relative;
+	display: grid;
+	place-items: center;
+	width: 52px;
+	height: 52px;
+	border: 2px solid rgba(255, 255, 255, 0.12);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.05);
+	cursor: pointer;
+	transition: border-color 100ms ease, transform 100ms ease;
+}
+
+.hotbar-slot.is-selected {
+	border-color: var(--ui-accent);
+	background: rgba(89, 211, 255, 0.16);
+	transform: translateY(-3px);
+}
+
+.hotbar-icon { font-size: 26px; line-height: 1; }
+
+.hotbar-key {
+	position: absolute;
+	top: 2px;
+	left: 5px;
+	font-size: 10px;
+	color: var(--ui-muted);
+}
+
+.hotbar-count {
+	position: absolute;
+	right: 5px;
+	bottom: 2px;
+	font-size: 12px;
+	font-weight: 600;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+@media (max-width: 700px) {
+	.hotbar {
+		bottom: auto;
+		top: 8px;
+		gap: 4px;
+		padding: 4px;
+	}
+
+	.hotbar-slot {
+		width: 38px;
+		height: 38px;
+	}
+
+	.hotbar-icon { font-size: 19px; }
+	.hotbar-key { display: none; }
+}
+
+/* --------------------------------------------------------------------------
+   Dialogue box
+   -------------------------------------------------------------------------- */
+
+.dialogue {
+	position: absolute;
+	left: 50%;
+	bottom: 96px;
+	width: min(720px, 94vw);
+	transform: translateX(-50%);
+	pointer-events: auto;
+}
+
+.dialogue-card {
+	display: flex;
+	gap: 16px;
+	padding: 16px 18px;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 12px;
+	background: rgba(8, 9, 12, 0.88);
+	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+	cursor: pointer;
+}
+
+.dialogue-portrait {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 72px;
+	height: 72px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.06);
+	font-size: 44px;
+}
+
+.dialogue-body {
+	position: relative;
+	display: grid;
+	flex: 1;
+	align-content: start;
+	gap: 8px;
+}
+
+.dialogue-speaker {
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--ui-accent);
+}
+
+.dialogue-text {
+	min-height: 2.8em;
+	font-size: 17px;
+	line-height: 1.45;
+}
+
+.dialogue-choices {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.dialogue-choice {
+	padding: 7px 12px;
+	border: 1px solid rgba(255, 255, 255, 0.16);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.05);
+	color: var(--ui-fg);
+	font: inherit;
+	font-size: 14px;
+	cursor: pointer;
+}
+
+.dialogue-choice:hover,
+.dialogue-choice:focus-visible {
+	border-color: var(--ui-accent);
+	background: rgba(89, 211, 255, 0.14);
+	outline: none;
+}
+
+.dialogue-hint {
+	position: absolute;
+	right: 0;
+	bottom: -4px;
+	font-size: 12px;
+	color: var(--ui-muted);
+	animation: dialogue-bob 900ms ease-in-out infinite;
+}
+
+@keyframes dialogue-bob {
+	50% { transform: translateY(3px); }
+}
+
+@media (max-width: 700px) {
+	.dialogue { bottom: 150px; }
+	.dialogue-portrait { width: 48px; height: 48px; font-size: 30px; }
+	.dialogue-text { font-size: 15px; }
+}
