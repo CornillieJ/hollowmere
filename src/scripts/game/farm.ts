@@ -63,6 +63,8 @@ export type FarmOptions = {
     crops?: CropDefinition[];
     /** A fresh plot needs tilling before it can be planted. */
     tilling?: boolean;
+    /** Ground colours: before tilling, tilled and dry, and watered. */
+    soil?: { untilled?: THREE.ColorRepresentation; dry?: THREE.ColorRepresentation; wet?: THREE.ColorRepresentation };
 };
 
 export class Farm {
@@ -76,8 +78,11 @@ export class Farm {
     private readonly plotSize: number;
     private readonly soilGeometry: THREE.BoxGeometry;
     private readonly plantGeometry: THREE.ConeGeometry;
-    private readonly soilMaterial: THREE.MeshStandardMaterial;
+    private readonly untilledMaterial: THREE.MeshStandardMaterial;
+    /** Tilled earth that still needs water. */
     private readonly tilledMaterial: THREE.MeshStandardMaterial;
+    /** Watered earth: darker, so a glance tells which plots are done. */
+    private readonly soilMaterial: THREE.MeshStandardMaterial;
     private readonly plantMaterials = new Map<string, THREE.MeshStandardMaterial>();
     private readonly listeners = new Set<(plot: PlotState) => void>();
 
@@ -95,14 +100,15 @@ export class Farm {
 
         this.soilGeometry = new THREE.BoxGeometry(this.plotSize * 0.92, 0.12, this.plotSize * 0.92);
         this.plantGeometry = new THREE.ConeGeometry(this.plotSize * 0.26, 1, 7);
-        this.soilMaterial = new THREE.MeshStandardMaterial({ color: 0x6b5137, roughness: 1 });
-        this.tilledMaterial = new THREE.MeshStandardMaterial({ color: 0x4a3826, roughness: 1 });
+        this.untilledMaterial = new THREE.MeshStandardMaterial({ color: options.soil?.untilled ?? 0x6b5137, roughness: 1 });
+        this.tilledMaterial = new THREE.MeshStandardMaterial({ color: options.soil?.dry ?? 0x5a4430, roughness: 1 });
+        this.soilMaterial = new THREE.MeshStandardMaterial({ color: options.soil?.wet ?? 0x2e2218, roughness: 0.7 });
 
         for (const crop of options.crops ?? []) this.defineCrop(crop);
 
         for (const cell of this.grid.cells()) {
             const position = this.grid.cellToWorld(cell, origin.y);
-            const soil = new THREE.Mesh(this.soilGeometry, options.tilling ? this.soilMaterial : this.tilledMaterial);
+            const soil = new THREE.Mesh(this.soilGeometry, options.tilling ? this.untilledMaterial : this.tilledMaterial);
             soil.position.copy(position);
             soil.receiveShadow = true;
             soil.castShadow = false;
@@ -287,6 +293,7 @@ export class Farm {
         this.soilGeometry.dispose();
         this.plantGeometry.dispose();
         this.soilMaterial.dispose();
+        this.untilledMaterial.dispose();
         this.tilledMaterial.dispose();
         for (const material of this.plantMaterials.values()) material.dispose();
     }

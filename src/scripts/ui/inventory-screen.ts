@@ -24,6 +24,8 @@ export type InventoryScreenOptions = {
     filters?: boolean;
     /** Label for the currency, e.g. 'gold'. */
     currencyLabel?: string;
+    /** How a price reads, e.g. `(n) => n + 'c'`. Defaults to a dollar sign. */
+    formatPrice?: (amount: number) => string;
     /** Show the slot count and total value at the bottom. */
     showValue?: boolean;
     /** Called with a message when an action is refused, e.g. "Needs level 2". */
@@ -143,13 +145,14 @@ export class InventoryScreen {
             element.element.classList.toggle('is-listing', isListing);
             element.element.title = locked ? (this.inventory.lockedReason(element.itemId) ?? 'Locked') : (definition.description ?? definition.name);
             setText(element.count, amount > 0 ? `x${amount}` : '');
-            setText(element.price, this.mode === 'shop' ? (isListing ? `$${this.inventory.buyPrice(element.itemId)}` : `$${this.inventory.sellPrice(element.itemId)}`) : '');
+            setText(element.price, this.mode === 'shop' ? (isListing ? this.money(this.inventory.buyPrice(element.itemId)) : this.money(this.inventory.sellPrice(element.itemId))) : '');
         }
 
         this.renderFilters();
         this.renderDetail();
         this.renderFooter();
-        setText(this.resources, `${this.options.currencyLabel ?? 'gold'} ${this.inventory.currencyBalance()}`);
+        // A plain bag has no money to show; only a panel with a currency gets a balance.
+        setText(this.resources, this.inventory.hasCurrency ? `${this.options.currencyLabel ?? ''} ${this.money(this.inventory.currencyBalance())}`.trim() : '');
     }
 
     private buildGrid(entries: InventorySlot[]): void {
@@ -229,7 +232,7 @@ export class InventoryScreen {
             // are working towards, which a hidden button does not.
             if (this.mode === 'shop') {
                 const price = this.inventory.buyPrice(itemId);
-                const buy = button(`Buy $${price}`, () => undefined, { className: 'menu-button is-primary', parent: actions });
+                const buy = button(`Buy ${this.money(price)}`, () => undefined, { className: 'menu-button is-primary', parent: actions });
                 buy.disabled = true;
             }
             div('inventory-detail-locked', this.inventory.lockedReason(itemId) ?? 'Locked', this.detail);
@@ -252,9 +255,9 @@ export class InventoryScreen {
         }
 
         const price = this.inventory.buyPrice(itemId);
-        const buy = button(`Buy $${price}`, () => this.buy(itemId), { className: 'menu-button is-primary', parent: actions });
+        const buy = button(`Buy ${this.money(price)}`, () => this.buy(itemId), { className: 'menu-button is-primary', parent: actions });
         buy.disabled = this.inventory.currencyBalance() < price;
-        if (amount > 0) button(`Sell $${this.inventory.sellPrice(itemId)}`, () => this.sell(itemId), { className: 'menu-button', parent: actions });
+        if (amount > 0) button(`Sell ${this.money(this.inventory.sellPrice(itemId))}`, () => this.sell(itemId), { className: 'menu-button', parent: actions });
     }
 
     private renderFooter(): void {
@@ -262,12 +265,16 @@ export class InventoryScreen {
             setText(this.footer, '');
             return;
         }
-        setText(this.footer, `${this.inventory.used}/${this.inventory.capacity} slots · carried value $${this.inventory.value}`);
+        setText(this.footer, `${this.inventory.used}/${this.inventory.capacity} slots` + (this.inventory.hasCurrency ? ` · carried value ${this.money(this.inventory.value)}` : ''));
     }
 
     //#endregion Rendering
 
     //#region Actions
+
+    private money(amount: number): string {
+        return this.options.formatPrice?.(amount) ?? `$${amount}`;
+    }
 
     /** Offer a "move here" button for another inventory, e.g. the pockets in the bag's panel. */
     addTransfer(label: string, target: Inventory): void {
@@ -300,7 +307,7 @@ export class InventoryScreen {
             this.refresh();
             return;
         }
-        const reason = !this.inventory.isUnlocked(itemId) ? (this.inventory.lockedReason(itemId) ?? 'Locked') : `Needs $${this.inventory.buyPrice(itemId)}`;
+        const reason = !this.inventory.isUnlocked(itemId) ? (this.inventory.lockedReason(itemId) ?? 'Locked') : `Needs ${this.money(this.inventory.buyPrice(itemId))}`;
         this.options.onRefused?.(reason);
         this.refresh();
     }

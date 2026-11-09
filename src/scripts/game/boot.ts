@@ -27,6 +27,7 @@ import { buildWorld, groundTexture } from './world';
 import { setupMood } from './mood';
 import { setupFarming, shipEverything } from './farming';
 import { animateHollow, MonsterDirector } from './monsters';
+import { setupDread } from './dread';
 
 /**
  * Hollowmere: farm, deliver, and keep moving.
@@ -77,7 +78,7 @@ export async function boot(): Promise<void> {
     //#region Look
 
     const atmosphere = addAtmosphere(game, { color: 0x8b9488, density: 0.045, heightFalloff: 0.16, noiseScale: 0.05, noiseAmount: 0.7 });
-    addRetroLook(game, { resolutionScale: 0.36, psx: { colorLevels: 28, dither: 0.7 }, vhs: { wobble: 0.5, saturation: 0.72, noise: 0.07 } });
+    const look = addRetroLook(game, { resolutionScale: 0.36, psx: { colorLevels: 28, dither: 0.7 }, vhs: { wobble: 0.5, saturation: 0.72, noise: 0.07 } });
     game.renderer.toneMappingExposure = 1.1;
 
     //#endregion Look
@@ -107,7 +108,14 @@ export async function boot(): Promise<void> {
 
     //#region Farm, animals and the bike
 
-    const farm = new Farm(game, { columns: FARM.field.columns, rows: FARM.field.rows, plotSize: 1.6, origin: { x: FARM.field.x, y: 0.05, z: FARM.field.z }, crops: CROPS });
+    const farm = new Farm(game, {
+        columns: FARM.field.columns,
+        rows: FARM.field.rows,
+        plotSize: 1.6,
+        origin: { x: FARM.field.x, y: 0.02, z: FARM.field.z },
+        crops: CROPS,
+        soil: { dry: 0x3a2e24, wet: 0x1e1612 },
+    });
     const barriers = addBarriers(game, { enemies: world.enemies, lifetime: 150, toughness: 7, onBroken: () => game.toasts.push('A fence gave way', { color: '#c8a0a0' }) });
     const farming = setupFarming(game, { farm, pockets, hotbar, barriers, give });
 
@@ -157,7 +165,7 @@ export async function boot(): Promise<void> {
         dialogue: { speed: 50 },
     });
 
-    const shop = addInventory(game, { items: ITEMS, mode: 'shop', title: "Barnaby's store", catalogue: STORE_STOCK, primary: false, customer: pockets, currency: { resource: coins, label: 'coins' }, filters: false });
+    const shop = addInventory(game, { items: ITEMS, mode: 'shop', title: "Barnaby's store", catalogue: STORE_STOCK, primary: false, customer: pockets, currency: { resource: coins, label: 'purse', format: (amount) => `${amount}c` }, filters: false });
     const counter = new THREE.Object3D();
     counter.position.set(VILLAGE.store.x + 2, 0, VILLAGE.store.z + 5);
     game.scene.add(counter);
@@ -196,6 +204,7 @@ export async function boot(): Promise<void> {
         onLeave: () => game.hud.removeStat('safe'),
     });
     const director = new MonsterDirector(game, { enemies: world.enemies, dayCycle, safeZones, bounds: WORLD_HALF });
+    setupDread(game, { enemies: world.enemies, look, dayCycle, isRiding: () => bike.mounted });
 
     // Fainting is not an ending: someone carries you home, and it costs a little.
     game.events.on('player:death', () => {

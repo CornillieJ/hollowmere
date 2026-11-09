@@ -46,7 +46,7 @@ export type AddInventoryOptions = Omit<InventoryOptions, 'currency' | 'customer'
     /** Make this a shop that buys into, and sells out of, another inventory (usually the bag). */
     customer?: InventoryHandle;
     /** Pay with a resource. */
-    currency?: { resource: ResourceHandle; label?: string; buyMultiplier?: number; sellMultiplier?: number };
+    currency?: { resource: ResourceHandle; label?: string; buyMultiplier?: number; sellMultiplier?: number; format?: (amount: number) => string };
     /** Save under this key, using the game's save store. */
     persist?: string;
     /** Show the slot count and value footer. */
@@ -145,6 +145,7 @@ export function addInventory(game: Game, options: AddInventoryOptions = {}): Inv
         ...(options.filters !== undefined ? { filters: options.filters } : {}),
         ...(options.showValue !== undefined ? { showValue: options.showValue } : {}),
         ...(currencyLabel !== undefined ? { currencyLabel } : {}),
+        ...(options.currency?.format ? { formatPrice: options.currency.format } : {}),
         onRefused: (reason) => {
             options.onRefused?.(reason);
             if (!options.onRefused) game.toasts.push(reason, { color: '#ff9a9a' });

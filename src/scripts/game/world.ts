@@ -303,14 +303,17 @@ function lampPost(): THREE.Object3D {
     return group;
 }
 
-/** The wayside chapel: a stone hut with a candle that never goes out. */
+/** The wayside chapel: a dark stone hut with a lit window and a candle that never goes out. */
 function chapel(at: { x: number; z: number; yaw: number }): THREE.Object3D {
-    const group = boxHouse(0x6e6a62, 0x2e2a28, 4);
+    const group = boxHouse(0x3e3a34, 0x1e1c1a, 4);
     group.position.set(at.x, 0, at.z);
     group.rotation.y = at.yaw;
-    const candle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.12), new THREE.MeshStandardMaterial({ color: 0xfff2d0, emissive: 0xffc070, emissiveIntensity: 3 }));
-    candle.position.set(0, 0.15, 1.9);
-    group.add(candle);
+    const glow = new THREE.MeshStandardMaterial({ color: 0xffd8a0, emissive: 0xffa040, emissiveIntensity: 2.5 });
+    const window = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.8, 0.05), glow);
+    window.position.set(0, 1.9, 1.52);
+    const candle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.12), glow);
+    candle.position.set(0.6, 0.15, 1.9);
+    group.add(window, candle);
     return group;
 }
 

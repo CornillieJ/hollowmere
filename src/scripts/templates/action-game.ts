@@ -217,6 +217,7 @@ export function setupActionGame<TControls extends ActionControls>(game: Game, cr
         crosshairWhen: ['playing'],
         onStart: () => game.input.requestPointerLock(),
         onRestart: () => resetWorld(),
+        ...(options.hint !== undefined ? { hint: options.hint } : {}),
         onContinue: () => game.save.load(options.saveSlot ?? 'default'),
         ...options.flow,
     });

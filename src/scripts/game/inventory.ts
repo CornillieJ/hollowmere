@@ -386,6 +386,11 @@ export class Inventory implements InventoryApi {
         return true;
     }
 
+    /** True when this inventory trades in a currency. */
+    get hasCurrency(): boolean {
+        return this.options.currency !== undefined;
+    }
+
     //#endregion Shop
 
     //#region Selection

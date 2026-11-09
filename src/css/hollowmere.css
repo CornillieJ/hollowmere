@@ -1,0 +1,61 @@
+/* Hollowmere's skin over the template UI: bone and soot instead of neon. */
+
+:root {
+	--ui-font: Georgia, 'Times New Roman', serif;
+	--ui-fg: #e6dfcc;
+	--ui-muted: #9a917c;
+	--ui-bg: rgba(10, 9, 7, 0.86);
+	--ui-bg-soft: rgba(10, 9, 7, 0.55);
+	--ui-accent: #c9b78a;
+	--ui-danger: #b0605a;
+	--ui-success: #9ab07a;
+	--ui-radius: 3px;
+}
+
+.menu-title {
+	font-size: 46px;
+	font-weight: 400;
+	letter-spacing: 0.32em;
+	text-transform: uppercase;
+	text-shadow: 0 0 18px rgba(201, 183, 138, 0.25);
+}
+
+.menu-subtitle {
+	font-style: italic;
+	letter-spacing: 0.08em;
+}
+
+.menu-panel {
+	border-color: rgba(201, 183, 138, 0.18);
+	background: rgba(8, 7, 5, 0.9);
+}
+
+.menu-button,
+.dialogue-choice,
+.hotbar-slot {
+	border-radius: 2px;
+}
+
+.menu-button.is-primary,
+.hotbar-slot.is-selected {
+	background: rgba(201, 183, 138, 0.14);
+}
+
+.dialogue-card {
+	border-color: rgba(201, 183, 138, 0.2);
+	background: rgba(8, 7, 5, 0.92);
+}
+
+.dialogue-text {
+	font-size: 18px;
+	color: #efe8d4;
+}
+
+footer { display: none; }
+
+@media (max-width: 700px) {
+	.menu-title {
+		font-size: 30px;
+		letter-spacing: 0.18em;
+	}
+}

@@ -39,7 +39,8 @@ export type HotbarHandle = {
 /** A bottom row of quick slots bound to an inventory, with keys, wheel, tap and a use action. */
 export function addHotbar(game: Game, options: AddHotbarOptions): HotbarHandle {
     const inventory = options.inventory.inventory;
-    const bar = new Hotbar(game.screens.layer('hud'), inventory, { slots: options.slots ?? Math.min(10, inventory.capacity) });
+    // Inside the HUD, so it hides with it in menus and on the death screen.
+    const bar = new Hotbar(game.hud.root, inventory, { slots: options.slots ?? Math.min(10, inventory.capacity) });
     const stopRefresh = options.inventory.onChange(() => bar.refresh());
     if (options.onSelect) bar.onSelect(options.onSelect);
 

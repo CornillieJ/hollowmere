@@ -14,6 +14,8 @@ export type GameFlowOptions = {
     /** Window title used in the default menus. */
     title?: string;
     subtitle?: string;
+    /** Control hint under the main menu's buttons. */
+    hint?: string;
     /** Go straight to playing instead of showing the main menu. */
     autoStart?: boolean;
     /** Menu button shown only when a save exists. */
@@ -246,7 +248,7 @@ export class GameFlow {
                         action: () => this.start(),
                     },
                 ],
-                hint: 'WASD to move, mouse to look, Escape to pause',
+                hint: options.hint ?? 'WASD to move, mouse to look, Escape to pause',
             });
         }
 

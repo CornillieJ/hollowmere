@@ -140,7 +140,8 @@ export class InteractionRegistry {
 
     /** Recompute the focused target and show its prompt. Runs every frame. */
     update(): void {
-        if (!this.enabled) {
+        // A menu, dialogue or panel is up: nothing in the world is on offer behind it.
+        if (!this.enabled || this.game.screens.blocksInput) {
             this.current = undefined;
             this.game.prompts.hide();
             return;
