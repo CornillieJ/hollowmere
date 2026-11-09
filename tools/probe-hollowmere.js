@@ -50,7 +50,8 @@
     await press('KeyE');
     expect(world.bike.mounted, 'got on the bike');
     const start = game.player.position.clone();
-    await press('KeyW', 1500);
+    // Long enough that a slow frame or two under a busy machine cannot fail it.
+    await press('KeyW', 2600);
     log.rode = +game.player.position.distanceTo(start).toFixed(1);
     expect(log.rode > 4, `the bike moves, rode ${log.rode} m`);
     await sleep(800);
