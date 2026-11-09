@@ -47,12 +47,13 @@ export class Hud {
         this.livesValue = div('hud-stat-value', '0', div('hud-stat', undefined, counters));
         this.livesBlock = this.livesValue.parentElement as HTMLElement;
         div('hud-stat-label', 'LIVES', this.livesBlock);
-        this.livesBlock.classList.toggle('is-hidden', options.showLives === false);
+        // Lives and ammo only mean something in some genres, so they are opt-in.
+        this.livesBlock.classList.toggle('is-hidden', options.showLives !== true);
 
         this.ammoValue = div('hud-stat-value', '0', div('hud-stat', undefined, counters));
         this.ammoBlock = this.ammoValue.parentElement as HTMLElement;
         div('hud-stat-label', 'AMMO', this.ammoBlock);
-        this.ammoBlock.classList.toggle('is-hidden', options.showAmmo === false);
+        this.ammoBlock.classList.toggle('is-hidden', options.showAmmo !== true);
 
         this.statsContainer = div('click-through', undefined, this.root);
         Object.assign(this.statsContainer.style, {

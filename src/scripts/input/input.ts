@@ -170,6 +170,7 @@ export class Input {
     /** Swallow this frame's press of an action, so nothing later in the frame reacts to it too. */
     consume(action: string): void {
         for (const code of this.codesFor(action)) this.keyboard.consume(code);
+        this.touch.consume(action);
     }
 
     /** How many of an action's bindings are held, useful for multi-modifier inputs. */

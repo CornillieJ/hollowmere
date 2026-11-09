@@ -7,7 +7,7 @@ import { Player, type PlayerOptions } from '../game/player';
 import { EnemyManager, type EnemyManagerOptions, type EnemyOptions } from '../game/enemies';
 import { PickupManager } from '../game/pickups';
 import { Weapon, type WeaponOptions } from '../game/weapon';
-import { setupSceneDefaults, type SceneDefaultsOptions } from '../setup/setup-scene';
+import { setupSceneDefaults, type SceneDefaultsOptions, type SceneDefaultsRefs } from '../setup/setup-scene';
 import { createGame, startGame } from '../init';
 import { addTouchControls } from '../kit/touch';
 import type { HudOptions } from '../ui/hud';
@@ -70,6 +70,8 @@ export type ActionGameOptions = {
      * into them. Build one with `buildBlockedSet` from the level builder's cover.
      */
     navigation?: EnemyManagerOptions['navigation'];
+    /** Enemy behaviour hooks, e.g. `animate` for walk cycles or `onAttack` for a sound. */
+    enemies?: Omit<EnemyManagerOptions, 'navigation'>;
     /**
      * What the player looks like: the built-in placeholder avatar, nothing (right
      * for first person), a loaded model, or a factory for one, e.g. an
@@ -93,6 +95,8 @@ export type ActionGameWorld = {
     /** Level builder, so games can add their own geometry with colliders. */
     builder: BlockBuilder;
     spawnPosition: THREE.Vector3;
+    /** The scene's lights and ground, e.g. for a day cycle that moves the sun. */
+    scene: SceneDefaultsRefs;
     flow: GameFlow;
     /** Put the player, enemies, effects and inventory back to their start state. */
     restart: () => void;
@@ -112,7 +116,7 @@ export function setupActionGame<TControls extends ActionControls>(game: Game, cr
     const spawnPoint = options.spawnPoint ?? { x: 0, y: 0.2, z: 0 };
     const spawnPosition = new THREE.Vector3(spawnPoint.x, spawnPoint.y, spawnPoint.z);
 
-    setupSceneDefaults(game.scene, game.renderer, game.physics, {
+    const scene = setupSceneDefaults(game.scene, game.renderer, game.physics, {
         preset: 'outdoor-day',
         groundSize: 400,
         fog: true,
@@ -157,6 +161,7 @@ export function setupActionGame<TControls extends ActionControls>(game: Game, cr
     const enemies = new EnemyManager(game, {
         onAttack: () => game.effects.flash(0.18, 0xff5555, 0.15),
         ...(options.navigation ? { navigation: options.navigation } : {}),
+        ...options.enemies,
     });
     const pickups = new PickupManager(game);
 
@@ -180,7 +185,10 @@ export function setupActionGame<TControls extends ActionControls>(game: Game, cr
 
     // HUD, counters and inventory readout.
     game.hud.reset(CONSTANTS.GAMEPLAY.MAX_HEALTH, player.lives);
-    game.hud.setCombatCountersVisible(true);
+    game.hud.setHealthVisible(true);
+    // A game where the player faints and wakes at home has endless lives, and no counter for them.
+    game.hud.setLivesVisible(Number.isFinite(player.lives));
+    game.hud.setAmmoVisible(options.weapon !== false);
     game.hud.setLives(player.lives);
     game.events.on('player:lives', ({ lives }) => game.hud.setLives(lives));
     game.events.on('inventory:changed', () => refreshInventoryHud(game));
@@ -241,6 +249,7 @@ export function setupActionGame<TControls extends ActionControls>(game: Game, cr
         weapon,
         builder,
         spawnPosition,
+        scene,
         flow,
         restart: resetWorld,
         dispose: () => {

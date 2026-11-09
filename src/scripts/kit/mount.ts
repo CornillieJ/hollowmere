@@ -39,6 +39,8 @@ export type AddMountOptions = {
     seat?: Vec3;
     /** Prompt shown when the player can get on. */
     prompt?: string;
+    /** Prompt shown while riding. Getting off owns the interact key until then. */
+    dismountPrompt?: string;
     /** Turn the camera behind the mount while the mouse is idle. Defaults to true. */
     followCamera?: boolean;
     onMount?: () => void;
@@ -109,6 +111,8 @@ export function addMount(game: Game, options: AddMountOptions): MountHandle {
         player.root.rotation.y = heading;
         controller.movementOverride = ride;
         controller.movement.faceDirection = false;
+        // While riding, the interact key means "get off": nothing else may grab it.
+        game.interactions.enabled = false;
         options.onMount?.();
     }
 
@@ -120,6 +124,8 @@ export function addMount(game: Game, options: AddMountOptions): MountHandle {
         riderParts.length = 0;
         controller.movementOverride = undefined;
         controller.movement.faceDirection = true;
+        game.interactions.enabled = true;
+        game.prompts.hide();
         player.body.velocity.set(0, 0, 0);
         // Park where the ride stopped, and step off to the side.
         const feet = player.position;
@@ -162,7 +168,13 @@ export function addMount(game: Game, options: AddMountOptions): MountHandle {
         order: SYSTEM_ORDER.CONTROL + 1,
         update: (delta) => {
             if (!mounted) return;
-            if (game.input.wasPressed('interact') && !game.interactions.focused) dismount();
+            game.prompts.show(options.dismountPrompt ?? 'Get off', 'E');
+            if (game.input.wasPressed('interact')) {
+                // Swallow the press, or the parked mount would take it and climb straight back on.
+                game.input.consume('interact');
+                dismount();
+                return;
+            }
             if (options.followCamera === false) return;
             // Swing the camera behind the mount, but only once the player stops steering it by hand.
             const looking = Math.abs(game.input.look.x) + Math.abs(game.input.look.y) > 0.5;

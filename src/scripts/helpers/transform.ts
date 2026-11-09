@@ -156,3 +156,41 @@ export type TransformSnapshot = { position: THREE.Vector3; rotation: THREE.Euler
 export function captureTransform(object: THREE.Object3D): TransformSnapshot {
     return { position: object.position.clone(), rotation: object.rotation.clone(), scale: object.scale.clone() };
 }
+
+/**
+ * Make a downloaded model behave: scale it to a size you choose, stand it on
+ * y = 0, centre it on its own origin, and turn it to face +z.
+ *
+ * Models arrive in every unit (centimetres inside a 100x node, inches, meters)
+ * and with every origin. This wraps the model in a group whose origin is the
+ * centre of its footprint at ground level, which is what placement, physics and
+ * every kit call in this library expect.
+ * @param size Exactly one of `height`, `length` (longest side) or `scale`.
+ * @param yaw Extra turn in radians, for models that face another way.
+ */
+export function fitModel(model: THREE.Object3D, size: { height?: number; length?: number; scale?: number }, yaw = 0): THREE.Group {
+    const holder = new THREE.Group();
+    holder.name = `${model.name || 'model'}-fitted`;
+    model.rotation.y += yaw;
+    holder.add(model);
+    model.updateMatrixWorld(true);
+
+    const box = new THREE.Box3().setFromObject(model);
+    const extent = box.getSize(new THREE.Vector3());
+    const factor = size.scale ?? (size.height !== undefined ? size.height / Math.max(extent.y, 1e-6) : (size.length ?? 1) / Math.max(extent.x, extent.y, extent.z, 1e-6));
+    model.scale.multiplyScalar(factor);
+    model.updateMatrixWorld(true);
+
+    box.setFromObject(model);
+    const centre = box.getCenter(new THREE.Vector3());
+    model.position.x -= centre.x;
+    model.position.z -= centre.z;
+    model.position.y -= box.min.y;
+    model.traverse((node) => {
+        if ((node as THREE.Mesh).isMesh) {
+            node.castShadow = true;
+            node.receiveShadow = true;
+        }
+    });
+    return holder;
+}

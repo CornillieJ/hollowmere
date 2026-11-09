@@ -16,6 +16,7 @@
  *   git config remote.template.fetch "+refs/heads/*:refs/remotes/template/*"
  */
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 /** Paths the template owns. Everything else in the game repo is the game's. */
 export const LIBRARY_PATHS = [
@@ -39,12 +40,8 @@ export const LIBRARY_PATHS = [
     'src/css/style.css',
     'tools/smoke.mjs',
     'tools/unit.mjs',
-    // Game packs: a game that does not use one just never imports it.
-    'src/scripts/chess',
-    'static/models/chess',
     // Generic probes any game can run.
     'tools/probe-mobile.js',
-    'tools/probe-chess.js',
     // The sync script itself, so a game that has it keeps getting updates. A game
     // made before it existed needs one manual copy.
     'tools/sync-template.mjs',
@@ -55,9 +52,16 @@ export const LIBRARY_PATHS = [
     'tests/board-geometry.test.ts',
     'tests/inventory.test.ts',
     'tests/progression.test.ts',
-    'tests/rules.test.ts',
-    'tests/ai.test.ts',
 ];
+
+/**
+ * Game packs: a whole game's worth of code and assets on top of the library.
+ * Only the packs a game lists in `package.json` under `"templatePacks"` are
+ * synced, so a farming game never receives a chess set.
+ */
+export const PACKS = {
+    chess: ['src/scripts/chess', 'static/models/chess', 'tools/probe-chess.js', 'tests/rules.test.ts', 'tests/ai.test.ts'],
+};
 
 /**
  * Deliberately NOT synced: `package.json`, `index.html`, `readme.md`, `.env`,
@@ -69,8 +73,11 @@ const git = (args) => execFileSync('git', args, { stdio: 'inherit' });
 
 git(['fetch', remote]);
 
+const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
+const packs = (manifest.templatePacks ?? []).flatMap((name) => PACKS[name] ?? (console.warn(`unknown pack ${name}`), []));
+
 let copied = 0;
-for (const path of LIBRARY_PATHS) {
+for (const path of [...LIBRARY_PATHS, ...packs]) {
     try {
         git(['checkout', `${remote}/main`, '--', path]);
         copied += 1;

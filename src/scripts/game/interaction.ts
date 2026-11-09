@@ -47,6 +47,8 @@ export type InteractionTarget = {
     blocked: boolean;
 };
 
+const SCRATCH = new THREE.Vector3();
+
 export class InteractionRegistry {
     /** Enable or disable the whole registry, e.g. while a menu is open. */
     enabled = true;
@@ -163,20 +165,26 @@ export class InteractionRegistry {
         const origin = this.getOrigin();
         const direction = this.getDirection();
         const exclude = this.game.player?.body.body;
+        // Reach is measured from the player's body, not from the camera: a third
+        // person camera sits metres behind, and nothing in arm's length would count.
+        const reachFrom = this.game.player ? this.game.player.position.clone().setY(this.game.player.position.y + 1) : origin;
 
-        const hit = this.game.physics.raycast(origin, direction, 12, undefined, exclude);
+        const hit = this.game.physics.raycast(origin, direction, 30, undefined, exclude);
         if (hit?.object) {
             const entry = this.findEntryUpwards(hit.object);
             const range = entry?.options.range ?? CONSTANTS.GAMEPLAY.INTERACT_RANGE;
-            if (entry && hit.distance <= range) return this.describe(entry, hit.distance);
+            const reach = hit.point ? hit.point.distanceTo(reachFrom) : hit.distance;
+            if (entry && entry.enabled && reach <= range) return this.describe(entry, reach);
         }
 
-        // Nothing under the crosshair: take the closest usable object around the origin.
+        // Nothing under the crosshair: take the closest usable object within reach.
         let best: { entry: Entry; distance: number } | undefined;
         for (const entry of this.entries.values()) {
             if (!entry.enabled || (entry.options.once && entry.used)) continue;
             const range = entry.options.range ?? CONSTANTS.GAMEPLAY.INTERACT_RANGE;
-            const distance = entry.object.getWorldPosition(new THREE.Vector3()).distanceTo(origin);
+            const position = entry.object.getWorldPosition(SCRATCH);
+            // Horizontal distance: a tall object's origin at its feet is still "right there".
+            const distance = Math.hypot(position.x - reachFrom.x, position.z - reachFrom.z);
             if (distance > range) continue;
             if (!best || distance < best.distance) best = { entry, distance };
         }

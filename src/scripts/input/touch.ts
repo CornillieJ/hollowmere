@@ -149,6 +149,11 @@ export class TouchInput {
         return this.enabledFlag && this.buttons.has(action);
     }
 
+    /** Swallow this frame's press of an action. */
+    consume(action: string): void {
+        this.pressed.delete(action);
+    }
+
     wasPressed(action: string): boolean {
         return this.enabledFlag && this.pressed.has(action);
     }

@@ -235,6 +235,11 @@ export class EnemyManager {
         for (const enemy of [...this.enemies]) this.remove(enemy, false);
     }
 
+    /** Take one enemy out of the world quietly, with no death: e.g. one that wandered too far away. */
+    despawn(enemy: Enemy): void {
+        this.remove(enemy, false);
+    }
+
     /** The nearest living enemy to a position, or `undefined`. */
     nearest(position: THREE.Vector3 | Vec3, maxDistance = Infinity): Enemy | undefined {
         let best: Enemy | undefined;
