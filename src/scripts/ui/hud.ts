@@ -138,6 +138,16 @@ export class Hud {
         if (label) entry.label.textContent = label.toUpperCase();
     }
 
+    /** Give a stat row a quick pulse, e.g. when money comes in. */
+    bumpStat(name: string): void {
+        const row = this.stats.get(name)?.row;
+        if (!row) return;
+        row.classList.remove('is-bump');
+        // Reading a layout value restarts the animation for back-to-back bumps.
+        void row.offsetWidth;
+        row.classList.add('is-bump');
+    }
+
     /** Remove a stat row entirely. */
     removeStat(name: string): void {
         const entry = this.stats.get(name);

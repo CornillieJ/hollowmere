@@ -19,6 +19,10 @@ forty gaps in that template, which is the point of it.
 
 ## Play
 
+In the browser: https://cornilliej.github.io/hollowmere/ (deployed from `main` by `.github/workflows/pages.yml`).
+
+Or locally:
+
 ```bash
 npm install
 npm run dev          # http://localhost:5260
@@ -41,9 +45,9 @@ On a phone the on-screen stick and buttons appear at the first touch.
 
 - **The first day** is a short chain of jobs. The farmer says each one in a
   dialogue box that waits to be read (Space, E or a click): plant, water, chop, pick, cook, ride to the village, deliver, sleep.
-- **Farm.** Hold seeds and press E at an empty plot, hold the watering can and
-  press E to water (watered plots grow twice as fast that day), press E on a
-  ripe crop. Every harvest hands a seed back, sometimes two. Collect eggs and
+- **Farm.** Press E at a plot and the right thing happens: plant, water (twice
+  as fast that day) or pick. Hold E and walk to work down a row; the right
+  tool comes to hand by itself. Every harvest hands a seed back, sometimes two. Collect eggs and
   milk from the pen.
 - **Gather.** The axe fells dead trees for wood; they grow back. Pale caps grow
   by the mere and among the standing stones.

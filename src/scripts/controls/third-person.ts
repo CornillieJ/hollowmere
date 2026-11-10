@@ -118,6 +118,9 @@ export class ThirdPersonController {
         this.player.body.teleport(value);
     }
 
+    /** Extra degrees of field of view, e.g. growing with a vehicle's speed. Set it every frame or once. */
+    fovBoost = 0;
+
     /** Direction the camera looks along. Used for aiming and interaction. */
     get forward(): THREE.Vector3 {
         return this.camera.getWorldDirection(new THREE.Vector3());
@@ -208,7 +211,7 @@ export class ThirdPersonController {
         // lookAt leaves the roll at zero, which is what a third person camera wants.
 
         const sprinting = this.sprintIntent && this.movement.isMoving;
-        const targetFov = sprinting ? this.sprintFov : this.baseFov;
+        const targetFov = (sprinting ? this.sprintFov : this.baseFov) + this.fovBoost;
         if (Math.abs(camera.fov - targetFov) > 0.01) {
             camera.fov = damp(camera.fov, targetFov, 0.02, delta);
             camera.updateProjectionMatrix();

@@ -22,9 +22,10 @@ export type JournalOptions = {
 };
 
 const GUIDE: Array<[string, string, string]> = [
-    ['🌱', 'Farming', 'Hold seeds and press E at an empty plot. Hold the watering can and press E to water: watered crops grow twice as fast that day. Press E on a ripe crop to pick it. Every harvest gives a seed back, sometimes two.'],
-    ['🪓', 'Wood', 'Hold the axe and press E at a dead tree, four times. Trees grow back after a few days. Every cooked dish burns 1 wood, and 3 wood make a fence kit at the bench.'],
+    ['🌱', 'Farming', 'Press E at a plot and the right thing happens: an empty plot is planted, a dry one watered, a ripe one picked. Hold E and walk to work down a row. The seeds in your hand are planted, or else the first in your pockets. Watered crops grow twice as fast that day, ripe ones glint, and every harvest gives a seed back, sometimes two.'],
+    ['🪓', 'Wood', 'Press E at a dead tree, four times; the axe comes to hand by itself. Trees grow back after 2 or 3 days. Every cooked dish burns 1 wood, and 3 wood make a fence kit at the bench.'],
     ['🍲', 'Cooking', 'Press E at the pot by the farmhouse, choose a recipe, wait, then take the dish. Cooked food pays far better than raw crops. Better pots cook better dishes.'],
+    ['🔔', 'Good days', 'Each further request filled on the same day pays 10% more than the last, up to half as much again. The morning tells you your best day so far.'],
     ['❗', 'Requests', 'A ! marks a villager who wants something. Talk to them, bring exactly what they asked for, and choose "Hand over". Each delivery pays coins and friendship, and every few deliveries they start asking for better things.'],
     ['🤝', 'Big jobs', 'The better-paid requests want a third of the pay put down first. You are asked yes or no. Deliver in time and it comes back with the pay; miss the day and they keep it.'],
     ['🌅', 'Going home', 'From day 3 Pell waits on the lookout hill with an offer: burn 12000c at the old tree within 60 days and you wake up at home. Pay in parts, whenever you call on him. Dying costs 3 of those days. Miss the last day and you stay for good.'],

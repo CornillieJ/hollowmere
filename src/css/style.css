@@ -1842,3 +1842,76 @@ canvas.webgl {
 	opacity: 0.45;
 	cursor: default;
 }
+
+/* Juice: bumps and the banner */
+
+.hud-stats .is-bump {
+	animation: stat-bump 0.35s ease-out;
+}
+
+.hotbar-slot.is-bump {
+	animation: slot-bump 0.3s ease-out;
+}
+
+@keyframes stat-bump {
+	0% {
+		transform: scale(1.35);
+		color: #ffe9a8;
+	}
+	100% {
+		transform: none;
+	}
+}
+
+@keyframes slot-bump {
+	0% {
+		transform: translateY(-10px) scale(1.12);
+		border-color: #ffe9a8;
+	}
+	100% {
+		transform: none;
+	}
+}
+
+.banner {
+	position: absolute;
+	top: 22%;
+	left: 50%;
+	transform: translateX(-50%);
+	text-align: center;
+	color: var(--banner-color, var(--ui-fg));
+	text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
+	transition: opacity 0.5s ease;
+}
+
+.banner.is-hidden {
+	display: block;
+	opacity: 0;
+}
+
+.banner-title {
+	font-size: clamp(22px, 4vw, 36px);
+	font-weight: 700;
+	letter-spacing: 0.06em;
+}
+
+.banner-sub {
+	margin-top: 4px;
+	font-size: clamp(14px, 2vw, 18px);
+	opacity: 0.85;
+}
+
+.banner.is-in {
+	animation: banner-in 0.45s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+@keyframes banner-in {
+	0% {
+		transform: translateX(-50%) scale(0.6);
+		opacity: 0;
+	}
+	100% {
+		transform: translateX(-50%) scale(1);
+		opacity: 1;
+	}
+}

@@ -43,6 +43,11 @@ export class Hotbar {
         this.refresh();
     }
 
+    /** What each slot showed last, to spot a gain. */
+    private readonly shown: string[] = [];
+    /** False until the first draw, so nothing hops when the bar first appears. */
+    private primed = false;
+
     /** The stack in the selected slot, `undefined` when the slot is empty. */
     get selected(): InventorySlot | undefined {
         return this.inventory.slots[this.selectedIndex];
@@ -73,12 +78,23 @@ export class Hotbar {
     refresh(): void {
         this.slots.forEach((slot, index) => {
             const stack = this.inventory.slots[index];
+            // A slot that just gained something hops, so a pickup is seen to arrive.
+            const key = stack ? `${stack.itemId}:${stack.amount}` : '';
+            const before = this.shown[index] ?? '';
+            const gained = stack !== undefined && key !== before && (before.split(':')[0] !== stack.itemId || Number(before.split(':')[1]) < stack.amount);
+            this.shown[index] = key;
+            if (gained && this.primed) {
+                slot.element.classList.remove('is-bump');
+                void slot.element.offsetWidth;
+                slot.element.classList.add('is-bump');
+            }
             setText(slot.icon, stack?.definition.icon ?? '');
             setText(slot.count, stack && stack.amount > 1 ? String(stack.amount) : '');
             slot.element.title = stack?.definition.name ?? '';
             slot.element.classList.toggle('is-selected', index === this.selectedIndex);
             slot.element.classList.toggle('is-empty', !stack);
         });
+        this.primed = true;
     }
 
     setVisible(visible: boolean): void {

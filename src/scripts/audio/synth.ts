@@ -17,6 +17,8 @@ export type ToneOptions = {
     /** Multiply the frequency by this over the tone, e.g. 0.5 for a falling thud. */
     sweep?: number;
     bus?: 'sfx' | 'ui' | 'ambient' | 'music';
+    /** Seconds from now until it sounds, for playing a few notes in a row. */
+    delay?: number;
 };
 
 export type NoiseOptions = {
@@ -55,7 +57,7 @@ export class Synth {
         const context = this.context;
         const output = this.destination(options.bus);
         if (!context || !output) return;
-        const now = context.currentTime;
+        const now = context.currentTime + (options.delay ?? 0);
         const duration = options.duration ?? 0.15;
         const oscillator = context.createOscillator();
         oscillator.type = options.type ?? 'sine';
@@ -68,6 +70,15 @@ export class Synth {
         oscillator.connect(gain).connect(output);
         oscillator.start(now);
         oscillator.stop(now + duration + 0.05);
+    }
+
+    /**
+     * A short run of notes, e.g. a pickup blip or a three note fanfare.
+     * @param frequencies In hertz, played in order.
+     * @param spacing Seconds between note starts.
+     */
+    notes(frequencies: number[], spacing = 0.08, options: Omit<ToneOptions, 'frequency' | 'delay'> = {}): void {
+        frequencies.forEach((frequency, index) => this.tone({ duration: 0.18, type: 'triangle', gain: 0.12, ...options, frequency, delay: index * spacing }));
     }
 
     /** A burst of filtered noise: footsteps, thuds, rustles, static. */

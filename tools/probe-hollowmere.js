@@ -82,9 +82,10 @@
     await go(tree.object.position.x + 1.2, tree.object.position.z);
     hold('watering-can');
     await press('KeyE');
-    expect(!tree.depleted && tree.hitsLeft === 4, 'a tree ignores anything but the axe');
-    hold('axe');
-    for (let swing = 0; swing < 4; swing += 1) await press('KeyE');
+    expect(tree.hitsLeft === 3 && world.hotbar.selectedId === 'axe', 'the axe comes to hand by itself at a tree');
+    await press('KeyE');
+    await press('KeyE');
+    await press('KeyE');
     log.wood = have('wood');
     expect(tree.depleted, 'four swings fell the tree');
     expect(log.wood >= 2, `the tree gave wood, got ${log.wood}`);
@@ -103,6 +104,20 @@
     expect(log.seedsBack >= 3 && log.seedsBack <= 6, `each harvest gives 1 or 2 seeds, got ${log.seedsBack}`);
     await sleep(300);
     expect(step() === 'cook', `the story moved on to cooking, got ${step()}`);
+
+    // 3b. Holding E works down a row, with whatever is in hand: the seeds are found by themselves.
+    hold('axe');
+    const plantedBefore = world.farm.plantedCount;
+    await quiet();
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', key: 'e', bubbles: true }));
+    for (const plot of plots.slice(4, 7)) {
+        game.player.body.teleport({ x: plot.position.x, y: 0.2, z: plot.position.z + 0.2 });
+        await sleep(450);
+    }
+    document.body.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyE', key: 'e', bubbles: true }));
+    log.rowPlanted = world.farm.plantedCount - plantedBefore;
+    expect(log.rowPlanted === 3, `holding E plants along the row, planted ${log.rowPlanted}`);
+    world.farm.fromJSON(world.farm.plots.map(() => null));
 
     // 4. Cook soup at the fire.
     const hearth = world.cookpot;

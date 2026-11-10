@@ -79,6 +79,8 @@ export type FarmOptions = {
      * them, which is how a "buy more land" upgrade works.
      */
     extraFields?: FieldLayout[];
+    /** No toasts for planting, watering, ripening and picking: the game shows those itself. */
+    quiet?: boolean;
     /** Ground colours: before tilling, tilled and dry, and watered. */
     soil?: { untilled?: THREE.ColorRepresentation; dry?: THREE.ColorRepresentation; wet?: THREE.ColorRepresentation };
 };
@@ -102,10 +104,12 @@ export class Farm {
     private readonly plantMaterials = new Map<string, THREE.MeshStandardMaterial>();
     private readonly listeners = new Set<(plot: PlotState) => void>();
     private fieldsInUse = 1;
+    private readonly quiet: boolean;
 
     constructor(game: Game, options: FarmOptions = {}) {
         this.game = game;
         this.plotSize = options.plotSize ?? 1;
+        this.quiet = options.quiet ?? false;
         const columns = options.columns ?? 5;
         const rows = options.rows ?? 4;
         const origin = options.origin ?? { x: -((columns - 1) * this.plotSize) / 2, y: 0.05, z: -((rows - 1) * this.plotSize) / 2 };
@@ -212,7 +216,7 @@ export class Farm {
         const crop = this.crops.get(cropId);
         if (!crop || plot.crop) return false;
         if (consumeSeed && crop.seed && !this.game.inventory.has(crop.seed, 1)) {
-            this.game.toasts.push(`No ${crop.name ?? cropId} seeds`, { color: '#ff9a9a' });
+            this.say(`No ${crop.name ?? cropId} seeds`, { color: '#ff9a9a' });
             return false;
         }
         if (consumeSeed && crop.seed) this.game.inventory.remove(crop.seed, 1);
@@ -227,7 +231,7 @@ export class Farm {
         plot.plant.scale.set(0.25, 0.25, 0.25);
         plot.plant.material = this.plantMaterial(crop.colors?.[0] ?? 0x5da35d);
         plot.soil.material = this.tilledMaterial;
-        this.game.toasts.push(`Planted ${crop.name ?? cropId}`);
+        this.say(`Planted ${crop.name ?? cropId}`);
         this.notify(plot);
         return true;
     }
@@ -237,7 +241,7 @@ export class Farm {
         if (plot.watered) return false;
         plot.watered = true;
         plot.soil.material = this.soilMaterial;
-        this.game.toasts.push('Watered');
+        this.say('Watered');
         this.notify(plot);
         return true;
     }
@@ -260,7 +264,7 @@ export class Farm {
         plot.plant.visible = false;
         plot.soil.material = this.tilledMaterial;
 
-        this.game.toasts.push(`Harvested ${amount} ${itemId}`, { color: '#b6f5b6' });
+        this.say(`Harvested ${amount} ${itemId}`, { color: '#b6f5b6' });
         this.game.effects.particles.burst(plot.position.clone().setY(plot.position.y + 0.4), { count: 14, color: 0x8ce09a, size: 0.06, speed: 2.5, lifetime: 0.4 });
         this.notify(plot);
         const seedCount = (crop.seedReturn ?? 0) + (crop.bonusSeedChance !== undefined && Math.random() < crop.bonusSeedChance ? 1 : 0);
@@ -369,7 +373,7 @@ export class Farm {
             if (ramp && ramp.length > 0) plot.plant.material = this.plantMaterial(ramp[Math.min(plot.stage, ramp.length - 1)] ?? 0x5da35d);
             if (plot.stage >= stages - 1) {
                 plot.ripe = true;
-                this.game.toasts.push(`${crop.name ?? crop.id} is ready`, { color: '#ffe08a' });
+                this.say(`${crop.name ?? crop.id} is ready`, { color: '#ffe08a' });
             }
             this.notify(plot);
         }
@@ -382,6 +386,11 @@ export class Farm {
         const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(colorValue), roughness: 0.8 });
         this.plantMaterials.set(key, material);
         return material;
+    }
+
+    /** A toast, unless the game asked for quiet because it gives its own feedback. */
+    private say(message: string, options?: { color?: string }): void {
+        if (!this.quiet) this.game.toasts.push(message, options);
     }
 
     private notify(plot: PlotState): void {

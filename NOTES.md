@@ -70,6 +70,16 @@ own icons.
 Numbers to tune after play: `ESCAPE.price` and `.days`, deposit share (0.33 in
 `content/villagers.ts`), `CHANCE` in `happenings.ts`, crowd sizes.
 
+## Done in round 6 (November 2026): feel
+
+GitHub Pages at https://cornilliej.github.io/hollowmere/ (repo is public).
+`addJuice` everywhere: chimes, pops, reward text, banners, hit-stop on the
+axe, slow motion on a dodged blow. Smart E (right action, right tool) and hold
+E along a row. Ripe crops glint, crops hop on growth. Delivery streak bonus
+(+10% per further delivery that day, max +50%), best-day record in the morning
+summary. Timer over the pot. FOV widens on the bicycle. A self-writing tune by
+day and night with its own volume slider.
+
 ## Not verified by a person yet
 
 - Pointer lock handover when a panel or dialogue opens and closes: the probe

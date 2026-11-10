@@ -4,8 +4,8 @@ import { createThirdPersonGame } from '../templates/third-person-game';
 import { DEATH_MENU, PAUSE_MENU, VICTORY_MENU } from '../core/game-state';
 import { DayCycle } from '../game/daycycle';
 import { Farm } from '../game/farm';
-import { Synth } from '../audio/synth';
 import { fitModel } from '../helpers/transform';
+import { createBillboardLabel, faceCamera } from '../helpers/text';
 import { addFullscreenButton } from '../helpers/fullscreen';
 import { SYSTEM_ORDER } from '../core/systems';
 import {
@@ -19,6 +19,8 @@ import {
     addPanel,
     addHotbar,
     addInventory,
+    addJuice,
+    addMusicBox,
     addLivestock,
     addMount,
     addNarration,
@@ -99,7 +101,8 @@ export async function boot(): Promise<void> {
         tool.visible = false;
         body.hand?.add(tool);
     }
-    const synth = new Synth(game);
+    const juice = addJuice(game);
+    const synth = juice.synth;
 
     //#region Look and land
 
@@ -211,7 +214,7 @@ export async function boot(): Promise<void> {
     //#region Farm, animals and the bike
 
     /** Counted for the story and the journal, and saved with the day. */
-    const tally = { harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0 };
+    const tally = { harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0, bestStreak: 0, bestDay: 0, dodged: 0 };
     const thoughts = new Set<string>();
 
     const farm = new Farm(game, {
@@ -222,17 +225,54 @@ export async function boot(): Promise<void> {
         extraFields: FARM.extraFields.map((field) => ({ origin: { x: field.x, y: 0.02, z: field.z }, columns: field.columns, rows: field.rows })),
         crops: CROPS,
         soil: { dry: 0x3a2e24, wet: 0x1e1612 },
+        // Planting, watering and picking each answer for themselves; no toasts on top.
+        quiet: true,
     });
     const barriers = addBarriers(game, { enemies: world.enemies, lifetime: 150, toughness: 7, onBroken: () => game.toasts.push('A fence gave way', { color: '#c8a0a0' }) });
-    const farming = setupFarming(game, { farm, pockets, hotbar, barriers, give, nodes: () => nodes, onHarvest: (_itemId, amount) => {
+    const farming = setupFarming(game, { farm, pockets, hotbar, barriers, give, nodes: () => nodes, onHarvest: (itemId, amount, seeds, plot) => {
             tally.harvested += amount;
             today.picked += amount;
+            const name = pockets.inventory.registry.resolve(itemId).name.toLowerCase();
+            juice.reward(plot.position.clone().setY(1.1), `+${amount} ${name}${seeds > 0 ? `  +${seeds} seed${seeds > 1 ? 's' : ''}` : ''}`, { color: seeds > 1 ? 0xb8f0a0 : 0xffe9a8 });
         },
         onWork: (kind, plot) => {
             body.play(kind === 'water' ? 'pour' : 'reach');
+            if (kind === 'plant') {
+                juice.chime('plant');
+                juice.pop(plot.plant, 0.6);
+                game.effects.particles.burst(plot.position.clone().setY(0.15), { count: 6, color: 0x4a3a2a, size: 0.05, speed: 1.2, lifetime: 0.35 });
+            }
             if (kind !== 'water') return;
+            juice.chime('water');
+            juice.pop(plot.soil, 0.12);
             synth.noise({ duration: 0.7, gain: 0.07, filter: 3200 });
             game.effects.particles.burst(plot.position.clone().setY(0.7), { count: 18, color: 0x8fb8c8, size: 0.04, speed: 1.2, lifetime: 0.7 });
+        },
+    });
+
+    // Crops hop when they grow a stage, and a ripe one glints until it is picked.
+    const stages = new Map<object, number>();
+    farm.onChange((plot) => {
+        if (plot.crop && stages.get(plot) !== plot.stage && plot.stage > 0) {
+            juice.pop(plot.plant, 0.35);
+            if (plot.ripe) {
+                juice.sparkle(plot.position.clone().setY(0.9), 0xfff0b0, 14);
+                if (game.player && plot.position.distanceTo(game.player.position) < 30) juice.chime('tick');
+            }
+        }
+        stages.set(plot, plot.crop ? plot.stage : -1);
+    });
+    let glint = 0;
+    game.systems.add({
+        name: 'ripe-glint',
+        order: SYSTEM_ORDER.EFFECTS,
+        update: (delta) => {
+            glint -= delta;
+            if (glint > 0) return;
+            glint = 0.7;
+            const ripe = farm.plots.filter((plot) => plot.active && plot.ripe);
+            const plot = ripe[Math.floor(Math.random() * ripe.length)];
+            if (plot) juice.sparkle(plot.position.clone().setY(0.6 + Math.random() * 0.5), 0xfff0b0, 3);
         },
     });
 
@@ -240,7 +280,10 @@ export async function boot(): Promise<void> {
         pen: { center: { x: FARM.pen.center.x, y: 0, z: FARM.pen.center.z }, halfSize: FARM.pen.halfSize },
         animals: [],
         inventory: pockets,
-        onCollect: (animal) => game.effects.text(animal.object.position.clone().setY(1.4), `+1 ${animal.product}`, { color: 0xe8e0c8 }),
+        onCollect: (animal) => {
+            juice.reward(animal.object.position.clone().setY(1.4), `+1 ${animal.product}`);
+            juice.pop(animal.object, 0.2);
+        },
         animate: (animal, speed, delta) => herd.get(animal.id)?.(speed, delta),
     });
     /** Walk and idle clips per animal, by id. */
@@ -281,6 +324,8 @@ export async function boot(): Promise<void> {
 
     //#region Gathering and making
 
+    /** What the last gathered thing gave, for the text that floats up from it. */
+    let lastDrop = '';
     const nodes = addResourceNodes(game, {
         kinds: {
             tree: { name: 'dead tree', verb: 'Chop', tool: 'axe', toolName: 'axe', hits: 4, drops: [{ itemId: 'wood', amount: [2, 4] }], respawnSeconds: [DAY_LENGTH * 2, DAY_LENGTH * 3], solid: { radius: 0.45, height: 4 }, remains: stump },
@@ -292,19 +337,27 @@ export async function boot(): Promise<void> {
             ...refs.spots.mushrooms.map((object) => ({ kind: 'mushroom', object })),
             { kind: 'crate', object: refs.spots.crate },
         ],
-        held: () => hotbar.selectedId,
+        // The axe comes to hand by itself when it is carried: no fumbling through pockets at a tree.
+        held: () => (pockets.count('axe') > 0 ? 'axe' : hotbar.selectedId),
         give: (itemId, amount) => {
             give(itemId, amount);
             if (itemId === 'wood') tally.wood += amount;
-            game.toasts.push(`+${amount} ${pockets.inventory.registry.resolve(itemId).name.toLowerCase()}`, { color: '#d8e8b0' });
+            lastDrop = `+${amount} ${pockets.inventory.registry.resolve(itemId).name.toLowerCase()}`;
         },
         onHit: (node) => {
             body.play(node.kindId === 'tree' ? 'swing' : 'reach');
             if (node.kindId !== 'tree') return;
+            hotbar.select(pockets.inventory.slots.findIndex((slot) => slot.itemId === 'axe'));
+            // Each blow lands: a held frame, a jolt, and the trunk shudders.
+            juice.hitStop(0.05);
+            game.effects.shakeCamera(0.07);
+            juice.pop(node.object, 0.05);
             synth.noise({ duration: 0.09, gain: 0.16, filter: 700 + Math.random() * 400 });
             game.effects.particles.burst(node.object.position.clone().setY(node.object.position.y + 1), { count: 6, color: 0x4a3e32, size: 0.06, speed: 2, lifetime: 0.4 });
         },
         onDepleted: (node) => {
+            juice.reward(node.object.position.clone().setY(node.object.position.y + 1.3), lastDrop);
+            if (node.kindId === 'tree') game.effects.shakeCamera(0.2);
             if (node.kindId === 'tree') synth.tone({ frequency: 60, duration: 0.5, type: 'triangle', gain: 0.2, sweep: 0.5 });
         },
         persist: 'nodes',
@@ -324,7 +377,10 @@ export async function boot(): Promise<void> {
             body.play('reach');
             synth.noise({ duration: 0.5, gain: 0.08, filter: 2400 });
         },
-        onFinished: () => synth.tone({ frequency: 660, duration: 0.25, type: 'sine', gain: 0.12 }),
+        onFinished: () => {
+            juice.chime('success');
+            juice.sparkle(refs.spots.hearth.position.clone().setY(refs.spots.hearth.position.y + 1.3), 0xffd9a0, 16);
+        },
         onCollected: () => {
             tally.cooked += 1;
             today.cooked += 1;
@@ -384,9 +440,16 @@ export async function boot(): Promise<void> {
             tier: () => Math.min(Math.floor((villagers.requests?.completed ?? 0) / 3), cookpot.station.tier),
         },
         onPaid: (amount, request) => {
-            coins.add(amount);
-            if (request.deposit > 0) tally.bigJobs += 1;
             today.delivered += 1;
+            // Each further delivery on the same day pays a little more, up to half as much again.
+            const streak = Math.min(5, today.delivered - 1);
+            const bonus = Math.round(request.reward * 0.1 * streak);
+            coins.add(amount + bonus);
+            if (request.deposit > 0) tally.bigJobs += 1;
+            tally.bestStreak = Math.max(tally.bestStreak, today.delivered);
+            const name = VILLAGERS.find((villager) => villager.id === request.from)?.name ?? '';
+            juice.banner('Request filled', `${name}  +${coin(request.reward)}${bonus > 0 ? `  ·  ${today.delivered} today: +${coin(bonus)} bonus` : ''}`, { color: '#ffe9a8' });
+            juice.chime(streak > 0 ? 'fanfare' : 'success');
         },
         formatReward: coin,
         payDeposit: (amount) => coins.trySpend(amount),
@@ -425,6 +488,10 @@ export async function boot(): Promise<void> {
         format: coin,
         object: lectern,
         prompt: 'Read the order book',
+        onBought: (definition, level) => {
+            juice.banner(definition.levels[level - 1]?.name ?? definition.name, 'Bought', { color: '#b8f0a0' });
+            juice.chime('fanfare');
+        },
         upgrades: [
             {
                 id: 'field',
@@ -694,6 +761,10 @@ export async function boot(): Promise<void> {
     const inVillage = (): boolean => Math.hypot((game.player?.position.x ?? 0) - VILLAGE.center.x, (game.player?.position.z ?? 0) - VILLAGE.center.z) < 11;
     const atHome = (): boolean => Math.hypot((game.player?.position.x ?? 0) - FARM.door.x, (game.player?.position.z ?? 0) - FARM.door.z) < 8;
     const deeds = addAchievements(game, {
+        onEarned: (achievement) => {
+            juice.banner(`${achievement.icon ?? '★'} ${achievement.title}`, achievement.description, { color: '#ffe9a8', seconds: 3.2 });
+            juice.chime('success');
+        },
         achievements: [
             { id: 'harvest', icon: '🌱', title: 'Soil is soil', description: 'Pick your first crop.', done: () => tally.harvested > 0 },
             { id: 'dish', icon: '🍲', title: 'Something hot', description: 'Cook a dish.', done: () => tally.cooked > 0 },
@@ -711,11 +782,91 @@ export async function boot(): Promise<void> {
             { id: 'halfway', icon: '🔥', title: 'It burns green', description: 'Burn half the price.', done: () => escape.pledge.paid >= ESCAPE.price / 2 },
             { id: 'siege', icon: '🏘', title: 'Shoulder to shoulder', description: 'Be in the village square while they ring the wall.', hidden: true, done: () => happenings.active === 'siege' && inVillage() },
             { id: 'overrun', icon: '🏚', title: 'Only the porch is mine', description: 'Stand on your porch while the farm is overrun.', hidden: true, done: () => happenings.active === 'overrun' && atHome() },
+            { id: 'dodge', icon: '💨', title: 'Close!', description: 'Step out from under a blow.', done: () => tally.dodged > 0 },
+            { id: 'streak', icon: '🔔', title: 'A good day', description: 'Fill 3 requests in one day.', done: () => tally.bestStreak >= 3 },
             { id: 'died', icon: '🛏', title: 'Clean sheets', description: 'Wake up in the infirmary.', hidden: true },
         ],
     });
 
     //#endregion The edge, bad days and deeds
+
+    //#region Feel
+
+    // A blow that was wound up and then missed: the world holds its breath for a moment.
+    const winding = new Set<number>();
+    let healthBefore = 100;
+    game.systems.add({
+        name: 'near-miss',
+        order: SYSTEM_ORDER.GAMEPLAY + 9,
+        update: () => {
+            const player = game.player;
+            if (!player) return;
+            for (const enemy of world.enemies.all) {
+                if (enemy.windup > 0) winding.add(enemy.id);
+                else if (winding.delete(enemy.id) && player.health.current >= healthBefore && !player.health.isInvulnerable && !player.isDead) {
+                    tally.dodged += 1;
+                    juice.slowMo(0.45, 0.3);
+                    juice.chime('close');
+                    game.effects.text(player.position.clone().setY(player.position.y + 2.1), 'Close!', { color: 0xd8f0ff });
+                }
+            }
+            healthBefore = player.health.current;
+        },
+    });
+
+    // Speed is felt: the view widens as the bicycle gets going.
+    game.systems.add({
+        name: 'speed-feel',
+        order: SYSTEM_ORDER.CONTROL + 2,
+        update: () => {
+            world.controls.fovBoost = bike.mounted ? Math.min(12, Math.abs(bike.speed)) : 0;
+        },
+    });
+
+    // The pot says how long it has left, so nobody has to open the panel to find out.
+    const potLabel = createBillboardLabel('', { x: 0, y: 2.1, z: 0 }, { fontSize: 0.34, color: 0xffe2a0 });
+    refs.spots.hearth.add(potLabel);
+    let potText = '';
+    game.systems.add({
+        name: 'pot-label',
+        order: SYSTEM_ORDER.UI,
+        update: () => {
+            const { station } = cookpot;
+            const text = station.job ? `${Math.max(1, Math.ceil(station.job.recipe.seconds - station.job.elapsed))}s` : station.ready.length > 0 ? '✓ ready' : '';
+            if (text !== potText) {
+                potText = text;
+                potLabel.text = text;
+                potLabel.sync();
+            }
+            potLabel.visible = text !== '';
+            if (potLabel.visible) faceCamera(potLabel, game.camera);
+        },
+    });
+
+    // A tune that never repeats: gentle by day, low and sparse after dark, silent when one of them is close.
+    const DAY_TUNE = [196, 220, 261.6, 293.7, 329.6, 392, 440, 523.3];
+    const NIGHT_TUNE = [98, 110, 116.5, 146.8, 164.8, 174.6, 220];
+    const music = addMusicBox(game, {
+        scale: DAY_TUNE,
+        gain: 0.05,
+        playing: () => {
+            const nearest = game.player ? world.enemies.nearest(game.player.position) : undefined;
+            return !nearest || nearest.root.position.distanceTo(game.player?.position ?? nearest.root.position) > 16;
+        },
+    });
+    let tuneIsNight = false;
+    game.systems.add({
+        name: 'tune',
+        order: SYSTEM_ORDER.EFFECTS,
+        update: () => {
+            const night = isNight(dayCycle);
+            if (night === tuneIsNight) return;
+            tuneIsNight = night;
+            music.setScale(night ? NIGHT_TUNE : DAY_TUNE, { gap: night ? [4, 9] : [1.6, 4] });
+        },
+    });
+
+    //#endregion Feel
 
     //#region Story, notebook and thoughts
 
@@ -865,14 +1016,17 @@ export async function boot(): Promise<void> {
     /** What the day came to, shown on waking after a night in bed. */
     const today = { earned: 0, delivered: 0, cooked: 0, picked: 0 };
     coins.onChange((_value, delta) => {
-        if (delta > 0) today.earned += delta;
+        if (delta <= 0) return;
+        today.earned += delta;
+        juice.chime('coin');
+        game.hud.bumpStat('coins');
     });
     const morning = addPanel(game, {
         title: 'Morning',
         rows: () => [
             { icon: '🌅', title: `Day ${dayCycle.day}`, detail: nightLine },
             { heading: true, title: 'Yesterday' },
-            { icon: '🪙', title: 'Earned', meta: coin(today.earned) },
+            { icon: '🪙', title: today.earned > 0 && today.earned >= tally.bestDay ? 'Earned (your best day yet)' : 'Earned', meta: coin(today.earned), ...(tally.bestDay > 0 ? { detail: `Best day: ${coin(tally.bestDay)}. Most requests in a day: ${tally.bestStreak}.` } : {}) },
             { icon: '❗', title: 'Requests filled', meta: String(today.delivered) },
             { icon: '🍲', title: 'Dishes cooked', meta: String(today.cooked) },
             { icon: '🌱', title: 'Crops picked', meta: String(today.picked) },
@@ -912,6 +1066,7 @@ export async function boot(): Promise<void> {
             window.setTimeout(() => world.flow.win(), 1200);
             return;
         }
+        tally.bestDay = Math.max(tally.bestDay, today.earned);
         nightLine = NIGHTS[dayCycle.day % NIGHTS.length] as string;
         game.effects.flash(0.9, 0x000000, 0.95);
         sleep();
@@ -923,7 +1078,7 @@ export async function boot(): Promise<void> {
         villagers.newDay();
         happenings.newDay();
         omens.setDay(day);
-        game.toasts.push(`Day ${day}`, { color: '#e8e0c8' });
+        juice.banner(`Day ${day}`, escape.pledge.state === 'running' ? `${escape.pledge.daysLeft} days left to wake` : '');
     };
 
     game.systems.add({
@@ -960,7 +1115,7 @@ export async function boot(): Promise<void> {
     const settings = addSettings(game, {
         namespace: 'hollowmere',
         fullscreen: true,
-        volume: ['master', 'ambient', 'sfx'],
+        volume: ['master', 'music', 'ambient', 'sfx'],
         settings: [
             { id: 'look', label: 'Mouse sensitivity', kind: 'slider', min: 0.2, max: 2, step: 0.05, default: 1, percent: true, apply: (value) => (world.controls.look.sensitivity = LOOK_BASE * value) },
             { id: 'vhs', label: 'VHS tape (wobble, colour fringes, static)', kind: 'toggle', default: true, apply: (on) => look.setVhs(on) },

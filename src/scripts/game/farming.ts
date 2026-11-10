@@ -7,9 +7,10 @@ import { SEED_TO_CROP, SHIPPABLE } from '../content/items';
 /**
  * Working the field with whatever is in hand.
  *
- * Standing at a plot, the interact key does the obvious thing for the held item:
- * seeds plant, the watering can waters, and a ripe crop is picked whatever you
- * hold. The use key does the same at a plot, and elsewhere uses the item: a
+ * Standing at a plot, the interact key does the obvious thing: a ripe crop is
+ * picked, an empty plot is planted with the seeds in hand (or the first seeds
+ * carried), and a dry one is watered if the can is in a pocket. The right tool
+ * comes to hand by itself, and holding the key works along a row while walking. The use key does the same at a plot, and elsewhere uses the item: a
  * fence kit puts a fence down in front of you, and the axe swings at the nearest
  * tree.
  */
@@ -22,7 +23,7 @@ export type FarmingOptions = {
     give: (itemId: string, amount: number) => boolean;
     /** Trees and other things to gather from, for the axe. */
     nodes: () => ResourceNodesHandle | undefined;
-    onHarvest?: (itemId: string, amount: number) => void;
+    onHarvest?: (itemId: string, amount: number, seeds: number, plot: PlotState) => void;
     /** Called when the farmer does something at a plot, for the motion and the splash. */
     onWork?: (kind: 'plant' | 'water' | 'pick', plot: PlotState) => void;
 };
@@ -35,6 +36,10 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
     /** What the held item would do at this plot, if anything. */
     function plotAction(plot: PlotState): { label: string; run: () => void } | undefined {
         const held = hotbar.selectedId;
+        /** Bring a pocket item to hand, so the farmer is seen holding what they use. */
+        const take = (itemId: string): void => hotbar.select(pockets.inventory.slots.findIndex((slot) => slot.itemId === itemId));
+        // The seeds in hand, or failing that the first seeds in a pocket.
+        const seeds = held && SEED_TO_CROP[held] ? held : pockets.inventory.slots.find((slot) => SEED_TO_CROP[slot.itemId])?.itemId;
         if (plot.ripe) {
             return {
                 label: `Pick the ${(plot.crop?.name ?? 'crop').toLowerCase()}`,
@@ -44,32 +49,40 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
                     options.onWork?.('pick', plot);
                     options.give(harvest.itemId, harvest.amount);
                     // The crop seeds itself: one back for the next planting, sometimes two.
-                    if (harvest.seeds) {
-                        options.give(harvest.seeds.itemId, harvest.seeds.amount);
-                        game.toasts.push(`+${harvest.seeds.amount} seed${harvest.seeds.amount > 1 ? 's' : ''}`, { color: '#c8d8b0' });
-                    }
-                    options.onHarvest?.(harvest.itemId, harvest.amount);
+                    if (harvest.seeds) options.give(harvest.seeds.itemId, harvest.seeds.amount);
+                    options.onHarvest?.(harvest.itemId, harvest.amount, harvest.seeds?.amount ?? 0, plot);
                 },
             };
         }
-        if (!plot.crop && held && SEED_TO_CROP[held]) {
-            const cropId = SEED_TO_CROP[held] as string;
+        if (!plot.crop && seeds) {
+            const cropId = SEED_TO_CROP[seeds] as string;
             return {
-                label: `Plant ${pockets.inventory.registry.resolve(held).name.toLowerCase()}`,
+                label: `Plant ${pockets.inventory.registry.resolve(seeds).name.toLowerCase()}`,
                 run: () => {
-                    if (pockets.remove(held, 1) && farm.plant(plot, cropId, false)) options.onWork?.('plant', plot);
+                    if (pockets.remove(seeds, 1) && farm.plant(plot, cropId, false)) options.onWork?.('plant', plot);
                 },
             };
         }
-        if (plot.crop && !plot.watered && held === 'watering-can') return { label: 'Water', run: () => void (farm.water(plot) && options.onWork?.('water', plot)) };
+        if (plot.crop && !plot.watered && pockets.count('watering-can') > 0) {
+            return {
+                label: 'Water',
+                run: () => {
+                    take('watering-can');
+                    if (farm.water(plot)) options.onWork?.('water', plot);
+                },
+            };
+        }
         return undefined;
     }
 
     function plotHint(plot: PlotState): string {
-        if (!plot.crop) return 'Empty plot (hold seeds)';
-        if (!plot.watered) return 'Dry (hold the watering can)';
+        if (!plot.crop) return 'Empty plot (no seeds in your pockets)';
+        if (!plot.watered) return 'Dry (the watering can is not in your pockets)';
         return `${plot.crop.name}, growing`;
     }
+
+    let lastPlot: PlotState | undefined;
+    let sinceWork = 0;
 
     game.systems.add({
         name: 'farming',
@@ -85,7 +98,15 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
                 return;
             }
             game.prompts.show(action.label, 'E');
-            if (game.input.wasPressed('interact')) action.run();
+            // Holding the key works down a row: each plot once, a beat apart. Doing a
+            // second thing to the same plot (pick, then replant) takes a fresh press.
+            sinceWork += game.time.delta;
+            const pressed = game.input.wasPressed('interact');
+            const held = game.input.isDown('interact') && plot !== lastPlot && sinceWork > 0.16;
+            if (!pressed && !held) return;
+            lastPlot = plot;
+            sinceWork = 0;
+            action.run();
         },
     });
 
