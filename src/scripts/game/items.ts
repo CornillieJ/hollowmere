@@ -60,6 +60,11 @@ export type ItemDefinition = {
     model?: string;
     /** Flat stat lines shown in the detail pane, e.g. `['damage 20', 'range 7']`. */
     stats?: string[];
+    /**
+     * Cannot be dropped or sold: the tools and quest items a game cannot be
+     * finished without. It can still be moved between the player's own inventories.
+     */
+    keep?: boolean;
     /** What using it does. */
     use?: {
         /** Remove one on use. Defaults to true for consumables, false otherwise. */
@@ -155,7 +160,7 @@ export class ItemRegistry {
 
     /** Definitions that have a price, i.e. things a shop can sell. */
     sellable(): ItemDefinition[] {
-        return this.all().filter((item) => (item.price ?? 0) > 0 && !item.hidden);
+        return this.all().filter((item) => (item.price ?? 0) > 0 && !item.hidden && !item.keep);
     }
 
     /** Every category in use, for a filter row. */

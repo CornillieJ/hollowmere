@@ -28,9 +28,10 @@ export type StoryFacts = {
 
 export const INTRO = [
     '...This is not my bed. This is not my farm.',
-    'Same hands. Same boots. A different sky.',
-    'I went to sleep at home. I am sure I did.',
-    'Think later. A farmer who does not plant does not eat.',
+    'Last night I fell asleep in my own house. I am a farmer. That much I still know.',
+    'Now there is fog up to the fence, and shapes standing in it that do not move like people.',
+    'I see no road home. So: food first, answers later.',
+    'I have seeds, a watering can and an axe. The field is just south of the house.',
 ];
 
 export function setupStory(game: Game, narration: NarrationHandle, facts: StoryFacts): StorylineHandle {
@@ -46,7 +47,7 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
             objective: 'Look around the farm',
             detail: 'Walk with WASD, look with the mouse. Hold Shift to run.',
             done: () => farFrom(FARM.door, 7),
-            after: ['Seeds in my pocket, and a field south of the house. Good enough.'],
+            after: ['Good dark soil. I will plant what I have and see what grows here.'],
         },
         {
             id: 'plant',
@@ -54,7 +55,7 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
             detail: 'Pick the seeds on the hotbar with 1 to 8 or the wheel, stand at an empty plot and press E.',
             done: () => facts.planted() >= 3,
             progress: () => `${Math.min(3, facts.planted())}/3`,
-            after: ['Soil is soil, wherever this is.'],
+            after: ['Planted. Now water, or they will take all day.'],
         },
         {
             id: 'water',
@@ -62,15 +63,15 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
             detail: 'Pick the watering can and press E at a planted plot. A watered crop grows twice as fast that day.',
             done: () => facts.watered() >= 3,
             progress: () => `${Math.min(3, facts.watered())}/3`,
-            after: ['They will take a few minutes. A fire needs wood in the meantime.'],
+            after: ['They need a few minutes to grow. Meanwhile I need firewood to cook with.'],
         },
         {
             id: 'chop',
             objective: 'Chop a dead tree for firewood',
             detail: 'Pick the axe and press E at a dead tree, four times. The three at the west edge of the yard are closest.',
             done: () => facts.wood() >= 1,
-            say: ['The dead trees at the edge of the yard will do.'],
-            after: ['Something is standing out in the wood. It has not moved. I will not stare.'],
+            say: ['The dead trees at the west edge of the yard will do. Axe in hand.'],
+            after: ['Firewood. And something is standing out there among the trees, watching. It has not moved. Back to the field.'],
         },
         {
             id: 'harvest',
@@ -78,7 +79,7 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
             detail: 'A ripe crop stands tall and pale. Press E to pick it. It gives a seed back, sometimes two.',
             done: () => facts.harvested() >= 2,
             progress: () => `${Math.min(2, facts.harvested())}/2`,
-            after: ['It grew in minutes. Nothing grows in minutes. Do not think about it. Cook it.'],
+            after: ['Ripe in minutes. Nothing grows that fast at home. Never mind: there is a pot over the fire by the house.'],
         },
         {
             id: 'cook',
@@ -86,15 +87,15 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
             detail: 'Press E at the pot. Turnip soup takes 2 turnips and 1 wood; bread takes 2 wheat and 1 wood. Wait, then take it.',
             done: () => facts.cooked() >= 1,
             reward: () => facts.reward(10),
-            after: ['Food. Now, who is there to sell it to? The road must go somewhere.'],
+            after: ['Hot food. More than I need. If anyone lives along that road, they might pay for it.'],
         },
         {
             id: 'ride',
             objective: 'Ride the bicycle up the road to the village',
             detail: 'Press E at the bicycle by the porch. W pedals, A and D steer, E gets off. Follow the brown road north east.',
             done: () => !farFrom(VILLAGE.center, VILLAGE.wallRadius - 2),
-            say: ['There is a bicycle by the porch. It is not mine either. It will do.'],
-            after: ['People. Thank goodness. ...Mostly people.'],
+            say: ['There is a bicycle by the porch. Faster than walking, and faster than whatever is in the fog.'],
+            after: ['A village. Lamps. People. ...Mostly people. Somebody here must buy and sell.'],
         },
         {
             id: 'meet',
@@ -107,17 +108,17 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
             objective: 'Bring a villager what they ask for',
             detail: 'A ! marks someone with a request. Talk to them to hear it, come back with the goods, and choose "Hand over". Press J for the list.',
             done: () => facts.delivered() >= 1,
-            say: ['Nobody has said a word about the things in the fog. Perhaps that is how you live here.'],
+            say: ['He never mentioned the things in the fog. Nobody does. The ones marked with a ! want something from me.'],
             reward: () => facts.reward(15),
-            after: ['Paid. They want more, and better. That is a living.'],
+            after: ['Paid. So that is the work: grow it, cook it, bring it to whoever asks.'],
         },
         {
             id: 'sleep',
             objective: 'Go home and sleep before dark',
             detail: 'Press E at the farmhouse door. Sleeping ends the day and saves. More of them walk at night.',
             done: () => facts.day() > startDay,
-            say: ['The light is going. I would rather be behind a door.'],
-            after: ['A day done. I do not know how I came here. I know how to stay: plant, cook, deliver, sleep.'],
+            say: ['The light is going, and there are more of them at night. Home, and the door shut behind me.'],
+            after: ['One day survived. I still do not know how I came here. But I know how to last: plant, cook, deliver, sleep.'],
         },
 
         // The days after: no more lessons, only reasons to keep going.

@@ -32,7 +32,10 @@ export class Mouse {
      * touchpads send dozens of tiny events per notch; they are added up and
      * counted as one step per notch's worth of travel.
      */
-    readonly scroll = { delta: 0 };
+    readonly scroll: { delta: number; claimedBy: string | undefined } = { delta: 0, claimedBy: undefined };
+    // `claimedBy` names the one thing the wheel is for right now, e.g. `'hotbar'`.
+    // Camera controllers leave zoom alone while it is set, so one notch never
+    // both changes the held item and moves the camera.
 
     private readonly down = new Set<string>();
     private readonly pressed = new Set<string>();

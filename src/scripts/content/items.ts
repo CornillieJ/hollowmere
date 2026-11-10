@@ -13,8 +13,8 @@ import type { Recipe } from '../game/crafting';
 const food = (heal: number): NonNullable<ItemDefinition['use']> => ({ onUse: ({ game }) => game?.player?.heal(heal), cooldown: 1 });
 
 export const ITEMS: ItemDefinition[] = [
-    { id: 'watering-can', name: 'Watering can', icon: '🚿', category: 'tool', maxStack: 1, description: 'Water a planted plot. Watered crops grow twice as fast that day.' },
-    { id: 'axe', name: 'Axe', icon: '🪓', category: 'tool', maxStack: 1, description: 'Hold it and press E at a dead tree. Four swings bring one down.' },
+    { id: 'watering-can', name: 'Watering can', icon: '🚿', category: 'tool', maxStack: 1, keep: true, description: 'Water a planted plot. Watered crops grow twice as fast that day.' },
+    { id: 'axe', name: 'Axe', icon: '🪓', category: 'tool', maxStack: 1, keep: true, description: 'Hold it and press E at a dead tree. Four swings bring one down.' },
     { id: 'fence-kit', name: 'Fence kit', icon: '🚧', category: 'tool', price: 14, description: 'Press F to put a length of fence down. Holds the walkers back for a while. Nothing holds them for long.' },
 
     { id: 'turnip-seed', name: 'Turnip seeds', icon: '🌱', category: 'material', price: 4, description: 'Quick to grow. Pale inside.' },
@@ -41,7 +41,7 @@ export const ITEMS: ItemDefinition[] = [
     { id: 'hollow-stew', name: 'Hollowmere stew', icon: '🍛', category: 'consumable', price: 420, description: 'Restores all health. The village eats it at funerals and at weddings.', use: food(100) },
 
     { id: 'candle', name: 'Grave candle', icon: '🕯', category: 'tool', price: 18, description: 'Press F to set it down and light it. The walkers keep out of its light for a minute and a half.' },
-    { id: 'name-slip', name: 'Folded slip', icon: '📜', category: 'quest', maxStack: 1, description: 'Your name, in your own hand. You do not remember writing it. Read it every morning.' },
+    { id: 'name-slip', name: 'Folded slip', icon: '📜', category: 'quest', maxStack: 1, keep: true, description: 'Your name, in your own hand. You do not remember writing it. Read it every morning.' },
 ];
 
 /** What the general store stocks from the first day. Better seeds are added by upgrades. */
@@ -71,6 +71,9 @@ export const COOKING: Recipe[] = [
     { id: 'pumpkin-pie', output: { itemId: 'pumpkin-pie' }, ingredients: [{ itemId: 'pumpkin', amount: 1 }, { itemId: 'egg', amount: 1 }, { itemId: 'wheat', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 40, tier: 3 },
     { id: 'hollow-stew', output: { itemId: 'hollow-stew' }, ingredients: [{ itemId: 'pumpkin', amount: 1 }, { itemId: 'corn', amount: 1 }, { itemId: 'mushroom', amount: 2 }, { itemId: 'milk', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 50, tier: 3 },
 ];
+
+/** The crop a request ultimately needs seeds for. Requests for these wait until the player can grow it. */
+export const NEEDS_CROP: Record<string, string> = { 'corn-chowder': 'corn', pumpkin: 'pumpkin', 'pumpkin-pie': 'pumpkin', 'hollow-stew': 'pumpkin' };
 
 /** What the bench in the yard makes. */
 export const WOODWORK: Recipe[] = [{ id: 'fence-kit', output: { itemId: 'fence-kit' }, ingredients: [{ itemId: 'wood', amount: 3 }], seconds: 8, description: 'Cheaper than the store.' }];

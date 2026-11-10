@@ -60,6 +60,8 @@ export class GameFlow {
     readonly game: Game;
     private readonly options: GameFlowOptions;
 
+    private blockedLastFrame = false;
+
     constructor(game: Game, options: GameFlowOptions = {}) {
         this.game = game;
         this.options = options;
@@ -152,8 +154,12 @@ export class GameFlow {
         // Ungated: input is closed outside play, yet pause must still resume, from a pad too.
         const pauseKey = input.keyboard.wasPressed('Escape') || input.wasPressedUngated('pause');
 
-        // An open panel owns Escape; it closes itself and the game keeps running.
-        if (state.is('playing') && pauseKey && !screens.blocksInput && !screens.justUnblocked) this.pause();
+        // An open panel owns Escape; it closes itself and the game keeps running. The
+        // panel closes on the key event, before this frame, so what counts is whether
+        // one was up on the previous frame.
+        const wasBlocked = this.blockedLastFrame;
+        this.blockedLastFrame = screens.blocksInput;
+        if (state.is('playing') && pauseKey && !screens.blocksInput && !wasBlocked) this.pause();
         else if (state.is('paused') && pauseKey) this.resume();
         else if (state.is('victory', 'dead') && (input.keyboard.wasPressed('Enter') || input.wasPressedUngated('jump'))) this.restart();
     }

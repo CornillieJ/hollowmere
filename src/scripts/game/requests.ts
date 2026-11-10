@@ -20,6 +20,8 @@ export type RequestTemplate = {
     days?: number;
     /** What they say when asking. `{amount}` and `{item}` are filled in. */
     text?: string;
+    /** Asked only while this is true, e.g. the player owns the pot the dish needs. Keeps the board to things that can be done. */
+    available?: () => boolean;
     /** Harder requests have a higher tier and stay away until the board reaches it. Defaults to 0. */
     tier?: number;
 };
@@ -166,7 +168,7 @@ export class RequestBoard {
      */
     private draw(random: () => number): RequestTemplate | undefined {
         const tier = this.tier;
-        const unlocked = this.options.templates.filter((template) => (template.tier ?? 0) <= tier);
+        const unlocked = this.options.templates.filter((template) => (template.tier ?? 0) <= tier && template.available?.() !== false);
         const fresh = unlocked.filter((template) => !this.open.some((request) => request.itemId === template.itemId));
         const pool = fresh.length > 0 ? fresh : unlocked;
         const weight = (template: RequestTemplate): number => 1 + (template.tier ?? 0);

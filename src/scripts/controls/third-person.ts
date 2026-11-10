@@ -154,7 +154,7 @@ export class ThirdPersonController {
 
         // Wheel zoom.
         const scroll = this.game.input.mouse.scroll.delta;
-        if (scroll !== 0) this.distance = clamp(this.distance + scroll * 0.6, this.minDistance, this.maxDistance);
+        if (scroll !== 0 && !this.game.input.mouse.scroll.claimedBy) this.distance = clamp(this.distance + scroll * 0.6, this.minDistance, this.maxDistance);
 
         const targetHeight = this.player.position.y + this.targetHeight;
         this.scratch.set(this.player.position.x, targetHeight, this.player.position.z);

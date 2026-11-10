@@ -31,7 +31,7 @@ import {
 } from '../kit';
 import { createFolk, FolkAnimator, type FolkRig } from '../content/folk';
 import { createBike, spinWheels } from '../content/bike';
-import { COOKING, CROPS, ITEMS, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
+import { COOKING, CROPS, ITEMS, NEEDS_CROP, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
 import { REQUESTS, VILLAGERS } from '../content/villagers';
 import { BEND, FARM, HAUNTS, MERE_LEVEL, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF, homeOf } from '../content/world';
 import { buildWorld, stump } from './world';
@@ -296,7 +296,12 @@ export async function boot(): Promise<void> {
         items: { count: have, remove: takeCarried },
         // Nobody here takes presents: they take what they asked for.
         gifts: false,
-        requests: { templates: REQUESTS, maxOpen: 4, deliveriesPerTier: 3 },
+        requests: {
+            // Nobody asks for what cannot be made yet: a dish waits for its pot, a crop for its seeds.
+            templates: REQUESTS.map((template) => ({ ...template, available: () => canGrow(NEEDS_CROP[template.itemId]) })),
+            maxOpen: 4,
+            tier: () => Math.min(Math.floor((villagers.requests?.completed ?? 0) / 3), cookpot.station.tier),
+        },
         onPaid: (amount) => {
             coins.add(amount);
             today.delivered += 1;
@@ -304,6 +309,13 @@ export async function boot(): Promise<void> {
         formatReward: coin,
         dialogue: { speed: 50 },
     });
+
+    /** True when the player has, or can buy, the seeds for a crop. `undefined` means no crop is needed. */
+    const canGrow = (crop: string | undefined): boolean => {
+        if (!crop) return true;
+        const seed = `${crop}-seed`;
+        return stock.includes(seed) || have(seed) > 0 || have(crop) > 0 || farm.plots.some((plot) => plot.crop?.id === crop);
+    };
 
     const stock = [...STORE_STOCK];
     const shop = addInventory(game, { items: ITEMS, mode: 'shop', title: "Barnaby's store", catalogue: stock, primary: false, customer: pockets, currency: { resource: coins, label: 'purse', format: coin }, filters: false });
@@ -525,6 +537,23 @@ export async function boot(): Promise<void> {
         { id: 'ruin', spot: PLACES.ruin, within: 12, lines: ['Another farm. Another farmer.', 'The scarecrow is facing the house.'] },
         { id: 'graveyard', spot: PLACES.graveyard, within: 11, lines: ['One of these is open. And empty.'] },
     ];
+    /**
+     * Nobody can get stuck. A farmer with no seeds, nothing growing and no money
+     * for more finds a few on the doorstep, at most once a day, and a lost tool
+     * always finds its way back.
+     */
+    let rescuedOn = 0;
+    const SEEDS = CROPS.map((crop) => crop.seed as string);
+    function rescue(): void {
+        for (const tool of ['watering-can', 'axe']) {
+            if (have(tool) === 0 && give(tool, 1)) narration.say([`My ${tool === 'axe' ? 'axe' : 'watering can'}, leaning against the door. Fen must have found it on the road.`]);
+        }
+        if (rescuedOn === dayCycle.day) return;
+        const broke = coins.value() < 4 && farm.plantedCount === 0 && SEEDS.every((seed) => have(seed) === 0) && have('turnip') === 0 && have('wheat') === 0;
+        if (!broke || !give('turnip-seed', 3)) return;
+        rescuedOn = dayCycle.day;
+        narration.say(['A paper twist of turnip seeds on the doorstep.', 'Barnaby has written on it: "On account. Do not let it happen twice."']);
+    }
     let thoughtTimer = 0;
     game.systems.add({
         name: 'thoughts',
@@ -534,6 +563,7 @@ export async function boot(): Promise<void> {
             const player = game.player?.position;
             if (thoughtTimer > 0 || !player) return;
             thoughtTimer = 0.5;
+            rescue();
             for (const sight of SIGHTS) if (Math.hypot(player.x - sight.spot.x, player.z - sight.spot.z) < sight.within) think(sight.id, sight.lines);
             if (dayCycle.hour >= 18 && dayCycle.hour < 21) think('dusk', ['The light is going. There will be more of them soon.', 'A lamp, a door, or the bicycle. Not the open road.']);
             const nearest = world.enemies.nearest(player);

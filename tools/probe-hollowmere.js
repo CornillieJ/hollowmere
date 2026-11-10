@@ -91,6 +91,7 @@
     hearth.station.update(30);
     await press('Escape');
     expect(!hearth.panel.isOpen && game.state.current === 'playing', 'Escape closes the panel without pausing');
+    await sleep(200);
     await press('KeyE');
     await until(() => have('turnip-soup') === 1);
     log.soup = have('turnip-soup');
@@ -285,6 +286,49 @@
     await go(52, -40);
     await sleep(900);
     expect(world.controls.movement.speedScale > 0.9, 'and dry ground does not');
+
+    // 13g. The wheel picks a hotbar slot and leaves the camera alone.
+    const zoom = world.controls.distance;
+    world.hotbar.select(0);
+    game.canvas.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true }));
+    await sleep(250);
+    expect(world.controls.distance === zoom, 'scrolling does not zoom while the hotbar has the wheel');
+    expect(world.hotbar.selectedId !== 'watering-can', 'scrolling moves along the hotbar');
+
+    // 13h. Nothing a day depends on can be thrown or sold away.
+    world.bag.open();
+    await sleep(200);
+    world.pockets.moveTo(world.bag, 'axe');
+    world.bag.screen.refresh();
+    document.querySelector('.inventory:not(.is-hidden) [data-item="axe"]')?.click();
+    await sleep(150);
+    const bagButtons = [...document.querySelectorAll('.inventory:not(.is-hidden) .inventory-actions button')].map((button) => button.textContent);
+    expect(bagButtons.some((label) => label.includes('To pockets')) && !bagButtons.some((label) => label.includes('Drop')), `the axe can be moved but not dropped, buttons: ${bagButtons}`);
+    world.bag.close();
+    world.bag.moveTo(world.pockets, 'axe');
+    world.pockets.add('turnip', 2);
+    world.shop.open();
+    await sleep(200);
+    document.querySelector('.inventory:not(.is-hidden) [data-item="turnip"]')?.click();
+    await sleep(150);
+    const shopButtons = [...document.querySelectorAll('.inventory:not(.is-hidden) .inventory-actions button')].map((button) => button.textContent);
+    expect(shopButtons.some((label) => label.startsWith('Sell')) && !shopButtons.some((label) => label.startsWith('Buy')), `the store buys what you carry, buttons: ${shopButtons}`);
+    expect(!document.querySelector('.inventory:not(.is-hidden) [data-item="axe"]'), 'the store does not offer to buy your axe');
+    world.shop.close();
+
+    // 13i. A farmer with nothing left is given seeds, once a day.
+    const stash = { coins: world.coins.value(), field: world.farm.toJSON() };
+    for (const inventory of [world.pockets, world.bag]) for (const slot of [...inventory.inventory.slots]) if (/seed|turnip|wheat/.test(slot.itemId)) inventory.remove(slot.itemId, slot.amount);
+    world.farm.clearField();
+    world.coins.set(0);
+    await sleep(900);
+    expect(have('turnip-seed') === 3, `seeds turn up on the doorstep, got ${have('turnip-seed')}`);
+    world.pockets.remove('turnip-seed', 3);
+    await sleep(900);
+    expect(have('turnip-seed') === 0, 'but only once a day');
+    world.coins.set(stash.coins);
+    world.farm.fromJSON(stash.field);
+    expect(world.villagers.requests.tier <= world.cookpot.station.tier, 'requests never outrun the pot');
 
     // 14. Outside, it comes for you, and fainting wakes you at home on a new day.
     const day = world.dayCycle.day;

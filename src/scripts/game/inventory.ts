@@ -380,10 +380,15 @@ export class Inventory implements InventoryApi {
     /** Sell items back at the sell price. A shop sells out of its customer's bag. */
     sell(itemId: string, amount = 1): boolean {
         const source = this.options.customer ?? this;
-        if (!this.options.currency || !source.has(itemId, amount)) return false;
+        if (!this.options.currency || !source.has(itemId, amount) || this.registry.resolve(itemId).keep) return false;
         if (!source.remove(itemId, amount)) return false;
         this.options.currency.earn?.(this.sellPrice(itemId) * amount);
         return true;
+    }
+
+    /** Whose items a shop buys and sells: the customer's bag, or its own when it has none. */
+    get trader(): Inventory {
+        return this.options.customer ?? this;
     }
 
     /** True when this inventory trades in a currency. */

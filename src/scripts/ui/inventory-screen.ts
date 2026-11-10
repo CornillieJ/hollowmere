@@ -136,7 +136,7 @@ export class InventoryScreen {
 
         for (const element of this.slotElements) {
             const definition = this.inventory.registry.resolve(element.itemId);
-            const amount = this.inventory.count(element.itemId);
+            const amount = this.owned(element.itemId);
             const locked = !this.inventory.isUnlocked(element.itemId);
             const isListing = this.mode === 'shop' && amount === 0;
 
@@ -210,7 +210,7 @@ export class InventoryScreen {
         }
 
         const definition = this.inventory.registry.resolve(itemId);
-        const amount = this.inventory.count(itemId);
+        const amount = this.owned(itemId);
         const locked = !this.inventory.isUnlocked(itemId);
 
         const heading = div('inventory-detail-heading', undefined, this.detail);
@@ -250,14 +250,18 @@ export class InventoryScreen {
                 const move = button(transfer.label, () => this.transfer(itemId, transfer.target), { className: 'menu-button', parent: actions });
                 move.disabled = !transfer.target.slotOf(itemId) && transfer.target.isFull;
             }
-            if (amount > 0) button('Drop 1', () => this.drop(itemId), { className: 'menu-button', parent: actions });
+            // A kept item (a tool, a quest item) has no drop button: losing it could end the game.
+            if (amount > 0 && !definition.keep) button('Drop 1', () => this.drop(itemId), { className: 'menu-button', parent: actions });
             return;
         }
 
-        const price = this.inventory.buyPrice(itemId);
-        const buy = button(`Buy ${this.money(price)}`, () => this.buy(itemId), { className: 'menu-button is-primary', parent: actions });
-        buy.disabled = this.inventory.currencyBalance() < price;
-        if (amount > 0) button(`Sell ${this.money(this.inventory.sellPrice(itemId))}`, () => this.sell(itemId), { className: 'menu-button', parent: actions });
+        // Something the customer carries that the shop does not stock can only be sold.
+        if (this.stocks(itemId)) {
+            const price = this.inventory.buyPrice(itemId);
+            const buy = button(`Buy ${this.money(price)}`, () => this.buy(itemId), { className: 'menu-button is-primary', parent: actions });
+            buy.disabled = this.inventory.currencyBalance() < price;
+        }
+        if (amount > 0 && !definition.keep) button(`Sell ${this.money(this.inventory.sellPrice(itemId))}`, () => this.sell(itemId), { className: 'menu-button', parent: actions });
     }
 
     private renderFooter(): void {
@@ -289,8 +293,8 @@ export class InventoryScreen {
 
     /** Use in bag mode, buy in shop mode. Used by a double click and by Enter. */
     private activate(itemId: string): void {
-        if (this.mode === 'shop' && this.inventory.count(itemId) === 0) {
-            this.buy(itemId);
+        if (this.mode === 'shop') {
+            if (this.stocks(itemId)) this.buy(itemId);
             return;
         }
         if (this.inventory.use(itemId)) {
@@ -318,6 +322,7 @@ export class InventoryScreen {
     }
 
     private drop(itemId: string): void {
+        if (this.inventory.registry.resolve(itemId).keep) return;
         this.inventory.remove(itemId, 1);
         this.refresh();
     }
@@ -370,9 +375,22 @@ export class InventoryScreen {
         }
 
         const ids = this.options.catalogue ?? this.inventory.registry.sellable().map((item) => item.id);
-        return ids
+        // After the stock: whatever the customer carries that the shop would buy.
+        const carried = this.inventory.trader.slots
+            .filter((slot) => !ids.includes(slot.itemId) && !slot.definition.keep && (slot.definition.price ?? 0) > 0)
+            .map((slot) => slot.itemId);
+        return [...ids, ...carried]
             .map((id) => ({ itemId: id, amount: 0, definition: this.inventory.registry.resolve(id) }))
             .filter((slot) => !slot.definition.hidden && passesFilter(slot.definition));
+    }
+
+    private stocks(itemId: string): boolean {
+        return (this.options.catalogue ?? this.inventory.registry.sellable().map((item) => item.id)).includes(itemId);
+    }
+
+    /** How many the player has: in a shop that is the customer's bag, not the shop's shelf. */
+    private owned(itemId: string): number {
+        return this.mode === 'shop' ? this.inventory.trader.count(itemId) : this.inventory.count(itemId);
     }
 
     dispose(): void {

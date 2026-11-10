@@ -161,7 +161,7 @@ export class TopDownController {
         this.wishDirection.set(0, 0, 0).addScaledVector(this.forwardVector, move.y).addScaledVector(this.rightVector, move.x);
 
         const scroll = this.game.input.mouse.scroll.delta;
-        if (scroll !== 0) this.height = clamp(this.height + scroll * this.zoomSpeed, this.minHeight, this.maxHeight);
+        if (scroll !== 0 && !this.game.input.mouse.scroll.claimedBy) this.height = clamp(this.height + scroll * this.zoomSpeed, this.minHeight, this.maxHeight);
 
         this.scratch.copy(this.player.position);
         if (this.lookAhead > 0 && this.wishDirection.lengthSq() > 0.01) {

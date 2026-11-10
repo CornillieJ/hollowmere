@@ -15,6 +15,11 @@ export type AddHotbarOptions = {
     /** The mouse wheel cycles slots. Defaults to true. */
     wheel?: boolean;
     /**
+     * Take the wheel away from the camera, so scrolling picks a slot and does not
+     * zoom as well. Defaults to true; pass false to keep both on the wheel.
+     */
+    exclusiveWheel?: boolean;
+    /**
      * Input action that uses what is in hand. Items with a `use` handler are used
      * through the inventory; anything else goes to `onUse`, which is where tools
      * such as a hoe or a watering can do their work.
@@ -43,6 +48,9 @@ export function addHotbar(game: Game, options: AddHotbarOptions): HotbarHandle {
     const bar = new Hotbar(game.hud.root, inventory, { slots: options.slots ?? Math.min(10, inventory.capacity) });
     const stopRefresh = options.inventory.onChange(() => bar.refresh());
     if (options.onSelect) bar.onSelect(options.onSelect);
+
+    const claimsWheel = options.wheel !== false && options.exclusiveWheel !== false;
+    if (claimsWheel) game.input.mouse.scroll.claimedBy = 'hotbar';
 
     const removeSystem = game.systems.add({
         name: 'hotbar',
@@ -77,6 +85,7 @@ export function addHotbar(game: Game, options: AddHotbarOptions): HotbarHandle {
         show: () => bar.setVisible(true),
         hide: () => bar.setVisible(false),
         dispose: () => {
+            if (claimsWheel && game.input.mouse.scroll.claimedBy === 'hotbar') game.input.mouse.scroll.claimedBy = undefined;
             removeSystem();
             stopRefresh();
             bar.dispose();
