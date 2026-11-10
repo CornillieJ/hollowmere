@@ -30,10 +30,10 @@ npm run dev          # http://localhost:5260
 | E | interact: plant, water, pick, chop, cook, talk, ride, sleep |
 | F | use what you hold: put down a fence, light a candle, swing the axe, eat |
 | 1 to 8, wheel | pick a slot on the hotbar (the wheel does not zoom) |
-| Tab or I | the backpack |
+| Tab or I | the backpack: stats, drag to move, drag out to drop, click for more. Tab closes it again |
 | J | the notebook: tasks, requests, recipes, how everything works |
 | Shift | run |
-| Escape | pause: save, settings (fullscreen, sensitivity, picture effects, volumes) |
+| Escape | closes whatever window is open; with none open, pause: save, settings (fullscreen, sensitivity, picture effects, volumes) |
 
 On a phone the on-screen stick and buttons appear at the first touch.
 
@@ -50,6 +50,20 @@ On a phone the on-screen stick and buttons appear at the first touch.
 - **Cook.** The pot by the farmhouse turns crops into dishes: pick a recipe,
   wait, take it off the fire. Every dish burns 1 wood. The bench turns 3 wood
   into a fence kit.
+- **Going home.** From day 3 Pell, who had the farm before you and wrote the
+  letters, waits on the lookout hill. Burn 12000c at the old tree within 60
+  days and you wake up in your real life; say yes and the countdown starts.
+  Pay in parts whenever you call on him. Miss the last day and you stay for
+  good, and the game goes on.
+- **Big jobs.** The better-paid requests want a third of the pay down first,
+  asked as a yes or no. It comes back on delivery and is kept if the day passes.
+- **Bad days.** From day 3 there is a 30% chance each day that a crowd gathers
+  at some hour: ringing the village wall, or all over the farmyard. They cannot
+  enter the lit places and are gone by dawn.
+- **Carrying.** 8 pockets on the hotbar and a backpack that starts with 3
+  slots; the order book sells 6, 10 and 16. The chest by the barn holds 16
+  stacks, and what is in it survives dying.
+- **Deeds.** 17 achievements, listed in the notebook.
 - **Deliver.** Villagers ask for specific things, marked with a `!`. They take
   only what they asked for. Requests start with raw crops and move up to
   dishes that need a better pot, and they pay far more than the store.
@@ -92,7 +106,8 @@ The farm lies low in the south west, the village on a rise in the north east
 behind a low wall, with pale cobbles underfoot so it is plain where it ends.
 The brown road joins them past the chapel. Thin paths lead off it to the mere,
 the lookout hill above the mist, the standing stones, a ruined farm and the
-graveyard. The rim of the valley is too steep to climb.
+graveyard. The valley has no edge: walk far enough into the fog and you come
+out on the far side.
 
 ## Where things are
 
@@ -104,6 +119,8 @@ graveyard. The rim of the valley is too steep to climb.
 | `src/scripts/game/farmyard.ts` | the clutter on the farm, and the infirmary |
 | `src/scripts/game/omens.ts` | what lies about on the plains, by day |
 | `src/scripts/game/letters.ts` | the mailbox and Pell |
+| `src/scripts/game/escape.ts` | the bargain for a way home: price, days, the talk |
+| `src/scripts/game/happenings.ts` | sieges and overruns |
 | `src/scripts/game/story.ts` | the first day, step by step |
 | `src/scripts/game/journal.ts` | the notebook |
 | `src/scripts/game/monsters.ts` | the three kinds of Hollow, and how many there should be |

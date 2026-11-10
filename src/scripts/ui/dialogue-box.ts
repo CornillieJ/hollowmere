@@ -64,6 +64,13 @@ export class DialogueBox {
                 event.preventDefault();
                 event.stopPropagation();
                 this.next();
+            } else if (event.code === 'Escape') {
+                // Escape backs out: it reads on through plain lines and takes the last choice, by convention the "no" or "goodbye".
+                event.preventDefault();
+                event.stopPropagation();
+                const last = this.choices.lastElementChild as HTMLButtonElement | null;
+                if (last) last.click();
+                else this.next();
             } else if (/^Digit[1-9]$/.test(event.code)) {
                 const choice = this.choices.children[Number(event.code.slice(5)) - 1] as HTMLButtonElement | undefined;
                 if (choice) {

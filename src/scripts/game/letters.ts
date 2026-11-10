@@ -10,15 +10,17 @@ import type { NarrationHandle } from '../kit';
 /**
  * The mailbox by the porch, and the one who fills it.
  *
- * A letter is waiting each morning from the second day. Reading them all sends
- * the farmer up the road to the tall one at the bend, who has stood there
- * harmless since before the game began.
+ * A letter is waiting each morning from the second day. The one who writes
+ * them stands on the hill above the fog, harmless, and waits to be called on:
+ * first with a way home, and after the last letter with something he kept.
  */
 export type LettersOptions = {
     mailbox: THREE.Vector3;
-    bend: THREE.Vector3;
-    /** Heading that faces the road from the bend. */
-    bendYaw: number;
+    /** Where Pell stands, and which way he faces when nobody is near. */
+    hill: THREE.Vector3;
+    hillYaw: number;
+    /** Pell's talk about going home. Resolves false when he has nothing to say about it yet. */
+    deal: (dialogue: DialogueBox) => Promise<boolean>;
     day: () => number;
     narration: NarrationHandle;
     /** Called once, when Pell hands over what he kept. */
@@ -45,13 +47,16 @@ export function setupLetters(game: Game, options: LettersOptions): LettersHandle
     const waiting = (): boolean => read < LETTERS.length && options.day() >= (LETTERS[read]?.day ?? Infinity);
 
     /** Show lines in the dialogue box with the game held still, like any conversation. */
-    async function show(lines: string[], speaker: string, portrait: string): Promise<void> {
+    const show = (lines: string[], speaker: string, portrait: string): Promise<void> => session(async () => void (await box.say(lines.map((text) => ({ text, portrait })), speaker)));
+
+    /** Hold the game still with the dialogue box up for as long as `talk` runs. */
+    async function session(talk: () => Promise<void>): Promise<void> {
         if (busy) return;
         busy = true;
         game.time.pause(box);
         game.screens.show('modal', box);
         try {
-            await box.say(lines.map((text) => ({ text, portrait })), speaker);
+            await talk();
         } finally {
             game.screens.hide('modal', box);
             game.time.resume(box);
@@ -77,7 +82,7 @@ export function setupLetters(game: Game, options: LettersOptions): LettersHandle
         if (!letter || !waiting()) return;
         await show(letter.lines, `A letter (${read + 1} of ${LETTERS.length})`, '✉');
         read += 1;
-        if (read === 1) options.narration.say(['No stamp. And it knows which bed I woke in.']);
+        if (read === 1) void options.narration.speak(['No stamp. And it knows which bed I woke in.']);
     }
 
     game.interactions.add(mailbox, {
@@ -98,28 +103,27 @@ export function setupLetters(game: Game, options: LettersOptions): LettersHandle
     const shawl = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.5, 6, 1, true), new THREE.MeshStandardMaterial({ color: 0x5a4a52, roughness: 1, flatShading: true, side: THREE.DoubleSide }));
     shawl.position.y = 0.62;
     rig.torso.add(shawl);
-    rig.root.position.copy(options.bend);
-    rig.root.rotation.y = options.bendYaw;
+    rig.root.position.copy(options.hill);
+    rig.root.rotation.y = options.hillYaw;
     rig.root.name = 'pell';
     game.scene.add(rig.root);
     const animator = new FolkAnimator(rig, { stutter: 3, armSwing: 0.1 });
     const head = rig.head;
 
     async function greetPell(): Promise<void> {
-        if (read < LETTERS.length) {
-            options.narration.say(metPell ? ['He is still looking at the road.'] : ['Taller than the others. It does not turn. It does not reach.', 'I am not saying hello to that. Not yet.']);
+        // After the last letter he hands over what he kept, once.
+        if (read >= LETTERS.length && !metPell) {
+            await show(PELL_SPEAKS, 'Pell', '🕯');
+            metPell = true;
+            options.onGift();
             return;
         }
-        if (metPell) {
-            options.narration.say(['Good evening, Pell.']);
-            return;
-        }
-        await show(PELL_SPEAKS, 'Pell', '🕯');
-        metPell = true;
-        options.onGift();
+        let spoke = false;
+        await session(async () => void (spoke = await options.deal(box)));
+        if (!spoke) void options.narration.speak(['Taller than the others, and wrapped in a shawl. It does not turn. It does not reach.', 'It is looking out over the fog, at the farm. I will leave it be. For now.']);
     }
 
-    game.interactions.add(rig.root, { prompt: () => (read >= LETTERS.length ? 'Say hello to Pell' : 'Look at the tall one'), range: 2.6, onInteract: () => void greetPell() });
+    game.interactions.add(rig.root, { prompt: () => (read >= 2 ? 'Talk to Pell' : 'Look at the tall one'), range: 2.6, onInteract: () => void greetPell() });
 
     //#endregion Pell
 

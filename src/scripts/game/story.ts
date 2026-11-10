@@ -119,7 +119,7 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
             objective: 'Bring a villager what they ask for',
             detail: 'A ! marks someone with a request. Talk to them to hear it, come back with the goods, and choose "Hand over". Press J for the list.',
             say: [
-                'He never mentioned the things in the fog. Nobody here does.',
+                'He talks about staying indoors after dark as if it were only good manners. Nobody here says what is out there.',
                 'The ones with a ! over their head want something from me. (Talk to them to hear what, come back with it, and choose "Hand over". J opens my notebook, which lists who wants what.)',
             ],
             done: () => facts.delivered() >= 1,
@@ -186,9 +186,9 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
         },
         {
             id: 'pell',
-            objective: 'Say hello to the tall one at the bend in the road',
-            detail: 'He stands where the road turns for the chapel, between the farm and the lamp. He does not chase.',
-            say: ['The tall one at the bend in the road. I have walked past him every day.', 'Say hello, he says. All right, Pell. All right. (He stands where the road turns for the chapel.)'],
+            objective: 'Go up the hill to Pell once more',
+            detail: 'He stands by the old tree on the lookout hill, up the west path from the chapel. He kept something for you.',
+            say: ['The last letter. He kept something of mine, he says.', 'All right, Pell. Once more up the hill. (The west path from the chapel, to the old tree.)'],
             done: facts.metPell,
             after: ['My name. In my own hand. I do not remember writing it.', 'I will read it every morning. And I will stay. There are worse neighbours.'],
         },

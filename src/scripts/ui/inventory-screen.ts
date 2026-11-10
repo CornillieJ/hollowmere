@@ -32,6 +32,12 @@ export type InventoryScreenOptions = {
     onRefused?: (reason: string) => void;
     /** Called when the panel opens or closes. */
     onVisibilityChange?: (open: boolean) => void;
+    /**
+     * Key codes that close the panel, asked on every press so rebinding is
+     * followed. The key that opened a panel should also close it, even when the
+     * panel would otherwise use that key itself (Tab moves the selection).
+     */
+    closeCodes?: () => string[];
     /** Other inventories a stack can be moved into, e.g. `[{ label: 'To pockets', target: pockets }]`. */
     transfers?: Array<{ label: string; target: Inventory }>;
 };
@@ -330,7 +336,7 @@ export class InventoryScreen {
     private handleKey(event: KeyboardEvent): void {
         if (!this.isOpen) return;
 
-        if (event.key === 'Escape') {
+        if (event.key === 'Escape' || this.options.closeCodes?.().includes(event.code)) {
             event.preventDefault();
             event.stopPropagation();
             this.close();

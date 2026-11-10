@@ -13,15 +13,18 @@
     };
     const press = async (code, hold = 60) => {
         await quiet();
-        window.dispatchEvent(new KeyboardEvent('keydown', { code, key: code.replace('Key', '').toLowerCase(), bubbles: true }));
+        document.body.dispatchEvent(new KeyboardEvent('keydown', { code, key: code.replace('Key', '').toLowerCase(), bubbles: true }));
         await sleep(hold);
-        window.dispatchEvent(new KeyboardEvent('keyup', { code, key: code.replace('Key', '').toLowerCase(), bubbles: true }));
+        document.body.dispatchEvent(new KeyboardEvent('keyup', { code, key: code.replace('Key', '').toLowerCase(), bubbles: true }));
         await sleep(120);
     };
     const go = async (x, z) => {
         await quiet();
         game.player.body.teleport({ x, y: world.terrain.heightAt(x, z) + 0.2, z });
-        await sleep(250);
+        // Arriving somewhere may set the farmer talking; wait until that has been read.
+        await sleep(750);
+        await quiet();
+        await sleep(400);
     };
     const hold = (id) => world.hotbar.select(world.pockets.inventory.slots.findIndex((slot) => slot.itemId === id));
     const have = (id) => world.pockets.count(id) + world.bag.count(id);
@@ -51,8 +54,12 @@
     expect(step() === 'wake', `the story starts at waking, got ${step()}`);
     // From here on the probe reads the farmer's own lines as soon as they come up.
     started = true;
+    expect(world.bag.inventory.capacity === 3, `the backpack starts with 3 slots, got ${world.bag.inventory.capacity}`);
+    // The rest of the run carries a lot at once.
+    world.upgrades.upgrades.set('bag', 3);
+    expect(world.bag.inventory.capacity === 16, 'a bigger backpack has more slots');
     const reader = setInterval(() => {
-        if (selfBox()) window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true }));
+        if (selfBox()) document.body.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true }));
     }, 120);
 
     // 1. Plant 3, water 3.
@@ -143,7 +150,7 @@
     expect(Math.abs(log.villageHeight - 4) < 0.3, `the village stands 4 m up, player at ${log.villageHeight}`);
     await sleep(300);
     expect(step() === 'meet', `the story wants the shopkeeper, got ${step()}`);
-    const choices = () => [...document.querySelectorAll('.dialogue-choice')];
+    const choices = () => [...document.querySelectorAll('.dialogue:not(.is-hidden) .dialogue-choice')];
     const talkUntilChoices = async () => {
         await press('KeyE');
         await sleep(300);
@@ -328,6 +335,7 @@
     await sleep(300);
 
     // 13g. The wheel picks a hotbar slot and leaves the camera alone.
+    await quiet();
     const zoom = world.controls.distance;
     world.hotbar.select(0);
     game.canvas.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true }));
@@ -336,16 +344,63 @@
     expect(world.hotbar.selectedId !== 'watering-can', 'scrolling moves along the hotbar');
 
     // 13h. Nothing a day depends on can be thrown or sold away.
-    world.bag.open();
+    const packOpen = () => document.querySelector('.pack-wrap:not(.is-hidden)');
+    const point = (element, type, x, y) => element.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: x, clientY: y, pointerId: 1 }));
+    const centre = (element) => {
+        const box = element.getBoundingClientRect();
+        return [box.left + box.width / 2, box.top + box.height / 2];
+    };
+    await press('Tab');
     await sleep(200);
-    world.pockets.moveTo(world.bag, 'axe');
-    world.bag.screen.refresh();
-    document.querySelector('.inventory:not(.is-hidden) [data-item="axe"]')?.click();
+    expect(Boolean(packOpen()), 'Tab opens the backpack');
+    expect(packOpen().querySelector('.pack-stats').textContent.includes('Health'), 'the stats sit on top');
+    expect(packOpen().querySelectorAll('.pack-section').length === 2, 'backpack and pockets each have a grid');
+    // Click the axe: a menu with what can be done, and no way to drop it.
+    const axeSlot = packOpen().querySelector('[data-item="axe"]');
+    point(axeSlot, 'pointerdown', ...centre(axeSlot));
+    point(axeSlot, 'pointerup', ...centre(axeSlot));
     await sleep(150);
-    const bagButtons = [...document.querySelectorAll('.inventory:not(.is-hidden) .inventory-actions button')].map((button) => button.textContent);
-    expect(bagButtons.some((label) => label.includes('To pockets')) && !bagButtons.some((label) => label.includes('Drop')), `the axe can be moved but not dropped, buttons: ${bagButtons}`);
-    world.bag.close();
-    world.bag.moveTo(world.pockets, 'axe');
+    const menuButtons = [...document.querySelectorAll('.pack-menu:not(.is-hidden) button')].map((button) => button.textContent);
+    expect(menuButtons.some((label) => label.includes('To backpack')) && !menuButtons.some((label) => label.includes('Drop')), `the axe can be moved but not dropped, menu: ${menuButtons}`);
+    await press('Escape');
+    expect(Boolean(packOpen()) && !document.querySelector('.pack-menu:not(.is-hidden)'), 'Escape closes the item menu first');
+    // Drag wood out of the window: it lies on the ground.
+    world.pockets.add('wood', 2);
+    await sleep(150);
+    const woodBefore = have('wood');
+    const woodSlot = packOpen().querySelector('[data-item="wood"]');
+    const [wx, wy] = centre(woodSlot);
+    point(woodSlot, 'pointerdown', wx, wy);
+    point(woodSlot, 'pointermove', wx + 30, wy);
+    point(packOpen(), 'pointermove', 8, 8);
+    point(packOpen(), 'pointerup', 8, 8);
+    await sleep(200);
+    expect(have('wood') < woodBefore, `dragging out of the window drops the stack, wood ${woodBefore} then ${have('wood')}`);
+    // Drag between the grids.
+    const seedSlot = packOpen().querySelector('.pack-section:nth-child(2) [data-item]');
+    const seedId = seedSlot.dataset.item;
+    const emptyBag = packOpen().querySelector('.pack-section:nth-child(1) .pack-slot.is-empty');
+    const [sx, sy] = centre(seedSlot);
+    const [ex, ey] = centre(emptyBag);
+    point(seedSlot, 'pointerdown', sx, sy);
+    point(seedSlot, 'pointermove', sx + 20, sy);
+    point(packOpen(), 'pointermove', ex, ey);
+    point(packOpen(), 'pointerup', ex, ey);
+    await sleep(200);
+    expect(world.bag.count(seedId) > 0 && world.pockets.count(seedId) === 0, `dragging onto the other grid moves the stack (${seedId})`);
+    world.bag.moveTo(world.pockets, seedId);
+    await press('Tab');
+    await sleep(200);
+    expect(!packOpen() && game.state.current === 'playing', 'Tab closes what it opened');
+    await press('Tab');
+    await sleep(200);
+    await press('Escape');
+    await sleep(200);
+    expect(!packOpen() && game.state.current === 'playing', 'Escape closes the backpack and does not pause');
+    world.chestPack.open();
+    await sleep(150);
+    expect(packOpen()?.querySelectorAll('.pack-section').length === 3, 'the barn chest shows chest, backpack and pockets');
+    world.chestPack.close();
     world.pockets.add('turnip', 2);
     world.shop.open();
     await sleep(200);
@@ -437,7 +492,59 @@
     expect(world.dayCycle.day === day + 3, `3 days are gone: day ${day} became ${world.dayCycle.day}`);
     log.kept = [...world.pockets.inventory.slots, ...world.bag.inventory.slots].map((slot) => slot.itemId).sort();
     expect(log.kept.join() === 'axe,watering-can', `only the tools are left, got ${log.kept}`);
+    world.chest.add('turnip', 1);
     expect(world.story.story.current?.id === 'regular', `the story is on to the days after, got ${world.story.story.current?.id}`);
+
+    // 14b. Pell on the hill: the way home, with a clock on it.
+    const pellNow = game.scene.getObjectByName('pell');
+    expect(Math.hypot(pellNow.position.x + 70, pellNow.position.z + 56) < 8, 'Pell stands on the lookout hill');
+    expect(world.escape.waiting, `from day 3 Pell has something to say, day ${world.dayCycle.day}`);
+    world.dayCycle.setHour(12);
+    world.population.clear();
+    world.coins.set(700);
+    const pellChoices = async () => {
+        await go(pellNow.position.x + 1.4, pellNow.position.z + 0.6);
+        await press('KeyE');
+        await sleep(300);
+        for (let index = 0; index < 12 && choices().length === 0; index += 1) {
+            await press('Space');
+            await sleep(250);
+        }
+        return choices();
+    };
+    const offerChoices = await pellChoices();
+    offerChoices.find((choice) => choice.textContent.includes('Yes'))?.click();
+    await sleep(300);
+    for (let index = 0; index < 6 && world.villagers.dialogue.isOpen === false && document.querySelector('.dialogue:not(.is-hidden):not(.dialogue-self)'); index += 1) {
+        await press('Space');
+        await sleep(250);
+    }
+    await sleep(400);
+    await quiet();
+    expect(world.escape.pledge.state === 'running' && world.escape.pledge.daysLeft === 60, `saying yes starts 60 days, state ${world.escape.pledge.state}, ${world.escape.pledge.daysLeft} days`);
+    expect(document.querySelector('.hud').textContent.includes('60d'), 'the countdown shows on the HUD');
+    (await pellChoices()).find((choice) => choice.textContent.includes('Burn 500'))?.click();
+    await sleep(300);
+    for (let index = 0; index < 6 && document.querySelector('.dialogue:not(.is-hidden):not(.dialogue-self)'); index += 1) {
+        await press('Space');
+        await sleep(250);
+    }
+    expect(world.escape.pledge.remaining === 11500 && world.coins.value() === 200, `500 burned: ${world.escape.pledge.remaining} left, purse ${world.coins.value()}`);
+
+    // 14c. The valley loops.
+    await go(118, 10);
+    await until(() => game.player.position.x < 0, 3000);
+    expect(game.player.position.x < -100, `walking out east comes in from the west, x ${game.player.position.x.toFixed(0)}`);
+
+    // 14d. A bad day: they ring the village, and are gone by morning.
+    world.happenings.trigger('siege');
+    await sleep(400);
+    await quiet();
+    log.siege = world.happenings.gathered;
+    expect(log.siege >= 12, `a siege gathers a crowd round the wall, ${log.siege}`);
+    world.happenings.newDay();
+    world.enemies.clear();
+    expect(world.deeds.has('harvest') && world.deeds.has('died') && world.deeds.has('bargain'), 'deeds are kept');
 
     // 15. Back at the title screen there is a save to continue.
     world.flow.quit();

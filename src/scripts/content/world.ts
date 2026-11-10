@@ -2,8 +2,8 @@ import { createNoise2D, fbm } from '../helpers/noise';
 import type { TerrainFlat } from '../kit';
 
 /**
- * Where everything is. The map is a square of `WORLD_HALF` meters each way, a
- * valley with steep rims: the farm low in the south west, the village on a rise
+ * Where everything is. The map is a square of `WORLD_HALF` meters each way that
+ * loops back on itself, as dreams do: the farm low in the south west, the village on a rise
  * in the north east, one road between them with a lit chapel halfway, and dead
  * woods everywhere else. Paths branch off the road to the places worth finding.
  */
@@ -111,9 +111,6 @@ const bump = (x: number, z: number, at: { x: number; z: number }, radius: number
 export function naturalHeight(x: number, z: number): number {
     let height = 2 + fbm(noise, x / 75, z / 75, { octaves: 3 }) * 6;
     height += bump(x, z, PLACES.lookout, 30) * 15;
-    // The valley's edge: too steep to climb, so the map needs no invisible wall.
-    const edge = Math.max(Math.abs(x), Math.abs(z)) - (WORLD_HALF - 14);
-    if (edge > 0) height += (edge / 11) ** 2 * 26;
     return height;
 }
 
@@ -173,8 +170,14 @@ export const CLEARINGS = [
     { x: PLACES.lookout.x, z: PLACES.lookout.z, radius: 7 },
 ];
 
-/** Where the road turns for the chapel. Pell stands here, a step off the brown, facing it. */
-export const BEND = { x: -10.5, z: 20.5, yaw: Math.atan2(-8 - -10.5, 16 - 20.5) };
+/** Where Pell stands on the lookout: at the edge, looking out over the fog at the farm he used to have. */
+export const PELL_SPOT = { x: PLACES.lookout.x + 1, z: PLACES.lookout.z + 3.4, yaw: Math.atan2(FARM.door.x - PLACES.lookout.x, FARM.door.z - PLACES.lookout.z) };
+
+/**
+ * The valley has no edge. Past this distance from the middle the fog closes in,
+ * and whoever keeps walking comes out of it on the far side.
+ */
+export const WRAP_AT = WORLD_HALF - 8;
 
 /** The doorstep of a village house: a few steps out towards the square, facing it. */
 export function homeOf(house: number): { x: number; z: number; yaw: number } {

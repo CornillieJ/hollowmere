@@ -18,9 +18,9 @@ export const ITEMS: ItemDefinition[] = [
     { id: 'fence-kit', name: 'Fence kit', icon: '🚧', category: 'tool', price: 14, description: 'Press F to put a length of fence down. Holds the walkers back for a while. Nothing holds them for long.' },
 
     { id: 'turnip-seed', name: 'Turnip seeds', icon: '🌱', category: 'material', price: 4, description: 'Quick to grow. Pale inside.' },
-    { id: 'wheat-seed', name: 'Wheat seeds', icon: '🌾', category: 'material', price: 5, description: 'For bread. It leans away from the road as it grows.' },
-    { id: 'corn-seed', name: 'Corn seeds', icon: '🌽', category: 'material', price: 9, description: 'Tall. Two ears a stalk.' },
-    { id: 'pumpkin-seed', name: 'Pumpkin seeds', icon: '🎃', category: 'material', price: 15, description: 'Slow. The pumpkins here grow faces on their own.' },
+    { id: 'wheat-seed', name: 'Wheat seeds', icon: '🌰', category: 'material', price: 5, description: 'For bread. It leans away from the road as it grows.' },
+    { id: 'corn-seed', name: 'Corn seeds', icon: '🫘', category: 'material', price: 9, description: 'Tall. Two ears a stalk.' },
+    { id: 'pumpkin-seed', name: 'Pumpkin seeds', icon: '🥜', category: 'material', price: 15, description: 'Slow. The pumpkins here grow faces on their own.' },
 
     { id: 'turnip', name: 'Turnip', icon: '🥬', category: 'treasure', price: 16 },
     { id: 'wheat', name: 'Wheat', icon: '🌾', category: 'treasure', price: 14 },
@@ -32,7 +32,7 @@ export const ITEMS: ItemDefinition[] = [
     { id: 'mushroom', name: 'Pale cap', icon: '🍄', category: 'treasure', price: 24, description: 'Grows by the mere and among the standing stones. Faintly warm.' },
 
     { id: 'turnip-soup', name: 'Turnip soup', icon: '🍲', category: 'consumable', price: 70, description: 'Restores 35 health.', use: food(35) },
-    { id: 'boiled-egg', name: 'Boiled egg', icon: '🥚', category: 'consumable', price: 54, description: 'Restores 25 health.', use: food(25) },
+    { id: 'boiled-egg', name: 'Boiled egg', icon: '🍙', category: 'consumable', price: 54, description: 'Restores 25 health.', use: food(25) },
     { id: 'bread', name: 'Bread', icon: '🍞', category: 'consumable', price: 64, description: 'Restores 30 health.', use: food(30) },
     { id: 'corn-chowder', name: 'Corn chowder', icon: '🥣', category: 'consumable', price: 180, description: 'Restores 60 health.', use: food(60) },
     { id: 'omelette', name: 'Omelette', icon: '🍳', category: 'consumable', price: 160, description: 'Restores 55 health.', use: food(55) },

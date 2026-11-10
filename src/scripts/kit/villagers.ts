@@ -23,13 +23,22 @@ import type { InventoryHandle } from './inventory';
  */
 export type VillagerTopic = {
     id: string;
-    /** The choice the player sees, e.g. "Ask about the last farmer". */
-    label: string;
+    /** The choice the player sees, e.g. "Ask about the last farmer". A function can show live numbers. */
+    label: string | ((context: VillagerContext) => string);
     lines: string[] | ((context: VillagerContext) => string[]);
     /** Hidden until this many hearts. */
     minHearts?: number;
     /** Hidden until this day. */
     minDay?: number;
+    /** Hidden while this returns false, e.g. until a deal is on the table. */
+    visible?: (context: VillagerContext) => boolean;
+    /** Always listed first, and never pushed out by the cap on topics. */
+    pinned?: boolean;
+    /**
+     * Runs after the lines, with the conversation still open: ask a question
+     * with `dialogue.say` and act on the answer. This is how a topic becomes a deal.
+     */
+    after?: (context: VillagerContext, dialogue: DialogueBox) => Promise<void> | void;
 };
 
 /** A place in a villager's day. `from` is an hour, 0 to 24. */
@@ -80,6 +89,13 @@ export type AddVillagersOptions = {
     held?: () => string | undefined;
     /** Errands villagers can ask for. Omit for no requests. */
     requests?: Pick<RequestBoardOptions, 'templates' | 'maxOpen' | 'tier' | 'deliveriesPerTier'>;
+    /**
+     * Takes a job's deposit and returns whether the player could pay. Without it
+     * jobs with a deposit are simply taken.
+     */
+    payDeposit?: (amount: number, request: Request) => boolean;
+    /** Called when the player takes a job that needed a deposit. */
+    onAccepted?: (request: Request) => void;
     /** Called for each request that ran out of time, e.g. to tell the player and cool the friendship. */
     onExpired?: (request: Request) => void;
     /** Pays out a finished request. */
@@ -122,7 +138,7 @@ export type VillagersHandle = {
     dispose: () => void;
 };
 
-type Choice = { kind: 'chat' | 'gift' | 'deliver' | 'bye' } | { kind: 'topic'; topic: VillagerTopic };
+type Choice = { kind: 'chat' | 'gift' | 'deliver' | 'offer' | 'bye' } | { kind: 'topic'; topic: VillagerTopic };
 
 export function addVillagers(game: Game, options: AddVillagersOptions): VillagersHandle {
     const dialogue = new DialogueBox(game.screens.layer('modal'), options.dialogue);
@@ -256,7 +272,36 @@ export function addVillagers(game: Game, options: AddVillagersOptions): Villager
 
         let opening: Array<DialogueLine<Choice>> = [{ text: pick(0), portrait }];
         const request = requests?.from(villager.id)[0];
-        if (request && !requests?.canFulfil(request, items)) {
+        const money = (amount: number): string => options.formatReward?.(amount) ?? String(amount);
+        /** A job with a deposit: say what it is, ask yes or no, and take the money on a yes. */
+        const offer = async (job: Request): Promise<void> => {
+            const answer = await dialogue.say<boolean>(
+                [
+                    { text: `${job.text} (${money(job.reward)}, by day ${job.dueDay})`, portrait },
+                    {
+                        text: `It is a lot to ask, so I will want ${money(job.deposit)} from you first. You get it back with your pay. If the day passes, I keep it. Will you do it?`,
+                        portrait,
+                        choices: [
+                            { label: `Yes, pay ${money(job.deposit)}`, value: true },
+                            { label: 'No, not now', value: false },
+                        ],
+                    },
+                ],
+                speaker,
+            );
+            if (!answer || !requests) return;
+            if (requests.accept(job, (amount) => options.payDeposit?.(amount, job) ?? true)) {
+                options.onAccepted?.(job);
+                await dialogue.say([{ text: 'Good. I will be waiting.', portrait }], speaker);
+            } else {
+                await dialogue.say([{ text: 'You have not got it on you. Come back when you do.', portrait }], speaker);
+            }
+        };
+        if (request && !request.accepted) {
+            await dialogue.say(opening, speaker);
+            opening = [];
+            await offer(request);
+        } else if (request && !requests?.canFulfil(request, items)) {
             const reward = options.formatReward?.(request.reward) ?? String(request.reward);
             opening.push({ text: `${request.text} (${reward}, by day ${request.dueDay})`, portrait });
         }
@@ -268,21 +313,25 @@ export function addVillagers(game: Game, options: AddVillagersOptions): Villager
             const held = options.held?.();
             const choices: Array<DialogueChoice<Choice>> = [];
             if (open && requests?.canFulfil(open, items)) choices.push({ label: `Hand over ${open.amount} ${nameOf(open.itemId)}`, value: { kind: 'deliver' } });
+            if (open && !open.accepted) choices.push({ label: `About the job (deposit ${money(open.deposit)})`, value: { kind: 'offer' } });
             if (options.gifts !== false && held && relationships.canGift(villager.id)) choices.push({ label: `Give ${nameOf(held)}`, value: { kind: 'gift' } });
-            for (const topic of availableTopics(villager, context())) choices.push({ label: topic.label, value: { kind: 'topic', topic } });
+            for (const topic of availableTopics(villager, context())) choices.push({ label: typeof topic.label === 'function' ? topic.label(context()) : topic.label, value: { kind: 'topic', topic } });
             choices.push({ label: 'Chat', value: { kind: 'chat' } }, { label: 'Goodbye', value: { kind: 'bye' } });
 
             const choice = await dialogue.say<Choice>([...opening, { text: hearts(villager.id), portrait, choices }], speaker);
             opening = [];
             if (!choice || choice.kind === 'bye') return;
 
-            if (choice.kind === 'deliver' && open && requests) {
+            if (choice.kind === 'offer' && open) {
+                await offer(open);
+            } else if (choice.kind === 'deliver' && open && requests) {
                 const done = requests.fulfil(open, items);
                 if (done) {
-                    options.onPaid?.(done.reward, done);
+                    // The deposit comes back with the pay.
+                    options.onPaid?.(done.reward + done.deposit, done);
                     relationships.add(villager.id, done.friendship);
                     const thanks = villager.thanks?.[done.id % villager.thanks.length] ?? 'Thank you.';
-                    await dialogue.say([{ text: `${thanks} (+${options.formatReward?.(done.reward) ?? done.reward})`, portrait }], speaker);
+                    await dialogue.say([{ text: `${thanks} (+${money(done.reward)}${done.deposit > 0 ? `, and your ${money(done.deposit)} back` : ''})`, portrait }], speaker);
                 }
             } else if (choice.kind === 'gift' && held) {
                 const taste: GiftTaste = villager.loves?.includes(held) ? 'loved' : villager.likes?.includes(held) ? 'liked' : villager.dislikes?.includes(held) ? 'disliked' : 'neutral';
@@ -294,6 +343,7 @@ export function addVillagers(game: Game, options: AddVillagersOptions): Villager
                 const { topic } = choice;
                 const lines = typeof topic.lines === 'function' ? topic.lines(context()) : topic.lines;
                 await dialogue.say(lines.map((text) => ({ text, portrait })), speaker);
+                await topic.after?.(context(), dialogue);
                 const known = heardBy(villager.id);
                 if (!known.has(topic.id)) {
                     known.add(topic.id);
@@ -309,10 +359,12 @@ export function addVillagers(game: Game, options: AddVillagersOptions): Villager
     /** Topics on offer: unlocked ones, the unheard first, capped so the list stays short. */
     function availableTopics(villager: VillagerDefinition, context: VillagerContext): VillagerTopic[] {
         const known = heardBy(villager.id);
-        return (villager.topics ?? [])
-            .filter((topic) => context.hearts >= (topic.minHearts ?? 0) && context.day >= (topic.minDay ?? 0))
+        const open = (villager.topics ?? []).filter((topic) => context.hearts >= (topic.minHearts ?? 0) && context.day >= (topic.minDay ?? 0) && topic.visible?.(context) !== false);
+        const ordinary = open
+            .filter((topic) => !topic.pinned)
             .sort((a, b) => Number(known.has(a.id)) - Number(known.has(b.id)))
             .slice(0, options.maxTopics ?? 3);
+        return [...open.filter((topic) => topic.pinned), ...ordinary];
     }
 
     function hearts(id: string): string {

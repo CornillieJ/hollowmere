@@ -279,7 +279,7 @@ function buildWoods(game: Game, root: THREE.Object3D): { objects: THREE.Object3D
             170,
             random,
             (x, z, _height, slope) =>
-                slope < 0.12 && Math.max(Math.abs(x), Math.abs(z)) < WORLD_HALF - 14 && distanceToRoad(x, z) > 6 && distanceToPath(x, z) > 3 && !CLEARINGS.some((clearing) => Math.hypot(x - clearing.x, z - clearing.z) < clearing.radius),
+                slope < 0.12 && Math.max(Math.abs(x), Math.abs(z)) < WORLD_HALF - 3 && distanceToRoad(x, z) > 6 && distanceToPath(x, z) > 3 && !CLEARINGS.some((clearing) => Math.hypot(x - clearing.x, z - clearing.z) < clearing.radius),
         ),
     ];
     // Each tree is a holder placed now, so the axe has its targets before the models arrive.

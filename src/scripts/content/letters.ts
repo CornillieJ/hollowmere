@@ -4,6 +4,7 @@
  * They are from Pell, who had the farm before, written to whoever wakes there
  * next. He is kind, he is tired, and he is not where a letter-writer should be.
  * Fen delivers them because the name on the envelope has finally come to match.
+ * The third asks the farmer up the hill, where Pell waits with a way home.
  */
 export type Letter = { day: number; lines: string[] };
 
@@ -23,6 +24,7 @@ export const LETTERS: Letter[] = [
             'You are settling in. I can tell by the smoke from the pot.',
             'I woke here too, you know. I had a kitchen somewhere, and a dog that was only a dog. I kept the names in my head as long as I could.',
             'Write yours down tonight. Put it under the bed. You will want it later, and it will not be where you left it.',
+            'And come up the hill, west of the chapel, to the old tree. Above the fog I can still think. I have something to tell you about going home.',
             'P.',
         ],
     },
@@ -48,8 +50,8 @@ export const LETTERS: Letter[] = [
         day: 6,
         lines: [
             'Last one. My hands are not what they were, and Fen says the name on the envelope is nearly right now.',
-            'I am the tall one at the bend in the road, where it turns for the chapel. I do not chase. I never learned how.',
-            'Come and say hello. Bring nothing. I kept something of yours safe, from the morning you arrived.',
+            'You know me by now: the tall one on the hill, by the old tree. I do not chase. I never learned how.',
+            'Come up once more. Bring nothing. I kept something of yours safe, from the morning you arrived.',
             'Your neighbour, Pell.',
         ],
     },

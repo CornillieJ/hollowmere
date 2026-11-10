@@ -112,6 +112,7 @@ export class Mouse {
 
         this.onLockChange = () => {
             this.locked = document.pointerLockElement === this.lockTarget;
+            if (this.locked) this.releasedByGame = false;
             if (!this.locked) this.down.clear();
             this.emit(this.locked ? 'lock' : 'unlock');
         };
@@ -163,8 +164,17 @@ export class Mouse {
         }
     }
 
+    /**
+     * True when the last loss of the lock was asked for by the game (a panel
+     * opening), not taken by the player with Escape. The browser reports the loss
+     * a moment later, by which time the panel may be closed again.
+     */
+    releasedByGame = false;
+
     exitLock(): void {
-        if (document.pointerLockElement === this.lockTarget) document.exitPointerLock();
+        if (document.pointerLockElement !== this.lockTarget) return;
+        this.releasedByGame = true;
+        document.exitPointerLock();
     }
 
     /** Subscribe to `'lock'`, `'unlock'` or `'lockerror'`. Returns an unsubscribe function. */

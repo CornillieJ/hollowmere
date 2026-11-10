@@ -155,8 +155,8 @@ export type AddStorylineOptions = {
     /** Says each step's `say` and `after` lines. */
     narration?: NarrationHandle;
     /**
-     * Put each step's `say` lines in the dialogue box, where they have to be
-     * read, instead of in passing subtitles. `after` lines stay subtitles.
+     * Put each step's `say` and `after` lines in the dialogue box, where they
+     * have to be read, instead of in passing subtitles.
      */
     spoken?: boolean;
     /** Write the current step to the HUD objective line. Defaults to true. */
@@ -186,7 +186,7 @@ export function addStoryline(game: Game, options: AddStorylineOptions): Storylin
                 if (event.step.say) void (options.spoken ? options.narration?.speak(event.step.say) : options.narration?.say(event.step.say));
                 options.onStepStarted?.(event.step);
             } else if (event.type === 'completed' && event.step) {
-                if (event.step.after) options.narration?.say(event.step.after);
+                if (event.step.after) void (options.spoken ? options.narration?.speak(event.step.after) : options.narration?.say(event.step.after));
                 options.onStepCompleted?.(event.step);
             } else if (event.type === 'finished') {
                 options.onFinished?.();

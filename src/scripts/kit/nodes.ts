@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 import { SYSTEM_ORDER } from '../core/systems';
-import { randomInt } from '../helpers/random';
+import { randomFloat, randomInt } from '../helpers/random';
 import type { PhysicsBody } from '../physics/physics';
 
 //#region Resource nodes
@@ -34,8 +34,8 @@ export type NodeKind = {
     /** Hits before it gives way. */
     hits: number;
     drops: Array<{ itemId: string; amount: number | [number, number] }>;
-    /** Seconds until it is back. Omit for a node that is gone for good. */
-    respawnSeconds?: number;
+    /** Seconds until it is back, fixed or a range to roll from. Omit for a node that is gone for good. */
+    respawnSeconds?: number | [number, number];
     /** A collider around the node, removed while it is down. */
     solid?: { radius: number; height: number };
     /** What is left behind while it is down, e.g. a stump. */
@@ -151,7 +151,8 @@ export function addResourceNodes(game: Game, options: AddResourceNodesOptions): 
         const drops = node.kind.drops.map((drop) => ({ itemId: drop.itemId, amount: Array.isArray(drop.amount) ? randomInt(drop.amount[0], drop.amount[1]) : drop.amount }));
         for (const drop of drops) options.give(drop.itemId, drop.amount);
         // A node without a respawn time stays down: mark it with a time that never runs out.
-        node.respawnIn = node.kind.respawnSeconds ?? Infinity;
+        const respawn = node.kind.respawnSeconds;
+        node.respawnIn = Array.isArray(respawn) ? randomFloat(respawn[0], respawn[1]) : (respawn ?? Infinity);
         setDown(node, true);
         options.onDepleted?.(node, drops);
         return true;

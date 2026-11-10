@@ -57,6 +57,19 @@ hit with a raised-arms pose; damage feedback and 1.6 s of invulnerability;
 work motions (axe swing, pour, reach) and held tools on the farmer; a seated,
 pedalling pose on the bicycle; a slider for the PS1 shimmer (default 60%).
 
+## Done in round 5 (November 2026)
+
+Pack screen (Tab) with stats, drag and drop, drop into the world, item menu;
+backpack starts at 3 slots with 3 upgrades; chest by the barn; Escape closes
+windows before pausing; all of the farmer's lines are spoken in the box;
+trees regrow in 2 to 3 days; deposits on tier 2 and 3 requests; the way home
+(`escape.ts`: 12000c in 60 days, Pell on the hill); the world wraps at
+`WRAP_AT`; sieges and overruns (`happenings.ts`); 17 deeds; seeds have their
+own icons.
+
+Numbers to tune after play: `ESCAPE.price` and `.days`, deposit share (0.33 in
+`content/villagers.ts`), `CHANCE` in `happenings.ts`, crowd sizes.
+
 ## Not verified by a person yet
 
 - Pointer lock handover when a panel or dialogue opens and closes: the probe
@@ -72,4 +85,7 @@ pedalling pose on the bicycle; a slider for the PS1 shimmer (default 60%).
 - A ribbon mesh for the road (crisper than vertex colours).
 - Villagers walk in straight lines between stops; they can clip a corner.
 - The store only buys out of the pockets, not the backpack.
-- A chapter 3 after Pell: what the shrine costs (Hollis's topic).
+- What the shrine costs (Hollis's topic) as a late thread.
+- Dropped items are not saved; they are gone after a reload.
+- The barn is a solid model, so the chest stands outside against its wall.
+- An ending cutscene instead of a menu when the farmer wakes.

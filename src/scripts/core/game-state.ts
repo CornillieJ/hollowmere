@@ -86,7 +86,8 @@ export class GameFlow {
                 // Only a real loss counts: a refused request also reports "unlocked".
                 const lost = wasLocked && !locked;
                 wasLocked = locked;
-                if (lost && game.state.is('playing') && !game.screens.blocksInput) this.pause();
+                // A lock the game let go of itself (for a panel) is not the player asking to pause.
+                if (lost && !game.input.mouse.releasedByGame && game.state.is('playing') && !game.screens.blocksInput) this.pause();
             });
         }
         // Every template reports a win the same way, so the flow shows the win screen for all of them.

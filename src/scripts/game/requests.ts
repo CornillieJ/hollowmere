@@ -20,6 +20,11 @@ export type RequestTemplate = {
     days?: number;
     /** What they say when asking. `{amount}` and `{item}` are filled in. */
     text?: string;
+    /**
+     * Part of the reward, 0..1, the asker wants up front before the job is on.
+     * It comes back with the pay, and is lost when the deadline passes.
+     */
+    deposit?: number;
     /** Asked only while this is true, e.g. the player owns the pot the dish needs. Keeps the board to things that can be done. */
     available?: () => boolean;
     /** Harder requests have a higher tier and stay away until the board reaches it. Defaults to 0. */
@@ -36,6 +41,10 @@ export type Request = {
     dueDay: number;
     text: string;
     tier: number;
+    /** Money to put down before the job counts as taken. 0 for none. */
+    deposit: number;
+    /** False while a job with a deposit is only on offer. */
+    accepted: boolean;
 };
 
 export type RequestBoardOptions = {
@@ -111,6 +120,8 @@ export class RequestBoard {
                 dueDay: this.options.day() + (template.days ?? 3),
                 text: (template.text ?? 'Could you bring me {amount} {item}?').replace('{amount}', String(amount)).replace('{item}', name),
                 tier: template.tier ?? 0,
+                deposit: Math.round(amount * template.pricePerItem * (template.deposit ?? 0)),
+                accepted: !template.deposit,
             };
             this.open.push(request);
             added.push(request);
@@ -131,7 +142,19 @@ export class RequestBoard {
 
     /** True when the inventory holds enough to hand the request in. */
     canFulfil(request: Request, inventory: RequestInventory): boolean {
-        return inventory.count(request.itemId) >= request.amount;
+        return request.accepted && inventory.count(request.itemId) >= request.amount;
+    }
+
+    /**
+     * Take a job that asks for a deposit.
+     * @param pay Takes the deposit and returns whether it could.
+     */
+    accept(request: Request, pay: (amount: number) => boolean): boolean {
+        if (request.accepted) return true;
+        if (!this.open.includes(request) || !pay(request.deposit)) return false;
+        request.accepted = true;
+        this.notify();
+        return true;
     }
 
     /** Take the items and close the request. Returns it, or `undefined` when short. */
@@ -155,7 +178,7 @@ export class RequestBoard {
 
     fromJSON(data: { open?: Request[]; nextId?: number; completed?: number } | undefined): void {
         this.open.length = 0;
-        this.open.push(...(data?.open ?? []).map((request) => ({ ...request, tier: request.tier ?? 0 })));
+        this.open.push(...(data?.open ?? []).map((request) => ({ ...request, tier: request.tier ?? 0, deposit: request.deposit ?? 0, accepted: request.accepted ?? true })));
         this.nextId = data?.nextId ?? this.open.length + 1;
         this.completed = data?.completed ?? 0;
         this.notify();

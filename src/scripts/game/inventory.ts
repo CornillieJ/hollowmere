@@ -391,6 +391,14 @@ export class Inventory implements InventoryApi {
         return this.options.customer ?? this;
     }
 
+    /** Move a stack to another place in the list, e.g. after a drag. Out-of-range targets go to the end. */
+    reorder(from: number, to: number): void {
+        const [slot] = this.slots.splice(from, 1);
+        if (!slot) return;
+        this.slots.splice(Math.max(0, Math.min(this.slots.length, to)), 0, slot);
+        this.options.onChanged?.(this.slots, this);
+    }
+
     /** True when this inventory trades in a currency. */
     get hasCurrency(): boolean {
         return this.options.currency !== undefined;

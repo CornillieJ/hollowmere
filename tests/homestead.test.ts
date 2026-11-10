@@ -154,6 +154,17 @@ for (let round = 0; round < 12; round += 1) {
 }
 assert.ok(seen.has('soup'), 'the harder request now turns up');
 
+// A job with a deposit is only on offer until the money is down.
+const jobs = new RequestBoard({ templates: [{ itemId: 'pie', amount: 1, pricePerItem: 300, deposit: 0.33 }], people: ['ann'], maxOpen: 1, day: () => 1 });
+jobs.refill();
+const job = jobs.open[0]!;
+assert.equal(job.deposit, 99, 'the deposit is a share of the pay');
+assert.equal(job.accepted, false);
+assert.equal(jobs.canFulfil(job, bag({ pie: 1 })), false, 'it cannot be handed in before it is taken');
+assert.equal(jobs.accept(job, () => false), false, 'no money, no job');
+assert.equal(jobs.accept(job, (amount) => amount === 99), true);
+assert.ok(jobs.fulfil(job, bag({ pie: 1 })));
+
 //#endregion Tiered requests
 
 //#region Noise

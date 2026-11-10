@@ -100,9 +100,9 @@ export const VILLAGERS: VillagerContent[] = [
                 id: 'night',
                 label: 'Ask what to do at night',
                 lines: [
-                    'Oh, be indoors, I should think. Or near a lamp. The chapel on the road, the shrine in the square, your own porch.',
-                    'They do not like the lit places. Nobody knows why. Nobody has asked them, it seems a personal question.',
-                    'If one follows you, simply keep walking. They are slow. They were slow when they were alive, most of them.',
+                    'Oh, it is best to stay indoors after dark. Or to keep to the lit places: the chapel on the road, the shrine in the square, your own porch.',
+                    'Nobody will tell you that you must. It is only the polite way to live here. One does not go wandering about in the dark, any more than one reads over a shoulder.',
+                    'And if you should find you have company on the road, simply keep walking. No need to be rude about it. No need to stop, either.',
                 ],
             },
         ],
@@ -395,7 +395,7 @@ export const VILLAGERS: VillagerContent[] = [
                 lines: [
                     'Mister Pell! I loved Mister Pell. He threw a stick for me once. Only once. I still have it.',
                     'I went with him on his walk, the last night. Everyone said I could. I walked him right to the place and I sat with him until he was not scared any more.',
-                    'He is the tall one by the bend in the road now. He does not chase. If you see him, you can say hello. He likes it when I say hello.',
+                    'He is the tall one up on the hill now, by the old tree. He does not chase. If you see him, you can say hello. He likes it when I say hello.',
                 ],
             },
             {
@@ -432,12 +432,13 @@ export const REQUESTS: RequestTemplate[] = [
     { tier: 1, itemId: 'milk', amount: [1, 2], pricePerItem: 40, days: 3, from: ['hollis'], text: '{amount} {item}, dear, if the cow is willing. She usually is, for you.' },
 
     // Tier 2: the iron pot.
-    { tier: 2, itemId: 'corn-chowder', amount: 1, pricePerItem: 150, days: 4, from: ['barnaby', 'fen'], text: 'A pot of {item}. I have a guest at the window most nights and nothing to offer him.' },
-    { tier: 2, itemId: 'omelette', amount: [1, 2], pricePerItem: 125, days: 3, from: ['wren', 'pike'], text: '{amount} {item}, please! Mum used to make them. She has stopped. She has stopped most things.' },
-    { tier: 2, itemId: 'pale-broth', amount: 1, pricePerItem: 135, days: 4, from: ['hollis', 'pike'], text: 'One {item}. The caps grow by the mere and at the stones. It helps me see, dear.' },
-    { tier: 2, itemId: 'pumpkin', amount: 1, pricePerItem: 80, days: 4, from: ['pike'], text: 'One pumpkin. A big one. With a kind face, if it has grown one.' },
+    // From here on they want money down first: a third of the pay, back on delivery, kept if the day passes.
+    { tier: 2, deposit: 0.33, itemId: 'corn-chowder', amount: 1, pricePerItem: 150, days: 4, from: ['barnaby', 'fen'], text: 'A pot of {item}. I have a guest at the window most nights and nothing to offer him.' },
+    { tier: 2, deposit: 0.33, itemId: 'omelette', amount: [1, 2], pricePerItem: 125, days: 3, from: ['wren', 'pike'], text: '{amount} {item}, please! Mum used to make them. She has stopped. She has stopped most things.' },
+    { tier: 2, deposit: 0.33, itemId: 'pale-broth', amount: 1, pricePerItem: 135, days: 4, from: ['hollis', 'pike'], text: 'One {item}. The caps grow by the mere and at the stones. It helps me see, dear.' },
+    { tier: 2, deposit: 0.33, itemId: 'pumpkin', amount: 1, pricePerItem: 80, days: 4, from: ['pike'], text: 'One pumpkin. A big one. With a kind face, if it has grown one.' },
 
     // Tier 3: the cauldron.
-    { tier: 3, itemId: 'pumpkin-pie', amount: 1, pricePerItem: 250, days: 4, from: ['wren', 'barnaby', 'fen'], text: 'A whole {item}. It is somebody\'s day. I will not say whose, it would only upset them.' },
-    { tier: 3, itemId: 'hollow-stew', amount: 1, pricePerItem: 340, days: 5, from: ['hollis'], text: 'The {item}, dear. The proper one. We have someone to see off, and it should be done right.' },
+    { tier: 3, deposit: 0.33, itemId: 'pumpkin-pie', amount: 1, pricePerItem: 250, days: 4, from: ['wren', 'barnaby', 'fen'], text: 'A whole {item}. It is somebody\'s day. I will not say whose, it would only upset them.' },
+    { tier: 3, deposit: 0.33, itemId: 'hollow-stew', amount: 1, pricePerItem: 340, days: 5, from: ['hollis'], text: 'The {item}, dear. The proper one. We have someone to see off, and it should be done right.' },
 ];

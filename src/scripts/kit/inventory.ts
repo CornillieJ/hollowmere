@@ -146,6 +146,8 @@ export function addInventory(game: Game, options: AddInventoryOptions = {}): Inv
         ...(options.showValue !== undefined ? { showValue: options.showValue } : {}),
         ...(currencyLabel !== undefined ? { currencyLabel } : {}),
         ...(options.currency?.format ? { formatPrice: options.currency.format } : {}),
+        // The key that opens the panel closes it too.
+        ...(options.key !== undefined ? { closeCodes: () => game.input.codesFor(options.key as string) } : {}),
         onRefused: (reason) => {
             options.onRefused?.(reason);
             if (!options.onRefused) game.toasts.push(reason, { color: '#ff9a9a' });
