@@ -1334,3 +1334,202 @@ canvas.webgl {
 	.dialogue-portrait { width: 48px; height: 48px; font-size: 30px; }
 	.dialogue-text { font-size: 15px; }
 }
+
+/* List panel: recipes, upgrades, journal */
+
+.list-panel-wrap {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	background: rgba(4, 5, 10, 0.72);
+	backdrop-filter: blur(3px);
+	pointer-events: auto;
+}
+
+.list-panel {
+	display: grid;
+	grid-template-rows: auto auto 1fr auto;
+	gap: 12px;
+	width: min(620px, 94vw);
+	max-height: min(640px, 88vh);
+	box-sizing: border-box;
+	padding: 20px 22px;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 16px;
+	background: var(--ui-bg);
+	box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+	color: var(--ui-fg);
+}
+
+.list-panel-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.list-panel-title {
+	font-size: 20px;
+	font-weight: 700;
+}
+
+.list-panel-close {
+	border: 0;
+	background: none;
+	color: var(--ui-muted);
+	font-size: 16px;
+	cursor: pointer;
+}
+
+.list-panel-tabs {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.list-panel-tab {
+	padding: 6px 14px;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 999px;
+	background: none;
+	color: var(--ui-muted);
+	font: inherit;
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.list-panel-tab.is-active {
+	border-color: var(--ui-accent);
+	color: var(--ui-fg);
+}
+
+.list-panel-rows {
+	display: grid;
+	align-content: start;
+	gap: 6px;
+	min-height: 120px;
+	overflow-y: auto;
+	padding-right: 4px;
+}
+
+.list-panel-row {
+	display: grid;
+	grid-template-columns: auto 1fr auto auto;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 12px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.list-panel-row.is-dim {
+	opacity: 0.5;
+}
+
+.list-panel-heading {
+	display: flex;
+	padding: 10px 2px 2px;
+	color: var(--ui-muted);
+	font-size: 12px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.list-panel-icon {
+	width: 30px;
+	font-size: 24px;
+	text-align: center;
+}
+
+.list-panel-row-title {
+	font-weight: 600;
+}
+
+.list-panel-detail {
+	margin-top: 2px;
+	color: var(--ui-muted);
+	font-size: 13px;
+	line-height: 1.35;
+}
+
+.list-panel-meta {
+	color: var(--ui-muted);
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.list-panel-bar {
+	height: 6px;
+	margin-top: 6px;
+	border-radius: 3px;
+	background: rgba(255, 255, 255, 0.1);
+	overflow: hidden;
+}
+
+.list-panel-fill {
+	height: 100%;
+	background: var(--ui-accent);
+	transition: width 250ms linear;
+}
+
+.list-panel-action {
+	padding: 7px 14px;
+	border: 1px solid var(--ui-accent);
+	border-radius: 8px;
+	background: none;
+	color: var(--ui-fg);
+	font: inherit;
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.list-panel-action:disabled {
+	border-color: rgba(255, 255, 255, 0.15);
+	color: var(--ui-muted);
+	cursor: default;
+}
+
+.list-panel-empty,
+.list-panel-footer {
+	color: var(--ui-muted);
+	font-size: 13px;
+}
+
+/* Subtitles: narration that does not stop play */
+
+.subtitles {
+	position: absolute;
+	left: 50%;
+	bottom: 110px;
+	width: min(680px, 92vw);
+	transform: translateX(-50%);
+	text-align: center;
+	pointer-events: none;
+}
+
+.subtitles-text {
+	display: inline-block;
+	padding: 8px 16px;
+	border-radius: 8px;
+	background: rgba(6, 7, 10, 0.72);
+	color: var(--ui-fg);
+	font-size: 17px;
+	font-style: italic;
+	line-height: 1.4;
+}
+
+.subtitles-text.is-fresh {
+	animation: subtitle-in 350ms ease;
+}
+
+@keyframes subtitle-in {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}

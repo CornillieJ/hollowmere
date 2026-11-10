@@ -50,10 +50,11 @@ export type GameFlowOptions = {
     showMenus?: boolean;
 };
 
-const MAIN_MENU = 'main-menu';
-const PAUSE_MENU = 'pause-menu';
-const DEATH_MENU = 'death-menu';
-const VICTORY_MENU = 'victory-menu';
+/** Ids of the flow's menus, for a game that re-registers one with `game.menus.register`. */
+export const MAIN_MENU = 'main-menu';
+export const PAUSE_MENU = 'pause-menu';
+export const DEATH_MENU = 'death-menu';
+export const VICTORY_MENU = 'victory-menu';
 
 export class GameFlow {
     readonly game: Game;

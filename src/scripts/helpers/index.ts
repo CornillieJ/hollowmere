@@ -13,6 +13,7 @@ export * from './vector';
 export * from './distance';
 export * from './transform';
 export * from './random';
+export * from './noise';
 export * from './color';
 //#endregion Scalar and vector maths
 

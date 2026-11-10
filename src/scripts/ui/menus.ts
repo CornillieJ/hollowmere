@@ -16,6 +16,10 @@ export type MenuButton = {
     primary?: boolean;
     /** Show a slider instead of a button: volume, sensitivity, brightness. */
     slider?: MenuSlider;
+    /** Asked each time the menu opens; false hides the button, e.g. "Continue" without a save. */
+    visible?: () => boolean;
+    /** Asked each time the menu opens, e.g. "Continue (day 4)". Replaces `label`. */
+    text?: () => string;
 };
 
 export type MenuSlider = {
@@ -66,6 +70,8 @@ export type MenuConfig = {
     hint?: string;
 };
 
+type Synced = HTMLElement & { syncEntry?: () => void };
+
 export class Menus {
     readonly root: HTMLElement;
 
@@ -110,8 +116,20 @@ export class Menus {
 
         const actions = div('menu-actions', undefined, card);
         for (const entry of config.buttons) {
-            if (entry.slider) createSlider(actions, entry.label, entry.slider);
-            else button(entry.label, () => entry.action?.(), { className: entry.primary ? 'menu-button is-primary' : 'menu-button', parent: actions });
+            const element = entry.slider
+                ? createSlider(actions, entry.label, entry.slider)
+                : button(entry.label, () => {
+                      entry.action?.();
+                      // A toggle changes its own label: re-read every dynamic entry after a press.
+                      for (const dynamic of actions.querySelectorAll<Synced>('.menu-dynamic')) dynamic.syncEntry?.();
+                  }, { className: entry.primary ? 'menu-button is-primary' : 'menu-button', parent: actions });
+            if (!entry.visible && !entry.text) continue;
+            element.classList.add('menu-dynamic');
+            (element as Synced).syncEntry = () => {
+                if (entry.visible) setVisible(element, entry.visible());
+                if (entry.text) setText(element, entry.text());
+            };
+            (element as Synced).syncEntry?.();
         }
         if (config.hint) div('menu-hint', config.hint, card);
         return panel;
@@ -135,6 +153,7 @@ export class Menus {
         if (this.currentId) setVisible(this.panels.get(this.currentId) as HTMLElement, false);
         this.currentId = id;
         for (const row of panel.querySelectorAll<HTMLElement & { sync?: () => void }>('.menu-slider')) row.sync?.();
+        for (const element of panel.querySelectorAll<Synced>('.menu-dynamic')) element.syncEntry?.();
         setVisible(panel, true);
         this.layer?.show();
         for (const listener of this.openListeners) listener(id);

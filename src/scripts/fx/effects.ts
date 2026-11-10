@@ -171,9 +171,12 @@ export class Effects {
         this.game.time.slowMotion(seconds, scale);
     }
 
+    /** Turn off for players who get queasy; `shakeCamera` then does nothing. A setting usually owns this. */
+    shakeEnabled = true;
+
     /** Shake the camera. `0.2` is a hit, `1` is an explosion. */
     shakeCamera(amount: number): void {
-        this.shake.add(amount);
+        if (this.shakeEnabled) this.shake.add(amount);
     }
 
     //#endregion Gameplay intents

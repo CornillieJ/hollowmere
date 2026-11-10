@@ -32,7 +32,7 @@ export type SoundOptions = {
     onEnded?: () => void;
 };
 
-type Bus = 'music' | 'sfx' | 'ambient' | 'ui';
+export type Bus = 'music' | 'sfx' | 'ambient' | 'ui';
 
 export class AudioManager {
     /** Created lazily on the first unlock so no AudioContext exists before a gesture. */

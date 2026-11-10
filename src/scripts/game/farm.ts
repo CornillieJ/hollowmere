@@ -31,6 +31,10 @@ export type CropDefinition = {
     colors?: THREE.ColorRepresentation[];
     /** Height of the crop at full growth, in meters. */
     height?: number;
+    /** Seeds handed back on harvest, so a field can keep itself going. Defaults to 0. */
+    seedReturn?: number;
+    /** Chance of one extra seed on top, 0..1. */
+    bonusSeedChance?: number;
 };
 
 export type PlotState = {
@@ -51,7 +55,14 @@ export type PlotState = {
     soil: THREE.Mesh;
     /** Crop mesh, scaled with growth. */
     plant: THREE.Mesh;
+    /** Which field the plot belongs to: 0 is the first one. */
+    field: number;
+    /** False while its field is not in use yet; such a plot is hidden and cannot be worked. */
+    active: boolean;
 };
+
+/** An extra block of plots somewhere else, e.g. land bought later. */
+export type FieldLayout = { origin: Vec3; columns: number; rows: number };
 
 export type FarmOptions = {
     /** Plot layout, defaults to a 5 by 4 grid of 1 meter plots. */
@@ -63,6 +74,11 @@ export type FarmOptions = {
     crops?: CropDefinition[];
     /** A fresh plot needs tilling before it can be planted. */
     tilling?: boolean;
+    /**
+     * More fields at fixed places. They start hidden; `setActiveFields` opens
+     * them, which is how a "buy more land" upgrade works.
+     */
+    extraFields?: FieldLayout[];
     /** Ground colours: before tilling, tilled and dry, and watered. */
     soil?: { untilled?: THREE.ColorRepresentation; dry?: THREE.ColorRepresentation; wet?: THREE.ColorRepresentation };
 };
@@ -85,6 +101,7 @@ export class Farm {
     private readonly soilMaterial: THREE.MeshStandardMaterial;
     private readonly plantMaterials = new Map<string, THREE.MeshStandardMaterial>();
     private readonly listeners = new Set<(plot: PlotState) => void>();
+    private fieldsInUse = 1;
 
     constructor(game: Game, options: FarmOptions = {}) {
         this.game = game;
@@ -106,9 +123,39 @@ export class Farm {
 
         for (const crop of options.crops ?? []) this.defineCrop(crop);
 
-        for (const cell of this.grid.cells()) {
-            const position = this.grid.cellToWorld(cell, origin.y);
-            const soil = new THREE.Mesh(this.soilGeometry, options.tilling ? this.untilledMaterial : this.tilledMaterial);
+        this.addField(this.grid, origin.y, 0, options.tilling === true);
+        (options.extraFields ?? []).forEach((layout, index) => {
+            const grid = new Grid({ width: layout.columns, depth: layout.rows, spacing: this.plotSize, origin: layout.origin, y: layout.origin.y });
+            this.addField(grid, layout.origin.y, index + 1, options.tilling === true);
+        });
+        this.setActiveFields(1);
+
+        game.systems.add({
+            name: 'farm',
+            order: SYSTEM_ORDER.GAMEPLAY,
+            update: (delta) => this.update(delta),
+        });
+    }
+
+    /** How many fields are in use, counting the first. */
+    get activeFields(): number {
+        return this.fieldsInUse;
+    }
+
+    /** Open the first `count` fields and close the rest. A closed field keeps its crops for when it reopens. */
+    setActiveFields(count: number): void {
+        this.fieldsInUse = Math.max(1, count);
+        for (const plot of this.plots) {
+            plot.active = plot.field < this.fieldsInUse;
+            plot.soil.visible = plot.active;
+            plot.plant.visible = plot.active && plot.crop !== undefined;
+        }
+    }
+
+    private addField(grid: Grid, y: number, field: number, untilled: boolean): void {
+        for (const cell of grid.cells()) {
+            const position = grid.cellToWorld(cell, y);
+            const soil = new THREE.Mesh(this.soilGeometry, untilled ? this.untilledMaterial : this.tilledMaterial);
             soil.position.copy(position);
             soil.receiveShadow = true;
             soil.castShadow = false;
@@ -121,14 +168,8 @@ export class Farm {
             plant.position.copy(position);
             this.root.add(plant);
 
-            this.plots.push({ cell, position, crop: undefined, stage: 0, elapsed: 0, watered: false, ripe: false, soil, plant });
+            this.plots.push({ cell, position, crop: undefined, stage: 0, elapsed: 0, watered: false, ripe: false, soil, plant, field, active: true });
         }
-
-        game.systems.add({
-            name: 'farm',
-            order: SYSTEM_ORDER.GAMEPLAY,
-            update: (delta) => this.update(delta),
-        });
     }
 
     /** Register a crop type. */
@@ -143,9 +184,9 @@ export class Farm {
         });
     }
 
-    /** The plot at a cell, `undefined` when it is outside the field. */
+    /** The plot at a cell of the first field, `undefined` when it is outside it. */
     plotAt(cell: Cell): PlotState | undefined {
-        return this.plots.find((plot) => plot.cell.x === cell.x && plot.cell.z === cell.z);
+        return this.plots.find((plot) => plot.field === 0 && plot.cell.x === cell.x && plot.cell.z === cell.z);
     }
 
     /** Nearest plot to a world position, `undefined` when nothing is close. */
@@ -153,6 +194,7 @@ export class Farm {
         let best: PlotState | undefined;
         let bestDistance = maxDistance;
         for (const plot of this.plots) {
+            if (!plot.active) continue;
             const distance = plot.position.distanceTo(position instanceof THREE.Vector3 ? position : new THREE.Vector3(position.x, position.y, position.z));
             if (distance < bestDistance) {
                 bestDistance = distance;
@@ -181,6 +223,7 @@ export class Farm {
         plot.watered = false;
         plot.ripe = false;
         plot.plant.visible = true;
+        plot.plant.position.y = plot.position.y;
         plot.plant.scale.set(0.25, 0.25, 0.25);
         plot.plant.material = this.plantMaterial(crop.colors?.[0] ?? 0x5da35d);
         plot.soil.material = this.tilledMaterial;
@@ -201,9 +244,9 @@ export class Farm {
 
     /**
      * Harvest a ripe plot.
-     * @returns The produce, or `undefined` when the crop is not ready.
+     * @returns The produce and any seeds that came with it, or `undefined` when the crop is not ready.
      */
-    harvest(plot: PlotState): { itemId: string; amount: number } | undefined {
+    harvest(plot: PlotState): { itemId: string; amount: number; seeds?: { itemId: string; amount: number } } | undefined {
         if (!plot.crop || !plot.ripe) return undefined;
         const crop = plot.crop;
         const itemId = crop.produce ?? crop.id;
@@ -220,7 +263,8 @@ export class Farm {
         this.game.toasts.push(`Harvested ${amount} ${itemId}`, { color: '#b6f5b6' });
         this.game.effects.particles.burst(plot.position.clone().setY(plot.position.y + 0.4), { count: 14, color: 0x8ce09a, size: 0.06, speed: 2.5, lifetime: 0.4 });
         this.notify(plot);
-        return { itemId, amount };
+        const seedCount = (crop.seedReturn ?? 0) + (crop.bonusSeedChance !== undefined && Math.random() < crop.bonusSeedChance ? 1 : 0);
+        return crop.seed && seedCount > 0 ? { itemId, amount, seeds: { itemId: crop.seed, amount: seedCount } } : { itemId, amount };
     }
 
     /** Mark every plot dry again, e.g. when a new day starts. */
@@ -256,7 +300,7 @@ export class Farm {
             plot.elapsed = saved.elapsed;
             plot.watered = saved.watered;
             plot.ripe = saved.ripe;
-            plot.plant.visible = true;
+            plot.plant.visible = plot.active;
             const stages = Math.max(2, crop.stages ?? 3);
             const progress = (plot.stage + 1) / stages;
             plot.plant.scale.setScalar(0.25 + progress * 0.75);

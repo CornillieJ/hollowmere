@@ -37,6 +37,12 @@ export type AddLivestockOptions = {
 };
 
 export type LivestockHandle = {
+    /** Every animal in the pen right now. */
+    readonly animals: AnimalDefinition[];
+    /** Put another animal in the pen, e.g. one just bought. */
+    add: (animal: AnimalDefinition) => void;
+    /** Take an animal out again. */
+    remove: (id: string) => void;
     /** Seconds until each animal's next product, by id. `0` means ready. */
     readyIn: (id: string) => number;
     dispose: () => void;
@@ -49,12 +55,18 @@ export function addLivestock(game: Game, options: AddLivestockOptions): Livestoc
     const pickTarget = (): THREE.Vector3 =>
         new THREE.Vector3(center.x + randomFloat(-halfSize.x, halfSize.x) * 0.85, center.y, center.z + randomFloat(-halfSize.z, halfSize.z) * 0.85);
 
-    for (const animal of options.animals) {
+    const animals: AnimalDefinition[] = [];
+    const leavers = new Map<string, () => void>();
+
+    function add(animal: AnimalDefinition): void {
+        if (state.has(animal.id)) return;
+        animals.push(animal);
         const start = pickTarget();
         animal.object.position.copy(start);
         game.scene.add(animal.object);
         state.set(animal.id, { timer: animal.every * randomFloat(0.3, 1), target: pickTarget(), pause: 0 });
-        removers.push(
+        leavers.set(
+            animal.id,
             game.interactions.add(animal.object, {
                 prompt: `Collect from ${animal.name}`,
                 blockedPrompt: `${animal.name} has nothing yet`,
@@ -74,12 +86,24 @@ export function addLivestock(game: Game, options: AddLivestockOptions): Livestoc
         );
     }
 
+    function remove(id: string): void {
+        const index = animals.findIndex((animal) => animal.id === id);
+        if (index < 0) return;
+        animals[index]?.object.removeFromParent();
+        animals.splice(index, 1);
+        state.delete(id);
+        leavers.get(id)?.();
+        leavers.delete(id);
+    }
+
+    for (const animal of options.animals) add(animal);
+
     removers.push(
         game.systems.add({
             name: 'livestock',
             order: SYSTEM_ORDER.GAMEPLAY + 2,
             update: (delta) => {
-                for (const animal of options.animals) {
+                for (const animal of animals) {
                     const entry = state.get(animal.id);
                     if (!entry) continue;
                     entry.timer = Math.max(0, entry.timer - delta);
@@ -105,10 +129,13 @@ export function addLivestock(game: Game, options: AddLivestockOptions): Livestoc
     );
 
     return {
+        animals,
+        add,
+        remove,
         readyIn: (id) => state.get(id)?.timer ?? 0,
         dispose: () => {
-            for (const remove of removers) remove();
-            for (const animal of options.animals) animal.object.removeFromParent();
+            for (const unregister of removers) unregister();
+            for (const animal of [...animals]) remove(animal.id);
         },
     };
 }

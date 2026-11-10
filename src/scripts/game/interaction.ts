@@ -11,8 +11,8 @@ import { SYSTEM_ORDER } from '../core/systems';
  * prompt, and fires the callback on the interact key.
  */
 export type InteractableOptions = {
-    /** Text shown in the prompt, e.g. "Open door". */
-    prompt?: string;
+    /** Text shown in the prompt, e.g. "Open door". A function is asked every frame, so it can follow what the player holds. */
+    prompt?: string | ((game: Game) => string);
     /** Key cap shown next to the text. Defaults to 'E'. */
     key?: string;
     /** Maximum distance in meters. Defaults to `GAMEPLAY.INTERACT_RANGE`. */
@@ -29,7 +29,7 @@ export type InteractableOptions = {
      */
     canInteract?: (game: Game) => boolean;
     /** Prompt shown while `canInteract` is false. */
-    blockedPrompt?: string;
+    blockedPrompt?: string | ((game: Game) => string);
 };
 
 type Entry = {
@@ -131,7 +131,7 @@ export class InteractionRegistry {
         if (entry.options.canInteract && !entry.options.canInteract(this.game)) return false;
 
         entry.used = true;
-        const prompt = entry.options.prompt ?? '';
+        const prompt = this.text(entry.options.prompt) ?? '';
         this.game.events.emit('interact', { object, prompt });
         entry.options.onInteract(object, this.game);
         if (entry.options.once) this.entries.delete(object);
@@ -203,11 +203,15 @@ export class InteractionRegistry {
         return undefined;
     }
 
+    private text(prompt: InteractableOptions['prompt']): string | undefined {
+        return typeof prompt === 'function' ? prompt(this.game) : prompt;
+    }
+
     private describe(entry: Entry, distance: number): InteractionTarget {
         const allowed = entry.options.canInteract ? entry.options.canInteract(this.game) : true;
         return {
             object: entry.object,
-            prompt: allowed ? (entry.options.prompt ?? 'Use') : (entry.options.blockedPrompt ?? entry.options.prompt ?? 'Locked'),
+            prompt: allowed ? (this.text(entry.options.prompt) ?? 'Use') : (this.text(entry.options.blockedPrompt) ?? this.text(entry.options.prompt) ?? 'Locked'),
             key: entry.options.key ?? 'E',
             distance,
             blocked: !allowed,

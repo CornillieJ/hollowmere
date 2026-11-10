@@ -13,7 +13,12 @@ export type ColliderShape =
     | { type: 'box'; size: Vec3 }
     | { type: 'sphere'; radius: number }
     | { type: 'capsule'; radius: number; height: number }
-    | { type: 'cylinder'; radius: number; height: number };
+    | { type: 'cylinder'; radius: number; height: number }
+    /**
+     * A grid of heights for terrain. `heights` holds `(rows + 1) * (columns + 1)`
+     * values, row by row along z and then x, and `size` is the full footprint.
+     */
+    | { type: 'heightfield'; rows: number; columns: number; heights: Float32Array; size: { x: number; z: number } };
 
 export type PhysicsBodyKind = 'dynamic' | 'fixed' | 'kinematic';
 
@@ -262,6 +267,16 @@ export class Physics {
             case 'cylinder':
                 descriptor = RAPIER.ColliderDesc.cylinder(shape.height / 2, shape.radius);
                 break;
+            case 'heightfield': {
+                // Rapier wants the matrix column by column: one column per x step, running along z.
+                const { rows, columns, heights } = shape;
+                const matrix = new Float32Array(heights.length);
+                for (let row = 0; row <= rows; row += 1) {
+                    for (let column = 0; column <= columns; column += 1) matrix[column * (rows + 1) + row] = heights[row * (columns + 1) + column] as number;
+                }
+                descriptor = RAPIER.ColliderDesc.heightfield(rows, columns, matrix, { x: shape.size.x, y: 1, z: shape.size.z });
+                break;
+            }
             default:
                 descriptor = RAPIER.ColliderDesc.cuboid(shape.size.x / 2, shape.size.y / 2, shape.size.z / 2);
                 break;

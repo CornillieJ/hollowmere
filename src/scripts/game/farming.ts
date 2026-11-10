@@ -1,8 +1,8 @@
 import { SYSTEM_ORDER } from '../core/systems';
 import type { Farm, PlotState } from '../game/farm';
-import type { BarriersHandle, HotbarHandle, InventoryHandle, ResourceHandle } from '../kit';
+import type { BarriersHandle, HotbarHandle, InventoryHandle, ResourceHandle, ResourceNodesHandle } from '../kit';
 import type { InventorySlot } from '../game/inventory';
-import { SEED_TO_CROP } from '../content/items';
+import { SEED_TO_CROP, SHIPPABLE } from '../content/items';
 
 /**
  * Working the field with whatever is in hand.
@@ -10,7 +10,8 @@ import { SEED_TO_CROP } from '../content/items';
  * Standing at a plot, the interact key does the obvious thing for the held item:
  * seeds plant, the watering can waters, and a ripe crop is picked whatever you
  * hold. The use key does the same at a plot, and elsewhere uses the item: a
- * fence kit puts a fence down in front of you.
+ * fence kit puts a fence down in front of you, and the axe swings at the nearest
+ * tree.
  */
 export type FarmingOptions = {
     farm: Farm;
@@ -19,6 +20,9 @@ export type FarmingOptions = {
     barriers: BarriersHandle;
     /** Puts items in the pockets, overflowing into the bag. */
     give: (itemId: string, amount: number) => boolean;
+    /** Trees and other things to gather from, for the axe. */
+    nodes: () => ResourceNodesHandle | undefined;
+    onHarvest?: (itemId: string, amount: number) => void;
 };
 
 export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (slot: InventorySlot) => void } {
@@ -34,7 +38,14 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
                 label: `Pick the ${(plot.crop?.name ?? 'crop').toLowerCase()}`,
                 run: () => {
                     const harvest = farm.harvest(plot);
-                    if (harvest) options.give(harvest.itemId, harvest.amount);
+                    if (!harvest) return;
+                    options.give(harvest.itemId, harvest.amount);
+                    // The crop seeds itself: one back for the next planting, sometimes two.
+                    if (harvest.seeds) {
+                        options.give(harvest.seeds.itemId, harvest.seeds.amount);
+                        game.toasts.push(`+${harvest.seeds.amount} seed${harvest.seeds.amount > 1 ? 's' : ''}`, { color: '#c8d8b0' });
+                    }
+                    options.onHarvest?.(harvest.itemId, harvest.amount);
                 },
             };
         }
@@ -87,23 +98,27 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
                 options.barriers.placeInFront(1.8);
                 return;
             }
+            if (slot.itemId === 'axe') {
+                if (!options.nodes()?.hitNearest(2.6)) game.toasts.push('Stand next to a dead tree to chop it');
+                return;
+            }
             if (slot.itemId === 'watering-can') game.toasts.push('Stand at a planted plot to water it');
             else if (SEED_TO_CROP[slot.itemId]) game.toasts.push('Stand at an empty plot to plant');
         },
     };
 }
 
-/** Prices the shipping bin pays: lower than a villager's errand, but always open. */
-export const SHIP_PRICES: Record<string, number> = { turnip: 12, corn: 20, pumpkin: 36, egg: 10, milk: 18 };
-
-/** Sell every crop and animal product carried. Returns the money made. */
-export function shipEverything(inventories: InventoryHandle[], money: ResourceHandle): number {
+/**
+ * Sell all produce and cooked food carried. The bin is always there and never
+ * haggles, so it pays less than the store does.
+ * @returns The money made.
+ */
+export function shipEverything(inventories: InventoryHandle[], money: ResourceHandle, priceOf: (itemId: string) => number): number {
     let total = 0;
     for (const inventory of inventories) {
         for (const slot of [...inventory.inventory.slots]) {
-            const price = SHIP_PRICES[slot.itemId];
-            if (!price) continue;
-            total += price * slot.amount;
+            if (!SHIPPABLE.has(slot.itemId)) continue;
+            total += Math.floor(priceOf(slot.itemId) * 0.8) * slot.amount;
             inventory.remove(slot.itemId, slot.amount);
         }
     }

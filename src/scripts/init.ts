@@ -170,6 +170,19 @@ export async function createGame(options: GameOptions = {}): Promise<Game> {
     // Menus and modals own the keyboard while they are up; gameplay input has
     // its own gate, so the two never fight over `input.enabled`.
     screens.bindInput(game.input);
+    // A panel needs the mouse: free it while one is up, and take it back after.
+    let relock = false;
+    screens.onChange(() => {
+        if (screens.blocksInput) {
+            if (game.input.pointerLocked) {
+                relock = true;
+                game.input.exitPointerLock();
+            }
+        } else if (relock) {
+            relock = false;
+            if (game.state.is('playing')) game.input.requestPointerLock();
+        }
+    });
     game.interactions = new InteractionRegistry(game);
     game.projectiles = new ProjectileSystem(game);
 

@@ -95,6 +95,11 @@ export class SaveStore {
         return this.backend.keys();
     }
 
+    /** Read a slot without applying it, e.g. to show "Day 4" next to a continue button. */
+    peek(slot = 'default'): SaveEnvelope | undefined {
+        return this.readEnvelope(slot);
+    }
+
     /** Timestamp of a slot in milliseconds, `undefined` when empty. */
     timestamp(slot = 'default'): number | undefined {
         return this.readEnvelope(slot)?.timestamp;

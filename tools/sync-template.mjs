@@ -8,7 +8,7 @@
  * point, its content and its configuration. This script copies the library
  * paths from the template and leaves everything else alone.
  *
- *   node tools/sync-template.mjs [template-remote]
+ *   node tools/sync-template.mjs [template-remote] [branch]
  *
  * Run it from the game repository. Add the template once first:
  *
@@ -52,6 +52,7 @@ export const LIBRARY_PATHS = [
     'tests/board-geometry.test.ts',
     'tests/inventory.test.ts',
     'tests/progression.test.ts',
+    'tests/homestead.test.ts',
 ];
 
 /**
@@ -69,6 +70,8 @@ export const PACKS = {
  * and any compiler options it added, so a library update must not overwrite them.
  */
 const remote = process.argv[2] ?? 'template';
+// A second argument syncs from a branch other than main, e.g. while a template change is still in review.
+const branch = process.argv[3] ?? 'main';
 const git = (args) => execFileSync('git', args, { stdio: 'inherit' });
 
 git(['fetch', remote]);
@@ -79,7 +82,7 @@ const packs = (manifest.templatePacks ?? []).flatMap((name) => PACKS[name] ?? (c
 let copied = 0;
 for (const path of [...LIBRARY_PATHS, ...packs]) {
     try {
-        git(['checkout', `${remote}/main`, '--', path]);
+        git(['checkout', `${remote}/${branch}`, '--', path]);
         copied += 1;
     } catch {
         // A path the template added after this game was made, or one it dropped.
@@ -87,5 +90,5 @@ for (const path of [...LIBRARY_PATHS, ...packs]) {
     }
 }
 
-console.log(`\ncopied ${copied} library paths from ${remote}/main`);
+console.log(`\ncopied ${copied} library paths from ${remote}/${branch}`);
 console.log('now run: npm run typecheck && npm test');

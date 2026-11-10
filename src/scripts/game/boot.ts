@@ -1,37 +1,47 @@
 import * as THREE from 'three';
 
 import { createThirdPersonGame } from '../templates/third-person-game';
-import type { GameFlow } from '../core/game-state';
+import { PAUSE_MENU } from '../core/game-state';
 import { DayCycle } from '../game/daycycle';
-import { Farm, type CropDefinition } from '../game/farm';
+import { Farm } from '../game/farm';
+import { Synth } from '../audio/synth';
 import { fitModel } from '../helpers/transform';
 import { SYSTEM_ORDER } from '../core/systems';
 import {
     addAtmosphere,
     addBarriers,
+    addCraftingStation,
     addHotbar,
     addInventory,
     addLivestock,
     addMount,
+    addNarration,
+    addPopulation,
     addResource,
+    addResourceNodes,
     addRetroLook,
     addSafeZones,
+    addSaveMenu,
+    addSettings,
+    addUpgrades,
     addVillagers,
     type AnimalDefinition,
 } from '../kit';
 import { createFolk, FolkAnimator } from '../content/folk';
 import { createBike, spinWheels } from '../content/bike';
-import { ITEMS, STORE_STOCK } from '../content/items';
+import { COOKING, CROPS, ITEMS, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
 import { REQUESTS, VILLAGERS } from '../content/villagers';
-import { FARM, SAFE_ZONES, VILLAGE, WORLD_HALF } from '../content/world';
-import { buildWorld, groundTexture } from './world';
+import { FARM, HAUNTS, MERE_LEVEL, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF } from '../content/world';
+import { buildWorld, stump } from './world';
 import { setupMood } from './mood';
 import { setupFarming, shipEverything } from './farming';
-import { animateHollow, MonsterDirector } from './monsters';
+import { animateHollow, forgetHollow, hollowTarget, isNight, spawnHollow } from './monsters';
 import { setupDread } from './dread';
+import { INTRO, setupStory } from './story';
+import { setupJournal } from './journal';
 
 /**
- * Hollowmere: farm, deliver, and keep moving.
+ * Hollowmere: farm, cook, deliver, and keep moving.
  *
  * Everything below is a kit call or a template feature; the game's own code is
  * the content (people, items, places) and the few rules that make it this game.
@@ -39,50 +49,20 @@ import { setupDread } from './dread';
 const SAVE_SLOT = 'hollowmere';
 /** Real seconds per in-game day. */
 const DAY_LENGTH = 600;
-
-const CROPS: CropDefinition[] = [
-    { id: 'turnip', name: 'Turnip', seed: 'turnip-seed', produce: 'turnip', stages: 3, stageSeconds: [40, 40, 40], height: 0.5, colors: [0x5f8a52, 0x7aa064, 0xc8d8b0] },
-    { id: 'corn', name: 'Corn', seed: 'corn-seed', produce: 'corn', yield: 2, stages: 4, stageSeconds: [50, 50, 50, 50], height: 1.7, colors: [0x5f8a52, 0x7a9a5a, 0xb0a85a, 0xd8c070] },
-    { id: 'pumpkin', name: 'Pumpkin', seed: 'pumpkin-seed', produce: 'pumpkin', stages: 4, stageSeconds: [70, 70, 70, 70], height: 0.8, colors: [0x5f8a52, 0x7a9a52, 0xb07a3a, 0xd0702a] },
-];
-
-/** Look speed relative to the template default, remembered on this machine. */
 const LOOK_BASE = 0.0012;
-let lookScale = readLookScale();
-/** Set once the template is up; the menu callbacks are built before it exists. */
-let controlsRef: { flow: GameFlow; look: { sensitivity: number } } | undefined;
-
-function readLookScale(): number {
-    try {
-        const stored = Number(localStorage.getItem('hollowmere.look'));
-        return stored > 0 ? stored : 1;
-    } catch {
-        return 1;
-    }
-}
-
-function setLookScale(scale: number): void {
-    lookScale = scale;
-    try {
-        localStorage.setItem('hollowmere.look', String(scale));
-    } catch {
-        // Private windows may refuse storage; the setting still applies for this visit.
-    }
-    if (controlsRef) controlsRef.look.sensitivity = LOOK_BASE * scale;
-}
+const coin = (amount: number): string => `${amount}c`;
 
 export async function boot(): Promise<void> {
     const cat = createFolk({ species: 'cat', fur: 0x2b2522, accent: 0xd9b8a0, clothes: 0x6b4f3a });
 
     const { game, world } = await createThirdPersonGame({
         title: 'Hollowmere',
-        subtitle: 'Grow. Deliver. Keep moving.',
-        hint: 'WASD to walk, E to interact, F to use what you hold, 1 to 8 to pick it, I for the bag',
         autoStart: false,
         saveSlot: SAVE_SLOT,
         arena: false,
         weapon: false,
-        scene: { preset: 'outdoor-dusk', groundSize: WORLD_HALF * 2.2, groundTexture: groundTexture(), fog: false },
+        // The valley brings its own ground.
+        scene: { preset: 'outdoor-dusk', groundSize: 0, fog: false },
         player: { lives: Infinity, maxHealth: 100, regenPerSecond: 2, regenDelay: 6, respawnDelay: 2.5 },
         spawnPoint: { x: FARM.door.x, y: 0.2, z: FARM.door.z },
         playerObject: () => cat.root,
@@ -94,94 +74,118 @@ export async function boot(): Promise<void> {
                 { action: 'use', label: '◉' },
                 { action: 'sprint', label: '≫', hold: true },
                 { action: 'inventory', label: '🎒' },
+                { action: 'journal', label: '📖' },
             ],
         },
-        flow: {
-            pointerLock: true,
-            crosshairWhen: [],
-            pauseMenu: {
-                title: 'Paused',
-                buttons: [
-                    { label: 'Resume', primary: true, action: () => controlsRef?.flow.resume() },
-                    {
-                        label: 'Mouse sensitivity',
-                        slider: {
-                            min: 0.2,
-                            max: 2,
-                            step: 0.05,
-                            value: () => lookScale,
-                            onChange: (value) => setLookScale(value),
-                            format: (value) => `${Math.round(value * 100)}%`,
-                        },
-                    },
-                    { label: 'Main menu', action: () => controlsRef?.flow.quit() },
-                ],
-            },
-        },
+        flow: { pointerLock: true, crosshairWhen: [] },
         game: { stats: false, exposeDebug: true },
     });
-    controlsRef = { flow: world.flow, look: world.controls.look };
-    setLookScale(lookScale);
     animatePlayer(game, new FolkAnimator(cat));
+    const synth = new Synth(game);
 
-    //#region Look
+    //#region Look and land
 
     const atmosphere = addAtmosphere(game, { color: 0x8b9488, density: 0.045, heightFalloff: 0.16, noiseScale: 0.05, noiseAmount: 0.7 });
     const look = addRetroLook(game, { resolutionScale: 0.36, psx: { colorLevels: 28, dither: 0.7 }, vhs: { wobble: 0.5, saturation: 0.72, noise: 0.07 } });
     game.renderer.toneMappingExposure = 1.1;
 
-    //#endregion Look
-
     const refs = await buildWorld(game);
+    const { terrain } = refs;
+    const ground = (x: number, z: number): number => terrain.heightAt(x, z);
+    const at = (spot: { x: number; z: number }, lift = 0): THREE.Vector3 => terrain.point(spot.x, spot.z, lift);
+    // The ground arrived after the player did.
+    world.player.body.teleport(at(FARM.door, 0.2));
+
     const dayCycle = new DayCycle(game, { dayLength: DAY_LENGTH, startHour: 7 });
     setupMood(game, { dayCycle, atmosphere, lighting: world.scene.lighting, lamps: refs.lamps });
+    const narration = addNarration(game);
+
+    //#endregion Look and land
 
     //#region Money and inventories
 
-    const coins = addResource(game, { id: 'coins', label: 'Coins', initial: 30, integer: true, format: (value) => `${value}c` });
+    const coins = addResource(game, { id: 'coins', label: 'Coins', initial: 20, integer: true, format: coin });
     const pockets = addInventory(game, { items: ITEMS, capacity: 8, title: 'Pockets', persist: 'pockets', primary: true });
     const bag = addInventory(game, { items: ITEMS, capacity: 20, key: 'inventory', keys: ['Tab'], title: 'Backpack', persist: 'bag', primary: false, columns: 5 });
     bag.offerTransfer('To pockets', pockets);
     pockets.offerTransfer('To backpack', bag);
     const hotbar = addHotbar(game, { inventory: pockets, slots: 8, useAction: 'use', onUse: (slot) => farming.useHeld(slot) });
+    const carried = [pockets, bag];
+    const have = (itemId: string): number => pockets.count(itemId) + bag.count(itemId);
 
-    /** New things go in the pockets, and into the backpack when the pockets are full. */
-    const give = (itemId: string, amount: number): boolean => {
+    /** New things go in the pockets, then the backpack. Returns how many did not fit. */
+    const stow = (itemId: string, amount: number): number => {
         const leftover = pockets.add(itemId, amount);
-        const lost = leftover > 0 ? bag.add(itemId, leftover) : 0;
+        return leftover > 0 ? bag.add(itemId, leftover) : 0;
+    };
+    const give = (itemId: string, amount: number): boolean => {
+        const lost = stow(itemId, amount);
         if (lost > 0) game.toasts.push('Your pockets and backpack are full', { color: '#ff9a9a' });
         return lost === 0;
+    };
+    /** Takes from the pockets first, then the backpack, as if they were one bag. */
+    const takeCarried = (itemId: string, amount: number): boolean => {
+        if (have(itemId) < amount) return false;
+        const fromPockets = Math.min(amount, pockets.count(itemId));
+        if (fromPockets > 0) pockets.remove(itemId, fromPockets);
+        if (amount > fromPockets) bag.remove(itemId, amount - fromPockets);
+        return true;
     };
 
     //#endregion Money and inventories
 
     //#region Farm, animals and the bike
 
+    /** Counted for the story and the journal, and saved with the day. */
+    const tally = { harvested: 0, cooked: 0, wood: 0 };
+    const thoughts = new Set<string>();
+
     const farm = new Farm(game, {
         columns: FARM.field.columns,
         rows: FARM.field.rows,
         plotSize: 1.6,
         origin: { x: FARM.field.x, y: 0.02, z: FARM.field.z },
+        extraFields: FARM.extraFields.map((field) => ({ origin: { x: field.x, y: 0.02, z: field.z }, columns: field.columns, rows: field.rows })),
         crops: CROPS,
         soil: { dry: 0x3a2e24, wet: 0x1e1612 },
     });
     const barriers = addBarriers(game, { enemies: world.enemies, lifetime: 150, toughness: 7, onBroken: () => game.toasts.push('A fence gave way', { color: '#c8a0a0' }) });
-    const farming = setupFarming(game, { farm, pockets, hotbar, barriers, give });
+    const farming = setupFarming(game, { farm, pockets, hotbar, barriers, give, nodes: () => nodes, onHarvest: (_itemId, amount) => (tally.harvested += amount) });
 
-    const animals = await loadAnimals(game);
-    addLivestock(game, {
+    const livestock = addLivestock(game, {
         pen: { center: { x: FARM.pen.center.x, y: 0, z: FARM.pen.center.z }, halfSize: FARM.pen.halfSize },
-        animals: animals.map((entry) => entry.definition),
+        animals: [],
         inventory: pockets,
         onCollect: (animal) => game.effects.text(animal.object.position.clone().setY(1.4), `+1 ${animal.product}`, { color: 0xe8e0c8 }),
-        animate: (animal, speed, delta) => animals.find((entry) => entry.definition === animal)?.animate(speed, delta),
+        animate: (animal, speed, delta) => herd.get(animal.id)?.(speed, delta),
     });
+    /** Walk and idle clips per animal, by id. */
+    const herd = new Map<string, (speed: number, delta: number) => void>();
+    /** Bring the pen to this many of a kind, loading or removing animals as needed. */
+    const setHerd = (kind: 'hen' | 'cow', count: number): void => {
+        for (let index = 1; index <= 8; index += 1) {
+            const id = `${kind}-${index}`;
+            const present = herd.has(id);
+            if (index <= count && !present) {
+                // Claimed before the model arrives, so two quick calls cannot load the same animal twice.
+                herd.set(id, () => undefined);
+                void loadAnimal(game, kind, id, index).then((animal) => {
+                    if (!herd.has(id)) return;
+                    herd.set(id, animal.animate);
+                    livestock.add(animal.definition);
+                });
+            } else if (index > count && present) {
+                herd.delete(id);
+                livestock.remove(id);
+            }
+        }
+    };
 
     const bikeModel = createBike();
     const bike = addMount(game, {
         object: bikeModel,
         controller: world.controls,
-        position: { x: FARM.bike.x, y: 0, z: FARM.bike.z },
+        position: at(FARM.bike),
         yaw: FARM.bike.yaw,
         maxSpeed: 12,
         seat: { x: 0, y: 0.28, z: -0.05 },
@@ -191,6 +195,65 @@ export async function boot(): Promise<void> {
 
     //#endregion Farm, animals and the bike
 
+    //#region Gathering and making
+
+    const nodes = addResourceNodes(game, {
+        kinds: {
+            tree: { name: 'dead tree', verb: 'Chop', tool: 'axe', toolName: 'axe', hits: 4, drops: [{ itemId: 'wood', amount: [2, 4] }], respawnSeconds: DAY_LENGTH * 2, solid: { radius: 0.45, height: 4 }, remains: stump },
+            mushroom: { name: 'pale caps', verb: 'Pick', hits: 1, drops: [{ itemId: 'mushroom', amount: [1, 2] }], respawnSeconds: DAY_LENGTH },
+            crate: { name: 'old crate', verb: 'Search', hits: 1, drops: [{ itemId: 'corn-seed', amount: 3 }] },
+        },
+        nodes: [
+            ...refs.trees.map((object) => ({ kind: 'tree', object })),
+            ...refs.spots.mushrooms.map((object) => ({ kind: 'mushroom', object })),
+            { kind: 'crate', object: refs.spots.crate },
+        ],
+        held: () => hotbar.selectedId,
+        give: (itemId, amount) => {
+            give(itemId, amount);
+            if (itemId === 'wood') tally.wood += amount;
+            game.toasts.push(`+${amount} ${pockets.inventory.registry.resolve(itemId).name.toLowerCase()}`, { color: '#d8e8b0' });
+        },
+        onHit: (node) => {
+            if (node.kindId !== 'tree') return;
+            synth.noise({ duration: 0.09, gain: 0.16, filter: 700 + Math.random() * 400 });
+            game.effects.particles.burst(node.object.position.clone().setY(node.object.position.y + 1), { count: 6, color: 0x4a3e32, size: 0.06, speed: 2, lifetime: 0.4 });
+        },
+        onDepleted: (node) => {
+            if (node.kindId === 'tree') synth.tone({ frequency: 60, duration: 0.5, type: 'triangle', gain: 0.2, sweep: 0.5 });
+        },
+        persist: 'nodes',
+    });
+
+    const cookpot = addCraftingStation(game, {
+        id: 'cookpot',
+        title: 'Cooking',
+        object: refs.spots.hearth,
+        recipes: COOKING,
+        tierNames: POT_TIERS,
+        sources: carried,
+        give: stow,
+        prompt: 'Cook at the fire',
+        verb: 'Cook',
+        onStarted: () => synth.noise({ duration: 0.5, gain: 0.08, filter: 2400 }),
+        onFinished: () => synth.tone({ frequency: 660, duration: 0.25, type: 'sine', gain: 0.12 }),
+        onCollected: () => (tally.cooked += 1),
+    });
+    const bench = addCraftingStation(game, { id: 'bench', title: 'Workbench', object: refs.spots.workbench, recipes: WOODWORK, sources: carried, give: stow, prompt: 'Use the workbench', verb: 'Build' });
+
+    // The fire and the pot: it flickers always, and steams while something is cooking.
+    const flame = refs.spots.hearth.getObjectByName('flame');
+    game.systems.add({
+        name: 'hearth',
+        order: SYSTEM_ORDER.EFFECTS,
+        update: () => {
+            const flicker = 0.85 + Math.sin(game.time.elapsed * 13) * 0.08 + Math.sin(game.time.elapsed * 31) * 0.07;
+            flame?.scale.set(flicker, flicker * (cookpot.station.busy ? 1.5 : 1), flicker);
+        },
+    });
+
+    //#endregion Gathering and making
+
     //#region The village
 
     const villagers = addVillagers(game, {
@@ -199,46 +262,101 @@ export async function boot(): Promise<void> {
             name: villager.name,
             portrait: villager.portrait,
             object: createFolk(villager.look).root,
-            position: { x: VILLAGE.center.x + villager.spot.x, y: 0, z: VILLAGE.center.z + villager.spot.z },
+            position: at({ x: VILLAGE.center.x + villager.spot.x, z: VILLAGE.center.z + villager.spot.z }),
             yaw: villager.spot.yaw,
             lines: villager.lines,
-            loves: villager.loves,
-            likes: villager.likes,
-            dislikes: villager.dislikes,
+            topics: villager.topics,
+            thanks: villager.thanks,
         })),
         day: () => dayCycle.day,
         inventory: pockets,
-        held: () => hotbar.selectedId,
-        requests: { templates: REQUESTS, maxOpen: 3 },
+        // Deliveries may come out of the backpack too.
+        items: { count: have, remove: takeCarried },
+        // Nobody here takes presents: they take what they asked for.
+        gifts: false,
+        requests: { templates: REQUESTS, maxOpen: 4, deliveriesPerTier: 3 },
         onPaid: (amount) => coins.add(amount),
+        formatReward: coin,
         dialogue: { speed: 50 },
     });
 
-    const shop = addInventory(game, { items: ITEMS, mode: 'shop', title: "Barnaby's store", catalogue: STORE_STOCK, primary: false, customer: pockets, currency: { resource: coins, label: 'purse', format: (amount) => `${amount}c` }, filters: false });
-    const counter = new THREE.Object3D();
-    counter.position.set(VILLAGE.store.x + 2, 0, VILLAGE.store.z + 5);
-    game.scene.add(counter);
-    game.interactions.add(counter, { prompt: 'Browse the store', range: 3, onInteract: () => shop.open() });
+    const stock = [...STORE_STOCK];
+    const shop = addInventory(game, { items: ITEMS, mode: 'shop', title: "Barnaby's store", catalogue: stock, primary: false, customer: pockets, currency: { resource: coins, label: 'purse', format: coin }, filters: false });
+    const counter = storeFurniture(false);
+    counter.position.copy(at({ x: VILLAGE.store.x + 3, z: VILLAGE.store.z + 6 }));
+    counter.rotation.y = VILLAGE.store.yaw;
+    const lectern = storeFurniture(true);
+    lectern.position.copy(at({ x: VILLAGE.store.x + 5.6, z: VILLAGE.store.z + 4.8 }));
+    lectern.rotation.y = VILLAGE.store.yaw;
+    game.scene.add(counter, lectern);
+    game.interactions.add(counter, { prompt: 'Buy and sell at the store', range: 2.6, onInteract: () => shop.open() });
+
+    const upgrades = addUpgrades(game, {
+        title: "Barnaby's order book",
+        currency: coins,
+        format: coin,
+        object: lectern,
+        prompt: 'Read the order book',
+        upgrades: [
+            {
+                id: 'field',
+                name: 'More land',
+                icon: '🌱',
+                levels: [
+                    { cost: 150, name: 'The east field', description: '12 more plots beside the first field.' },
+                    { cost: 340, name: 'The long field', description: '18 more plots along the south fence.' },
+                ],
+                apply: (level) => farm.setActiveFields(1 + level),
+            },
+            {
+                id: 'pot',
+                name: 'A better pot',
+                icon: '🍲',
+                levels: [
+                    { cost: 180, name: 'Iron pot', description: 'Cooks chowder, omelettes and pale broth.' },
+                    { cost: 450, name: 'Cauldron', description: 'Cooks pumpkin pie and Hollowmere stew.' },
+                ],
+                apply: (level) => (cookpot.station.tier = 1 + level),
+            },
+            {
+                id: 'seeds',
+                name: 'Better seeds',
+                icon: '🌽',
+                levels: [
+                    { cost: 80, name: 'Corn seeds', description: 'The store starts stocking corn.' },
+                    { cost: 170, name: 'Pumpkin seeds', description: 'The store starts stocking pumpkins.' },
+                ],
+                apply: (level) => {
+                    stock.length = 0;
+                    stock.push('turnip-seed', 'wheat-seed', ...(level >= 1 ? ['corn-seed'] : []), ...(level >= 2 ? ['pumpkin-seed'] : []), 'fence-kit', 'candle');
+                },
+            },
+            { id: 'hen', name: 'Another hen', icon: '🐔', description: 'One more hen in the pen, laying eggs.', levels: [{ cost: 90 }, { cost: 120 }, { cost: 160 }], apply: (level) => setHerd('hen', 2 + level) },
+            { id: 'cow', name: 'Another cow', icon: '🐄', description: 'One more cow in the pen, giving milk.', levels: [{ cost: 260 }, { cost: 360 }], apply: (level) => setHerd('cow', 1 + level) },
+        ],
+    });
+    setHerd('hen', 2);
+    setHerd('cow', 1);
 
     //#endregion The village
 
     //#region Home
 
     const bin = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.9), new THREE.MeshStandardMaterial({ color: 0x5a4430, roughness: 1 }));
-    bin.position.set(FARM.shipping.x, 0.4, FARM.shipping.z);
+    bin.position.copy(at(FARM.shipping, 0.4));
     bin.castShadow = true;
     game.scene.add(bin);
     game.interactions.add(bin, {
-        prompt: 'Ship crops and produce',
+        prompt: 'Ship produce and cooked food',
         range: 2.2,
         onInteract: () => {
-            const made = shipEverything([pockets, bag], coins);
-            game.toasts.push(made > 0 ? `Shipped for ${made}c` : 'Nothing to ship', { color: made > 0 ? '#d8e8b0' : '#c0b0a0' });
+            const made = shipEverything(carried, coins, (itemId) => shop.inventory.sellPrice(itemId));
+            game.toasts.push(made > 0 ? `Shipped for ${coin(made)}` : 'Nothing to ship', { color: made > 0 ? '#d8e8b0' : '#c0b0a0' });
         },
     });
 
     const door = new THREE.Object3D();
-    door.position.set(FARM.door.x - 1.5, 0, FARM.door.z);
+    door.position.copy(at({ x: FARM.door.x - 1.5, z: FARM.door.z }));
     game.scene.add(door);
     game.interactions.add(door, { prompt: 'Sleep until morning', range: 2.2, onInteract: () => sleep('You sleep. Something scratches at the door until dawn.') });
 
@@ -248,11 +366,25 @@ export async function boot(): Promise<void> {
 
     const safeZones = addSafeZones(game, {
         enemies: world.enemies,
-        zones: SAFE_ZONES,
-        onEnter: (zone) => game.hud.setStat('safe', zone.name ?? 'Safe', 'here'),
+        zones: SAFE_ZONES.map((zone) => ({ ...zone, position: { ...zone.position, y: ground(zone.position.x, zone.position.z) } })),
+        onEnter: (zone) => {
+            game.hud.setStat('safe', zone.name ?? 'Safe', 'here');
+            think('safe', ['They stop at the light. Remember that.']);
+        },
         onLeave: () => game.hud.removeStat('safe'),
     });
-    const director = new MonsterDirector(game, { enemies: world.enemies, dayCycle, safeZones, bounds: WORLD_HALF });
+    const population = addPopulation(game, {
+        enemies: world.enemies,
+        target: () => hollowTarget(dayCycle),
+        spawn: (position, post) => spawnHollow(world.enemies, position, isNight(dayCycle), post !== undefined),
+        interval: () => (isNight(dayCycle) ? [2.5, 5] : [5, 10]),
+        // Not in a lit place, not on a cliff, and not standing in the water.
+        canSpawnAt: (position) => !safeZones.zoneAt(position) && terrain.slopeAt(position.x, position.z) < 0.15 && ground(position.x, position.z) > MERE_LEVEL + 0.3,
+        heightAt: ground,
+        bounds: WORLD_HALF - 16,
+        posts: HAUNTS,
+        onDespawn: forgetHollow,
+    });
     setupDread(game, { enemies: world.enemies, look, dayCycle, isRiding: () => bike.mounted });
 
     // Fainting is not an ending: someone carries you home, and it costs a little.
@@ -260,22 +392,82 @@ export async function boot(): Promise<void> {
         const lost = Math.floor(coins.value() * 0.1);
         coins.add(-lost);
         game.effects.flash(1.2, 0x000000, 0.9);
-        game.toasts.push(lost > 0 ? `You wake at home. ${lost}c missing from your purse.` : 'You wake at home.', { color: '#c8a0a0' });
+        game.toasts.push(lost > 0 ? `You wake at home. ${coin(lost)} missing from your purse.` : 'You wake at home.', { color: '#c8a0a0' });
     });
     game.events.on('player:respawn', () => {
         if (bike.mounted) bike.dismount();
+        world.player.body.teleport(at(FARM.door, 0.2));
         sleep();
     });
 
     //#endregion The Hollow
 
-    //#region Days
+    //#region Story, notebook and thoughts
+
+    const story = setupStory(game, narration, {
+        planted: () => farm.plantedCount + tally.harvested,
+        watered: () => farm.plots.filter((plot) => plot.watered || plot.ripe).length + tally.harvested,
+        wood: () => tally.wood,
+        harvested: () => tally.harvested,
+        cooked: () => tally.cooked,
+        metShopkeeper: () => villagers.hasMet('barnaby'),
+        delivered: () => villagers.requests?.completed ?? 0,
+        day: () => dayCycle.day,
+        reward: (amount) => {
+            coins.add(amount);
+            game.toasts.push(`+${coin(amount)}`, { color: '#ffe08a' });
+        },
+    });
+    const journal = setupJournal(game, {
+        story,
+        villagers,
+        stations: [
+            { label: 'The pot', handle: cookpot, tiers: POT_TIERS },
+            { label: 'The workbench', handle: bench },
+        ],
+        registry: pockets.inventory.registry,
+        have,
+        day: () => dayCycle.day,
+    });
+
+    /** Something the farmer thinks once, the first time it comes up. */
+    function think(id: string, lines: string[]): void {
+        if (thoughts.has(id) || !game.state.is('playing')) return;
+        thoughts.add(id);
+        narration.say(lines);
+    }
+    const SIGHTS: Array<{ id: string; spot: { x: number; z: number }; within: number; lines: string[] }> = [
+        { id: 'mere', spot: PLACES.mere, within: 26, lines: ['Still water. No wind on it at all.', 'So this is the mere. I do not think I will drink from it.'] },
+        { id: 'lookout', spot: PLACES.lookout, within: 8, lines: ['Above the mist, at last.', 'From up here it almost looks like home. Almost.'] },
+        { id: 'stones', spot: PLACES.stones, within: 11, lines: ['Somebody stood these up. Somebody still keeps the candle lit.'] },
+        { id: 'ruin', spot: PLACES.ruin, within: 12, lines: ['Another farm. Another farmer.', 'The scarecrow is facing the house.'] },
+        { id: 'graveyard', spot: PLACES.graveyard, within: 11, lines: ['One of these is open. And empty.'] },
+    ];
+    let thoughtTimer = 0;
+    game.systems.add({
+        name: 'thoughts',
+        order: SYSTEM_ORDER.GAMEPLAY + 9,
+        update: (delta) => {
+            thoughtTimer -= delta;
+            const player = game.player?.position;
+            if (thoughtTimer > 0 || !player) return;
+            thoughtTimer = 0.5;
+            for (const sight of SIGHTS) if (Math.hypot(player.x - sight.spot.x, player.z - sight.spot.z) < sight.within) think(sight.id, sight.lines);
+            if (dayCycle.hour >= 18 && dayCycle.hour < 21) think('dusk', ['The light is going. There will be more of them soon.', 'A lamp, a door, or the bicycle. Not the open road.']);
+            const nearest = world.enemies.nearest(player);
+            if (nearest && nearest.root.position.distanceTo(player) < 9 && !safeZones.playerSafe) think('hollow', ['It has seen me.', 'It is slow. I am not. Walk away and it loses interest.']);
+        },
+    });
+
+    //#endregion Story, notebook and thoughts
+
+    //#region Days and saving
 
     function sleep(message?: string): void {
         dayCycle.sleep();
-        director.clear();
+        population.clear();
         if (message) game.toasts.push(message, { color: '#d0c8e0' });
-        game.save.save(SAVE_SLOT);
+        saves.save();
     }
 
     dayCycle.hooks.onDayStart = (day) => {
@@ -290,79 +482,127 @@ export async function boot(): Promise<void> {
         always: true,
         update: () => {
             game.hud.setStat('day', `Day ${dayCycle.day}`, dayCycle.clock);
-            const request = villagers.requests?.open[0];
-            game.hud.setObjective(request ? `${VILLAGERS.find((villager) => villager.id === request.from)?.name ?? '?'}: ${request.amount} ${pockets.inventory.registry.resolve(request.itemId).name.toLowerCase()} by day ${request.dueDay}` : 'Tend the farm');
+            if (!story.finished) return;
+            // After the first day the best paid request is the thing to chase.
+            const request = [...(villagers.requests?.open ?? [])].sort((a, b) => b.reward - a.reward)[0];
+            const name = request ? pockets.inventory.registry.resolve(request.itemId).name.toLowerCase() : '';
+            game.hud.setObjective(request ? `${VILLAGERS.find((villager) => villager.id === request.from)?.name ?? '?'} wants ${request.amount} ${name} (${coin(request.reward)}). J for the notebook` : 'Tend the farm. J for the notebook');
         },
     });
 
+    type Saved = { day?: number; hour?: number; field?: ReturnType<Farm['toJSON']>; tally?: typeof tally; thoughts?: string[] };
     game.save.register('hollowmere', {
-        save: () => ({ day: dayCycle.day, hour: dayCycle.hour, field: farm.toJSON() }),
+        save: (): Saved => ({ day: dayCycle.day, hour: dayCycle.hour, field: farm.toJSON(), tally: { ...tally }, thoughts: [...thoughts] }),
         load: (data) => {
-            const saved = data as { day?: number; hour?: number; field?: ReturnType<Farm['toJSON']> } | undefined;
+            const saved = data as Saved | undefined;
             if (!saved) return;
             dayCycle.day = saved.day ?? 1;
             dayCycle.setHour(saved.hour ?? 7);
             if (saved.field) farm.fromJSON(saved.field);
+            Object.assign(tally, saved.tally);
+            thoughts.clear();
+            for (const id of saved.thoughts ?? []) thoughts.add(id);
         },
     });
-    game.save.register('coins', { save: () => coins.value(), load: (value) => coins.set(Number(value ?? 30)) });
+    game.save.register('coins', { save: () => coins.value(), load: (value) => coins.set(Number(value ?? 20)) });
 
-    //#endregion Days
+    const settings = addSettings(game, {
+        namespace: 'hollowmere',
+        volume: ['master', 'ambient', 'sfx'],
+        settings: [
+            { id: 'look', label: 'Mouse sensitivity', kind: 'slider', min: 0.2, max: 2, step: 0.05, default: 1, percent: true, apply: (value) => (world.controls.look.sensitivity = LOOK_BASE * value) },
+            { id: 'vhs', label: 'VHS filter', kind: 'toggle', default: true, apply: (on) => look.setVhs(on) },
+            { id: 'shake', label: 'Screen shake', kind: 'toggle', default: true, apply: (on) => (game.effects.shakeEnabled = on) },
+        ],
+    });
+    const saves = addSaveMenu(game, {
+        flow: world.flow,
+        slot: SAVE_SLOT,
+        title: 'Hollowmere',
+        subtitle: 'Grow. Cook. Deliver. Keep moving.',
+        hint: 'WASD to walk, E to interact, F to use what you hold, 1 to 8 to pick it, Tab for the bag, J for the notebook',
+        describe: (save) => `day ${(save.data.hollowmere as Saved | undefined)?.day ?? 1}`,
+        onNewGame: () => narration.say(INTRO),
+        buttons: [settings.button],
+    });
+    game.menus.register(PAUSE_MENU, {
+        title: 'Paused',
+        buttons: [
+            { label: 'Resume', primary: true, action: () => world.flow.resume() },
+            saves.saveButton,
+            settings.button,
+            { label: 'Main menu', action: () => world.flow.quit() },
+        ],
+    });
 
-    // A new farmer's kit.
+    //#endregion Days and saving
+
+    // What the farmer woke up with.
     give('watering-can', 1);
-    give('turnip-seed', 6);
-    give('corn-seed', 3);
-    give('fence-kit', 3);
-    give('bread', 2);
+    give('axe', 1);
+    give('turnip-seed', 5);
+    give('wheat-seed', 3);
+    give('fence-kit', 2);
     villagers.newDay();
 
-    game.world = { ...world, farm, dayCycle, villagers, bike, barriers, director, pockets, bag, hotbar, coins, safeZones };
+    game.world = { ...world, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally };
 }
 
-/** The cow and the hens, from their glTF models, with walk and idle clips. */
-async function loadAnimals(game: Game): Promise<Array<{ definition: AnimalDefinition; animate: (speed: number, delta: number) => void }>> {
-    const specs = [
-        { id: 'cow', name: 'the cow', url: 'models/farm/cow.glb', length: 2.2, product: 'milk', every: 120, speed: 0.6 },
-        { id: 'hen-1', name: 'the hen', url: 'models/farm/chicken_voxel.glb', length: 0.6, product: 'egg', every: 80, speed: 0.9 },
-        { id: 'hen-2', name: 'the hen', url: 'models/farm/chicken_voxel.glb', length: 0.6, product: 'egg', every: 95, speed: 0.9 },
-        { id: 'hen-3', name: 'the hen', url: 'models/farm/chicken_voxel.glb', length: 0.6, product: 'egg', every: 110, speed: 0.9 },
-    ];
-    return Promise.all(
-        specs.map(async (spec) => {
-            let object: THREE.Object3D;
-            let mixer: THREE.AnimationMixer | undefined;
-            let walk: THREE.AnimationAction | undefined;
-            let idle: THREE.AnimationAction | undefined;
-            try {
-                const model = await game.assets.loadModel(spec.url);
-                object = fitModel(model, { length: spec.length });
-                const clips = (model.userData.animations as THREE.AnimationClip[] | undefined) ?? [];
-                const clip = (name: string): THREE.AnimationClip | undefined => clips.find((candidate) => candidate.name.split('|').pop() === name);
-                mixer = new THREE.AnimationMixer(model);
-                const walkClip = clip('Walk') ?? clip('Run');
-                const idleClip = clip('Idle') ?? clip('Idle_Peck') ?? clip('Eating');
-                walk = walkClip ? mixer.clipAction(walkClip) : undefined;
-                idle = idleClip ? mixer.clipAction(idleClip) : undefined;
-                idle?.play();
-            } catch {
-                object = new THREE.Mesh(new THREE.BoxGeometry(spec.length * 0.5, spec.length * 0.4, spec.length), new THREE.MeshStandardMaterial({ color: 0xd8d0c0 }));
+/** A counter for the store, or the stand its order book lies on. */
+function storeFurniture(lectern: boolean): THREE.Object3D {
+    const group = new THREE.Group();
+    const wood = new THREE.MeshStandardMaterial({ color: 0x4e3e2e, roughness: 1, flatShading: true });
+    const body = new THREE.Mesh(lectern ? new THREE.BoxGeometry(0.5, 1.1, 0.5) : new THREE.BoxGeometry(2, 0.95, 0.7), wood);
+    body.position.y = lectern ? 0.55 : 0.47;
+    body.castShadow = true;
+    group.add(body);
+    if (lectern) {
+        const book = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.06, 0.34), new THREE.MeshStandardMaterial({ color: 0x1e3a2a, roughness: 0.9 }));
+        book.position.set(0, 1.15, 0);
+        book.rotation.x = -0.35;
+        group.add(book);
+    }
+    return group;
+}
+
+/** A hen or a cow from its glTF model, with walk and idle clips. */
+async function loadAnimal(game: Game, kind: 'hen' | 'cow', id: string, index: number): Promise<{ definition: AnimalDefinition; animate: (speed: number, delta: number) => void }> {
+    const spec =
+        kind === 'cow'
+            ? { name: 'the cow', url: 'models/farm/cow.glb', length: 2.2, product: 'milk', every: 110 + index * 10, speed: 0.6 }
+            : { name: 'the hen', url: 'models/farm/chicken_voxel.glb', length: 0.6, product: 'egg', every: 70 + index * 12, speed: 0.9 };
+    let object: THREE.Object3D;
+    let mixer: THREE.AnimationMixer | undefined;
+    let walk: THREE.AnimationAction | undefined;
+    let idle: THREE.AnimationAction | undefined;
+    try {
+        // Each animal needs its own skeleton, so the model is loaded fresh rather than cloned.
+        const model = await game.assets.loadModel(spec.url);
+        object = fitModel(model, { length: spec.length });
+        const clips = (model.userData.animations as THREE.AnimationClip[] | undefined) ?? [];
+        const clip = (name: string): THREE.AnimationClip | undefined => clips.find((candidate) => candidate.name.split('|').pop() === name);
+        mixer = new THREE.AnimationMixer(model);
+        const walkClip = clip('Walk') ?? clip('Run');
+        const idleClip = clip('Idle') ?? clip('Idle_Peck') ?? clip('Eating');
+        walk = walkClip ? mixer.clipAction(walkClip) : undefined;
+        idle = idleClip ? mixer.clipAction(idleClip) : undefined;
+        idle?.play();
+    } catch {
+        object = new THREE.Mesh(new THREE.BoxGeometry(spec.length * 0.5, spec.length * 0.4, spec.length), new THREE.MeshStandardMaterial({ color: 0xd8d0c0 }));
+    }
+    let walking = false;
+    return {
+        definition: { id, name: spec.name, object, product: spec.product, every: spec.every, speed: spec.speed },
+        animate: (speed, delta) => {
+            const moving = speed > 0.05;
+            if (moving !== walking && walk && idle) {
+                walking = moving;
+                (moving ? walk : idle).reset().fadeIn(0.3).play();
+                (moving ? idle : walk).fadeOut(0.3);
             }
-            let walking = false;
-            return {
-                definition: { id: spec.id, name: spec.name, object, product: spec.product, every: spec.every, speed: spec.speed },
-                animate: (speed: number, delta: number) => {
-                    const moving = speed > 0.05;
-                    if (moving !== walking && walk && idle) {
-                        walking = moving;
-                        (moving ? walk : idle).reset().fadeIn(0.3).play();
-                        (moving ? idle : walk).fadeOut(0.3);
-                    }
-                    mixer?.update(delta);
-                },
-            };
-        }),
-    );
+            mixer?.update(delta);
+        },
+    };
 }
 
 /** The player's walk cycle, driven by the character body's speed. */

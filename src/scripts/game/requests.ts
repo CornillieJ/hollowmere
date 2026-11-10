@@ -20,6 +20,8 @@ export type RequestTemplate = {
     days?: number;
     /** What they say when asking. `{amount}` and `{item}` are filled in. */
     text?: string;
+    /** Harder requests have a higher tier and stay away until the board reaches it. Defaults to 0. */
+    tier?: number;
 };
 
 export type Request = {
@@ -31,6 +33,7 @@ export type Request = {
     friendship: number;
     dueDay: number;
     text: string;
+    tier: number;
 };
 
 export type RequestBoardOptions = {
@@ -41,6 +44,13 @@ export type RequestBoardOptions = {
     maxOpen?: number;
     /** The current day number. */
     day: () => number;
+    /**
+     * The highest tier that may be asked for right now. Defaults to one tier per
+     * `deliveriesPerTier` finished requests, so the asks grow with the player.
+     */
+    tier?: () => number;
+    /** Finished requests per tier when `tier` is not given. Defaults to 3. */
+    deliveriesPerTier?: number;
     /** Item names for the request text. */
     itemName?: (itemId: string) => string;
     random?: () => number;
@@ -57,6 +67,8 @@ export class RequestBoard {
     private readonly options: RequestBoardOptions;
     private readonly listeners = new Set<() => void>();
     private nextId = 1;
+    /** Requests handed in so far. */
+    completed = 0;
 
     constructor(options: RequestBoardOptions) {
         this.options = options;
@@ -67,6 +79,11 @@ export class RequestBoard {
         return this.open.filter((request) => request.from === person);
     }
 
+    /** The highest tier on offer right now. */
+    get tier(): number {
+        return this.options.tier?.() ?? Math.floor(this.completed / (this.options.deliveriesPerTier ?? 3));
+    }
+
     /** Draw new requests until the board is full. Call it each morning. */
     refill(): Request[] {
         const random = this.options.random ?? Math.random;
@@ -75,7 +92,7 @@ export class RequestBoard {
         let attempts = 0;
         while (this.open.length < max && attempts < 20) {
             attempts += 1;
-            const template = this.options.templates[Math.floor(random() * this.options.templates.length)];
+            const template = this.draw(random);
             if (!template) break;
             const candidates = (template.from ?? this.options.people).filter((person) => this.from(person).length === 0);
             const person = candidates[Math.floor(random() * candidates.length)];
@@ -91,6 +108,7 @@ export class RequestBoard {
                 friendship: template.friendship ?? 30,
                 dueDay: this.options.day() + (template.days ?? 3),
                 text: (template.text ?? 'Could you bring me {amount} {item}?').replace('{amount}', String(amount)).replace('{item}', name),
+                tier: template.tier ?? 0,
             };
             this.open.push(request);
             added.push(request);
@@ -119,6 +137,7 @@ export class RequestBoard {
         if (!this.open.includes(request) || !this.canFulfil(request, inventory)) return undefined;
         if (!inventory.remove(request.itemId, request.amount)) return undefined;
         this.open.splice(this.open.indexOf(request), 1);
+        this.completed += 1;
         this.notify();
         return request;
     }
@@ -128,15 +147,35 @@ export class RequestBoard {
         return () => this.listeners.delete(listener);
     }
 
-    toJSON(): { open: Request[]; nextId: number } {
-        return { open: this.open.map((request) => ({ ...request })), nextId: this.nextId };
+    toJSON(): { open: Request[]; nextId: number; completed: number } {
+        return { open: this.open.map((request) => ({ ...request })), nextId: this.nextId, completed: this.completed };
     }
 
-    fromJSON(data: { open?: Request[]; nextId?: number } | undefined): void {
+    fromJSON(data: { open?: Request[]; nextId?: number; completed?: number } | undefined): void {
         this.open.length = 0;
-        this.open.push(...(data?.open ?? []));
+        this.open.push(...(data?.open ?? []).map((request) => ({ ...request, tier: request.tier ?? 0 })));
         this.nextId = data?.nextId ?? this.open.length + 1;
+        this.completed = data?.completed ?? 0;
         this.notify();
+    }
+
+    /**
+     * Pick a template that is unlocked and not already asked for. Higher tiers
+     * weigh more, so the board leans towards the best the player can manage
+     * while still mixing in easy ones.
+     */
+    private draw(random: () => number): RequestTemplate | undefined {
+        const tier = this.tier;
+        const unlocked = this.options.templates.filter((template) => (template.tier ?? 0) <= tier);
+        const fresh = unlocked.filter((template) => !this.open.some((request) => request.itemId === template.itemId));
+        const pool = fresh.length > 0 ? fresh : unlocked;
+        const weight = (template: RequestTemplate): number => 1 + (template.tier ?? 0);
+        let roll = random() * pool.reduce((total, template) => total + weight(template), 0);
+        for (const template of pool) {
+            roll -= weight(template);
+            if (roll <= 0) return template;
+        }
+        return pool[pool.length - 1];
     }
 
     private notify(): void {
