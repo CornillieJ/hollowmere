@@ -38,13 +38,17 @@ export function addNarration(game: Game, options: NarrationOptions = {}): Narrat
     const removeSystem = game.systems.add({
         name: 'narration',
         order: SYSTEM_ORDER.UI,
+        // Runs while a panel has the clock stopped, so it can step aside for it.
+        always: true,
         update: () => {
             // Wall-clock time, capped: a paused game or a hidden tab must not eat a line.
             const now = performance.now();
             const elapsed = Math.min(0.1, (now - last) / 1000);
             last = now;
-            // A dialogue or a panel has the player's eyes; wait for it to close.
-            if (game.screens.blocksInput) return;
+            // A dialogue, a panel or a menu has the player's eyes: step aside and wait for it to close.
+            const covered = game.screens.blocksInput || !game.state.is('playing');
+            subtitles.root.style.visibility = covered ? 'hidden' : '';
+            if (covered) return;
             remaining -= elapsed;
             if (remaining > 0) return;
             const next = queue.shift();
