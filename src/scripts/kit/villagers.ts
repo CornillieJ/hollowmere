@@ -32,6 +32,9 @@ export type VillagerTopic = {
     minDay?: number;
 };
 
+/** A place in a villager's day. `from` is an hour, 0 to 24. */
+export type VillagerStop = { from: number; position: Vec3; yaw?: number };
+
 export type VillagerDefinition = {
     id: string;
     name: string;
@@ -42,6 +45,12 @@ export type VillagerDefinition = {
     position: Vec3;
     /** Heading when nobody is near. */
     yaw?: number;
+    /**
+     * Where they are through the day: the entry with the latest `from` hour that
+     * has passed applies, and the last one carries over midnight. They walk from
+     * one place to the next. Omit to stand at `position` all day.
+     */
+    schedule?: VillagerStop[];
     /** Small talk. One is picked per day; give a function to react to hearts or events. */
     lines: string[] | ((context: VillagerContext) => string[]);
     /** Things the player can ask about. New ones are listed first. */
@@ -81,6 +90,14 @@ export type AddVillagersOptions = {
     topicPoints?: number;
     /** At most this many topics are offered at once. Defaults to 3. */
     maxTopics?: number;
+    /** The hour of the day, 0 to 24, for schedules. */
+    hour?: () => number;
+    /** Ground height, so a walking villager follows the terrain. */
+    heightAt?: (x: number, z: number) => number;
+    /** Meters per second between stops. Defaults to 1.3. */
+    walkSpeed?: number;
+    /** Called every frame per villager with their speed, for walk animations. */
+    animate?: (id: string, speed: number, delta: number) => void;
     /** Freeze gameplay while talking. Defaults to true. */
     pauseWhileTalking?: boolean;
     dialogue?: DialogueBoxOptions;
@@ -96,6 +113,8 @@ export type VillagersHandle = {
     talkTo: (id: string) => Promise<void>;
     /** True once the player has spoken to them at all. */
     hasMet: (id: string) => boolean;
+    /** Put everyone where their schedule says, without the walk, e.g. after sleeping or loading. */
+    snapToSchedule: () => void;
     /** Call each morning: expires overdue requests and asks for new ones. */
     newDay: () => void;
     dispose: () => void;
@@ -120,8 +139,6 @@ export function addVillagers(game: Game, options: AddVillagersOptions): Villager
     let talking = false;
 
     for (const villager of options.villagers) {
-        villager.object.position.set(villager.position.x, villager.position.y, villager.position.z);
-        villager.object.rotation.y = villager.yaw ?? 0;
         villager.object.name = `villager-${villager.id}`;
         game.scene.add(villager.object);
 
@@ -146,7 +163,25 @@ export function addVillagers(game: Game, options: AddVillagersOptions): Villager
     };
     if (requests) removers.push(requests.onChange(refreshMarkers));
 
-    // Villagers turn to face whoever is near, and back when they leave.
+    /** Where a villager should be right now, by schedule or by their one fixed spot. */
+    const stopFor = (villager: VillagerDefinition): { position: Vec3; yaw: number } => {
+        const hour = options.hour?.();
+        const stops = villager.schedule;
+        if (hour === undefined || !stops || stops.length === 0) return { position: villager.position, yaw: villager.yaw ?? 0 };
+        const sorted = [...stops].sort((a, b) => a.from - b.from);
+        const current = [...sorted].reverse().find((stop) => stop.from <= hour) ?? (sorted[sorted.length - 1] as VillagerStop);
+        return { position: current.position, yaw: current.yaw ?? villager.yaw ?? 0 };
+    };
+    const snapToSchedule = (): void => {
+        for (const villager of options.villagers) {
+            const stop = stopFor(villager);
+            villager.object.position.set(stop.position.x, stop.position.y, stop.position.z);
+            villager.object.rotation.y = stop.yaw;
+        }
+    };
+    snapToSchedule();
+
+    // Villagers walk to where their day takes them, and turn to face whoever is near.
     removers.push(
         game.systems.add({
             name: 'villagers',
@@ -154,11 +189,27 @@ export function addVillagers(game: Game, options: AddVillagersOptions): Villager
             always: true,
             update: (delta) => {
                 const player = game.player?.position;
+                // Nobody walks while the game is paused or someone is being spoken to.
+                const moving = game.state.is('playing') && !game.time.isPaused && !talking;
                 for (const villager of options.villagers) {
                     const object = villager.object;
-                    const near = player && object.position.distanceToSquared(player) < 36;
-                    const goal = near ? Math.atan2(player.x - object.position.x, player.z - object.position.z) : (villager.yaw ?? 0);
-                    object.rotation.y = dampAngle(object.rotation.y, goal, 0.02, delta);
+                    const stop = stopFor(villager);
+                    const dx = stop.position.x - object.position.x;
+                    const dz = stop.position.z - object.position.z;
+                    const distance = Math.hypot(dx, dz);
+                    let speed = 0;
+                    if (distance > 0.15 && moving) {
+                        speed = Math.min(options.walkSpeed ?? 1.3, distance / Math.max(delta, 1e-4));
+                        object.position.x += (dx / distance) * speed * delta;
+                        object.position.z += (dz / distance) * speed * delta;
+                        object.position.y = options.heightAt?.(object.position.x, object.position.z) ?? stop.position.y;
+                        object.rotation.y = dampAngle(object.rotation.y, Math.atan2(dx, dz), 0.01, delta);
+                    } else {
+                        const near = player && object.position.distanceToSquared(player) < 36;
+                        const goal = near ? Math.atan2(player.x - object.position.x, player.z - object.position.z) : stop.yaw;
+                        object.rotation.y = dampAngle(object.rotation.y, goal, 0.02, delta);
+                    }
+                    options.animate?.(villager.id, speed, moving ? delta : 0);
                     const marker = markers.get(villager.id);
                     if (marker?.visible) faceCamera(marker, game.camera);
                 }
@@ -284,6 +335,7 @@ export function addVillagers(game: Game, options: AddVillagersOptions): Villager
             met.clear();
             for (const id of saved?.met ?? []) met.add(id);
             refreshMarkers();
+            snapToSchedule();
         },
     });
 
@@ -293,6 +345,7 @@ export function addVillagers(game: Game, options: AddVillagersOptions): Villager
         requests,
         talkTo,
         hasMet: (id) => met.has(id),
+        snapToSchedule,
         newDay: () => {
             requests?.expire();
             requests?.refill();

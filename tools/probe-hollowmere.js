@@ -228,6 +228,64 @@
     expect(JSON.parse(localStorage.getItem('hollowmere:settings')).vhs === false, 'settings are remembered');
     world.settings.set('vhs', true);
 
+    // 13b. A grave candle makes a small safe ring that burns down.
+    await go(20, 40);
+    hold('candle');
+    const zonesBefore = world.safeZones.zones.length;
+    await press('KeyF');
+    await until(() => world.safeZones.playerSafe);
+    expect(world.safeZones.zones.length === zonesBefore + 1 && world.safeZones.playerSafe, 'a lit candle is a safe place');
+    expect(have('candle') === 0, 'lighting it used the candle up');
+
+    // 13c. Villagers go home at night and come back out by day.
+    const wren = game.scene.getObjectByName('villager-wren');
+    const byDay = wren.position.clone();
+    world.dayCycle.setHour(22);
+    world.villagers.snapToSchedule();
+    log.wrenWalksHome = +wren.position.distanceTo(byDay).toFixed(0);
+    expect(log.wrenWalksHome > 8, `Wren is on her doorstep at night, ${log.wrenWalksHome} m from the square spot`);
+    world.dayCycle.setHour(12);
+    await sleep(600);
+    expect(wren.position.distanceTo(byDay) < log.wrenWalksHome, 'and walks back out when the day comes');
+    world.villagers.snapToSchedule();
+
+    // 13d. The mailbox: nothing on day 1, a letter from day 2, read in the dialogue box.
+    expect(!world.letters.waiting, 'no letter on the first day');
+    await go(-58, 55.5);
+    await press('KeyE');
+    await until(() => world.morning.isOpen);
+    expect(world.morning.isOpen, 'going to bed shows the morning summary');
+    expect(document.querySelector('.list-panel-wrap:not(.is-hidden)')?.textContent.includes('Requests filled'), 'the summary adds the day up');
+    [...document.querySelectorAll('.list-panel-wrap:not(.is-hidden) .list-panel-action')].find((button) => button.textContent === 'Get up')?.click();
+    await sleep(300);
+    expect(!world.morning.isOpen && world.dayCycle.day === 2, `woke on day 2, got day ${world.dayCycle.day}`);
+    expect(world.letters.waiting, 'a letter is waiting on day 2');
+    await go(-56.5, 56.2);
+    await press('KeyE');
+    await sleep(300);
+    for (let index = 0; index < 10 && world.letters.read === 0; index += 1) {
+        await press('Space');
+        await sleep(300);
+    }
+    expect(world.letters.read === 1, `read the first letter, read ${world.letters.read}`);
+    expect(game.time.effectiveScale > 0, 'time runs again after reading');
+
+    // 13e. The tall one at the bend stands still and does no harm.
+    const pell = game.scene.getObjectByName('pell');
+    await go(pell.position.x + 1.5, pell.position.z + 1);
+    const healthBefore = game.player.health.current;
+    await press('KeyE');
+    await sleep(800);
+    expect(game.player.health.current === healthBefore && !world.letters.metPell, 'Pell does not hurt, and does not speak before the last letter');
+
+    // 13f. The mere is slow going.
+    await go(72, 44);
+    await sleep(900);
+    expect(world.controls.movement.speedScale < 0.7, `wading slows the farmer, scale ${world.controls.movement.speedScale.toFixed(2)}`);
+    await go(52, -40);
+    await sleep(900);
+    expect(world.controls.movement.speedScale > 0.9, 'and dry ground does not');
+
     // 14. Outside, it comes for you, and fainting wakes you at home on a new day.
     const day = world.dayCycle.day;
     await go(80, -80);
@@ -239,7 +297,7 @@
     log.wokeAt = game.player.position.toArray().map((value) => +value.toFixed(0));
     expect(Math.hypot(game.player.position.x + 58, game.player.position.z - 54) < 4, 'woke up at home');
     expect(world.dayCycle.day === day + 1, `a new day began, day ${world.dayCycle.day}`);
-    expect(world.story.finished, 'sleeping finished the first day of the story');
+    expect(world.story.story.current?.id === 'regular', `the story is on to the days after, got ${world.story.story.current?.id}`);
 
     // 15. Back at the title screen there is a save to continue.
     world.flow.quit();

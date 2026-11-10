@@ -11,6 +11,8 @@ import {
     addAtmosphere,
     addBarriers,
     addCraftingStation,
+    addGroundDrag,
+    addPanel,
     addHotbar,
     addInventory,
     addLivestock,
@@ -27,11 +29,11 @@ import {
     addVillagers,
     type AnimalDefinition,
 } from '../kit';
-import { createFolk, FolkAnimator } from '../content/folk';
+import { createFolk, FolkAnimator, type FolkRig } from '../content/folk';
 import { createBike, spinWheels } from '../content/bike';
 import { COOKING, CROPS, ITEMS, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
 import { REQUESTS, VILLAGERS } from '../content/villagers';
-import { FARM, HAUNTS, MERE_LEVEL, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF } from '../content/world';
+import { BEND, FARM, HAUNTS, MERE_LEVEL, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF, homeOf } from '../content/world';
 import { buildWorld, stump } from './world';
 import { setupMood } from './mood';
 import { setupFarming, shipEverything } from './farming';
@@ -39,6 +41,7 @@ import { animateHollow, forgetHollow, hollowTarget, isNight, spawnHollow } from 
 import { setupDread } from './dread';
 import { INTRO, setupStory } from './story';
 import { setupJournal } from './journal';
+import { setupLetters } from './letters';
 
 /**
  * Hollowmere: farm, cook, deliver, and keep moving.
@@ -109,7 +112,7 @@ export async function boot(): Promise<void> {
     const bag = addInventory(game, { items: ITEMS, capacity: 20, key: 'inventory', keys: ['Tab'], title: 'Backpack', persist: 'bag', primary: false, columns: 5 });
     bag.offerTransfer('To pockets', pockets);
     pockets.offerTransfer('To backpack', bag);
-    const hotbar = addHotbar(game, { inventory: pockets, slots: 8, useAction: 'use', onUse: (slot) => farming.useHeld(slot) });
+    const hotbar = addHotbar(game, { inventory: pockets, slots: 8, useAction: 'use', onUse: (slot) => (slot.itemId === 'candle' ? void lightCandle() : farming.useHeld(slot)) });
     const carried = [pockets, bag];
     const have = (itemId: string): number => pockets.count(itemId) + bag.count(itemId);
 
@@ -150,7 +153,11 @@ export async function boot(): Promise<void> {
         soil: { dry: 0x3a2e24, wet: 0x1e1612 },
     });
     const barriers = addBarriers(game, { enemies: world.enemies, lifetime: 150, toughness: 7, onBroken: () => game.toasts.push('A fence gave way', { color: '#c8a0a0' }) });
-    const farming = setupFarming(game, { farm, pockets, hotbar, barriers, give, nodes: () => nodes, onHarvest: (_itemId, amount) => (tally.harvested += amount) });
+    const farming = setupFarming(game, { farm, pockets, hotbar, barriers, give, nodes: () => nodes, onHarvest: (_itemId, amount) => {
+            tally.harvested += amount;
+            today.picked += amount;
+        },
+    });
 
     const livestock = addLivestock(game, {
         pen: { center: { x: FARM.pen.center.x, y: 0, z: FARM.pen.center.z }, halfSize: FARM.pen.halfSize },
@@ -237,7 +244,10 @@ export async function boot(): Promise<void> {
         verb: 'Cook',
         onStarted: () => synth.noise({ duration: 0.5, gain: 0.08, filter: 2400 }),
         onFinished: () => synth.tone({ frequency: 660, duration: 0.25, type: 'sine', gain: 0.12 }),
-        onCollected: () => (tally.cooked += 1),
+        onCollected: () => {
+            tally.cooked += 1;
+            today.cooked += 1;
+        },
     });
     const bench = addCraftingStation(game, { id: 'bench', title: 'Workbench', object: refs.spots.workbench, recipes: WOODWORK, sources: carried, give: stow, prompt: 'Use the workbench', verb: 'Build' });
 
@@ -256,26 +266,41 @@ export async function boot(): Promise<void> {
 
     //#region The village
 
+    const folk = new Map<string, { rig: FolkRig; animator: FolkAnimator }>();
     const villagers = addVillagers(game, {
-        villagers: VILLAGERS.map((villager) => ({
+        villagers: VILLAGERS.map((villager) => {
+            const rig = createFolk(villager.look);
+            folk.set(villager.id, { rig, animator: new FolkAnimator(rig) });
+            const square = at({ x: VILLAGE.center.x + villager.spot.x, z: VILLAGE.center.z + villager.spot.z });
+            const home = villager.home !== undefined ? homeOf(villager.home) : undefined;
+            return {
             id: villager.id,
             name: villager.name,
             portrait: villager.portrait,
-            object: createFolk(villager.look).root,
-            position: at({ x: VILLAGE.center.x + villager.spot.x, z: VILLAGE.center.z + villager.spot.z }),
+            object: rig.root,
+            position: square,
             yaw: villager.spot.yaw,
+            // Out in the square by day, on their own doorstep by night, facing out.
+            ...(home && villager.hours ? { schedule: [{ from: villager.hours[0], position: square, yaw: villager.spot.yaw }, { from: villager.hours[1], position: at(home), yaw: home.yaw }] } : {}),
             lines: villager.lines,
             topics: villager.topics,
             thanks: villager.thanks,
-        })),
+            };
+        }),
         day: () => dayCycle.day,
+        hour: () => dayCycle.hour,
+        heightAt: ground,
+        animate: (id, speed, delta) => folk.get(id)?.animator.update(speed, delta),
         inventory: pockets,
         // Deliveries may come out of the backpack too.
         items: { count: have, remove: takeCarried },
         // Nobody here takes presents: they take what they asked for.
         gifts: false,
         requests: { templates: REQUESTS, maxOpen: 4, deliveriesPerTier: 3 },
-        onPaid: (amount) => coins.add(amount),
+        onPaid: (amount) => {
+            coins.add(amount);
+            today.delivered += 1;
+        },
         formatReward: coin,
         dialogue: { speed: 50 },
     });
@@ -358,7 +383,7 @@ export async function boot(): Promise<void> {
     const door = new THREE.Object3D();
     door.position.copy(at({ x: FARM.door.x - 1.5, z: FARM.door.z }));
     game.scene.add(door);
-    game.interactions.add(door, { prompt: 'Sleep until morning', range: 2.2, onInteract: () => sleep('You sleep. Something scratches at the door until dawn.') });
+    game.interactions.add(door, { prompt: 'Sleep until morning', range: 2.2, onInteract: () => goToBed() });
 
     //#endregion Home
 
@@ -373,6 +398,45 @@ export async function boot(): Promise<void> {
         },
         onLeave: () => game.hud.removeStat('safe'),
     });
+    /** A grave candle on the ground: a small ring of safety that burns down. */
+    const CANDLE_SECONDS = 90;
+    const lightCandle = (): boolean => {
+        const player = game.player;
+        if (!player || !takeCarried('candle', 1)) return false;
+        const spot = player.position.clone();
+        const candle = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.26, 0.1), new THREE.MeshStandardMaterial({ color: 0xfff2d0, emissive: 0xffc070, emissiveIntensity: 3 }));
+        candle.position.copy(spot).setY(spot.y + 0.13);
+        const glow = new THREE.PointLight(0xffb36b, 7, 8, 1.6);
+        glow.position.y = 0.5;
+        candle.add(glow);
+        game.scene.add(candle);
+        const zone = { position: { x: spot.x, y: spot.y, z: spot.z }, radius: 3.2, name: 'Candle' };
+        safeZones.add(zone, { seconds: CANDLE_SECONDS, onExpire: () => candle.removeFromParent() });
+        // It gutters for the last 15 seconds, which is the warning to move.
+        const stop = game.systems.add({
+            name: 'candle',
+            order: SYSTEM_ORDER.EFFECTS,
+            update: () => {
+                const left = safeZones.remaining(zone);
+                if (left === undefined) return void stop();
+                glow.intensity = left < 15 ? 2 + Math.abs(Math.sin(game.time.elapsed * 9)) * 4 : 7;
+            },
+        });
+        synth.tone({ frequency: 880, duration: 0.15, type: 'sine', gain: 0.06 });
+        think('candle', ['A little light, and they keep off. It will not burn long.']);
+        return true;
+    };
+
+    // The mere is knee deep: wading is slow, and the Hollow do not mind the water.
+    addGroundDrag(game, {
+        movement: world.controls.movement,
+        dragAt: (position) => (MERE_LEVEL - position.y) / 0.6,
+        onEnter: () => {
+            synth.noise({ duration: 0.4, gain: 0.1, filter: 1200 });
+            think('wade', ['Cold. And it pulls at the legs. I will not get anywhere fast in this.']);
+        },
+    });
+
     const population = addPopulation(game, {
         enemies: world.enemies,
         target: () => hollowTarget(dayCycle),
@@ -404,6 +468,18 @@ export async function boot(): Promise<void> {
 
     //#region Story, notebook and thoughts
 
+    const letters = setupLetters(game, {
+        mailbox: at({ x: FARM.door.x + 1.5, z: FARM.door.z + 3.2 }),
+        bend: at(BEND),
+        bendYaw: BEND.yaw,
+        day: () => dayCycle.day,
+        narration,
+        onGift: () => {
+            give('name-slip', 1);
+            game.toasts.push('Pell gives you a folded slip of paper', { color: '#ffe08a' });
+        },
+    });
+
     const story = setupStory(game, narration, {
         planted: () => farm.plantedCount + tally.harvested,
         watered: () => farm.plots.filter((plot) => plot.watered || plot.ripe).length + tally.harvested,
@@ -413,6 +489,12 @@ export async function boot(): Promise<void> {
         metShopkeeper: () => villagers.hasMet('barnaby'),
         delivered: () => villagers.requests?.completed ?? 0,
         day: () => dayCycle.day,
+        lettersRead: () => letters.read,
+        lettersTotal: letters.total,
+        placesFound: () => SIGHTS.filter((sight) => thoughts.has(sight.id)).length,
+        potTier: () => cookpot.station.tier,
+        bestHearts: () => Math.max(...VILLAGERS.map((villager) => villagers.relationships.hearts(villager.id))),
+        metPell: () => letters.metPell,
         reward: (amount) => {
             coins.add(amount);
             game.toasts.push(`+${coin(amount)}`, { color: '#ffe08a' });
@@ -463,11 +545,49 @@ export async function boot(): Promise<void> {
 
     //#region Days and saving
 
+    /** What the day came to, shown on waking after a night in bed. */
+    const today = { earned: 0, delivered: 0, cooked: 0, picked: 0 };
+    coins.onChange((_value, delta) => {
+        if (delta > 0) today.earned += delta;
+    });
+    const morning = addPanel(game, {
+        title: 'Morning',
+        rows: () => [
+            { icon: '🌅', title: `Day ${dayCycle.day}`, detail: nightLine },
+            { heading: true, title: 'Yesterday' },
+            { icon: '🪙', title: 'Earned', meta: coin(today.earned) },
+            { icon: '❗', title: 'Requests filled', meta: String(today.delivered) },
+            { icon: '🍲', title: 'Dishes cooked', meta: String(today.cooked) },
+            { icon: '🌱', title: 'Crops picked', meta: String(today.picked) },
+            ...(letters.waiting ? [{ icon: '✉', title: 'There is a letter in the mailbox' }] : []),
+            { title: 'Saved.', dim: true, action: { label: 'Get up', onPress: () => morning.close() } },
+        ],
+        onClose: () => Object.assign(today, { earned: 0, delivered: 0, cooked: 0, picked: 0 }),
+    });
+    const NIGHTS = [
+        'Something scratched at the door until dawn.',
+        'You dreamed of a kitchen. You could not find the door out of it.',
+        'Footsteps went round the house all night, slowly, the same way each time.',
+        'Somebody stood at the window for a while. They were only looking.',
+        'It was quiet. You lay awake waiting for it not to be.',
+        'You woke once and the lamp on the porch was lit. You had not lit it.',
+    ];
+    let nightLine = NIGHTS[0] as string;
+
     function sleep(message?: string): void {
         dayCycle.sleep();
         population.clear();
+        villagers.snapToSchedule();
         if (message) game.toasts.push(message, { color: '#d0c8e0' });
         saves.save();
+    }
+
+    /** Going to bed on purpose: the night passes, and the morning adds the day up. */
+    function goToBed(): void {
+        nightLine = NIGHTS[dayCycle.day % NIGHTS.length] as string;
+        game.effects.flash(0.9, 0x000000, 0.95);
+        sleep();
+        morning.open();
     }
 
     dayCycle.hooks.onDayStart = (day) => {
@@ -523,6 +643,7 @@ export async function boot(): Promise<void> {
         hint: 'WASD to walk, E to interact, F to use what you hold, 1 to 8 to pick it, Tab for the bag, J for the notebook',
         describe: (save) => `day ${(save.data.hollowmere as Saved | undefined)?.day ?? 1}`,
         onNewGame: () => narration.say(INTRO),
+        onContinue: () => villagers.snapToSchedule(),
         buttons: [settings.button],
     });
     game.menus.register(PAUSE_MENU, {
@@ -543,9 +664,10 @@ export async function boot(): Promise<void> {
     give('turnip-seed', 5);
     give('wheat-seed', 3);
     give('fence-kit', 2);
+    give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally };
+    game.world = { ...world, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, letters, morning, lightCandle, goToBed };
 }
 
 /** A counter for the store, or the stand its order book lies on. */

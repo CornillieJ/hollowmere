@@ -25,7 +25,8 @@ const GUIDE: Array<[string, string, string]> = [
     ['🛒', 'The store', 'Barnaby sells seeds and fence kits and buys anything at half price. His order book sells land, pots, hens and cows. The bin at the farm buys produce too, for a little less.'],
     ['🥚', 'Animals', 'Hens lay and the cow gives milk every couple of minutes. Press E at an animal when it is ready.'],
     ['🚲', 'Getting about', 'Press E at the bicycle to ride: W pedals, A and D steer, E gets off. It is much faster than anything in the fog. The thin paths off the road lead to places worth a visit.'],
-    ['🕯', 'The Hollow', 'They are slow and they do not stop. Keep moving, put a fence down with F, or step into a lit place: your porch, the barn lamp, the chapel, the shrine, the lookout. More of them walk at night. If they catch you, you wake at home a little poorer.'],
+    ['🕯', 'The Hollow', 'They are slow and they do not stop. Keep moving, put a fence down with F, light a grave candle with F for a minute and a half of safety, or step into a lit place: your porch, the barn lamp, the chapel, the shrine, the lookout. More of them walk at night. If they catch you, you wake at home a little poorer.'],
+    ['✉', 'Letters', 'From the second day a letter waits in the mailbox by the porch each morning, marked with a ✉. Read them all.'],
     ['🛏', 'Sleeping', 'Press E at the farmhouse door to sleep until morning. Sleeping saves the game. You can also save from the pause menu.'],
     ['🎒', 'Carrying', 'Pockets are the 8 slots on the hotbar: pick one with 1 to 8 or the wheel, press F to use it. Tab opens the backpack, where things can be moved in and out of the pockets.'],
 ];

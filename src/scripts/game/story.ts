@@ -17,6 +17,12 @@ export type StoryFacts = {
     metShopkeeper: () => boolean;
     delivered: () => number;
     day: () => number;
+    lettersRead: () => number;
+    lettersTotal: number;
+    placesFound: () => number;
+    potTier: () => number;
+    bestHearts: () => number;
+    metPell: () => boolean;
     reward: (coins: number) => void;
 };
 
@@ -112,6 +118,59 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
             done: () => facts.day() > startDay,
             say: ['The light is going. I would rather be behind a door.'],
             after: ['A day done. I do not know how I came here. I know how to stay: plant, cook, deliver, sleep.'],
+        },
+
+        // The days after: no more lessons, only reasons to keep going.
+        {
+            id: 'mailbox',
+            objective: 'Check the mailbox by the porch',
+            detail: 'A letter is waiting when the ✉ shows over the mailbox, north of the farmhouse door. One comes each morning for a while.',
+            done: () => facts.lettersRead() >= 1,
+            say: ['Something is in the mailbox. Nobody knows I am here.'],
+        },
+        {
+            id: 'regular',
+            objective: 'Fill 3 requests',
+            detail: 'Every 3 deliveries the village starts asking for better things, which pay more. The notebook lists who wants what.',
+            done: () => facts.delivered() >= 3,
+            progress: () => `${Math.min(3, facts.delivered())}/3`,
+            reward: () => facts.reward(30),
+            after: ['They ask for cooked food now. A clay pot will only go so far.'],
+        },
+        {
+            id: 'pot',
+            objective: "Buy the iron pot from Barnaby's order book",
+            detail: 'The order book stands beside the store counter. The iron pot costs 180c and cooks chowder, omelettes and pale broth.',
+            done: () => facts.potTier() >= 2,
+        },
+        {
+            id: 'wander',
+            objective: 'Follow the thin paths: find 3 places',
+            detail: 'Footpaths leave the road for the mere (east), the lookout (west), the standing stones (south of the farm), a ruined farm (north of the chapel) and the graveyard (behind the village).',
+            done: () => facts.placesFound() >= 3,
+            progress: () => `${Math.min(3, facts.placesFound())}/3`,
+            say: ['Fen says the thin paths go somewhere. I should know what is in this valley with me.'],
+        },
+        {
+            id: 'friend',
+            objective: 'Make a friend: 2 hearts with anyone',
+            detail: 'Talk to someone every day, ask about things, and bring what they ask for. The hearts show when you talk.',
+            done: () => facts.bestHearts() >= 2,
+            after: ['A friend. Here. I did not expect to be glad of it.'],
+        },
+        {
+            id: 'letters',
+            objective: 'Read every letter',
+            detail: 'One arrives each morning until there are no more.',
+            done: () => facts.lettersRead() >= facts.lettersTotal,
+            progress: () => `${facts.lettersRead()}/${facts.lettersTotal}`,
+        },
+        {
+            id: 'pell',
+            objective: 'Say hello to the tall one at the bend in the road',
+            detail: 'He stands where the road turns for the chapel, between the farm and the lamp. He does not chase.',
+            done: facts.metPell,
+            after: ['My name. In my own hand. I do not remember writing it.', 'I will read it every morning. And I will stay. There are worse neighbours.'],
         },
     ];
 

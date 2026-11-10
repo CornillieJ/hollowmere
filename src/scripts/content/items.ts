@@ -40,7 +40,8 @@ export const ITEMS: ItemDefinition[] = [
     { id: 'pumpkin-pie', name: 'Pumpkin pie', icon: '🥧', category: 'consumable', price: 300, description: 'Restores 80 health.', use: food(80) },
     { id: 'hollow-stew', name: 'Hollowmere stew', icon: '🍛', category: 'consumable', price: 420, description: 'Restores all health. The village eats it at funerals and at weddings.', use: food(100) },
 
-    { id: 'candle', name: 'Grave candle', icon: '🕯', category: 'treasure', price: 18, description: 'Everyone keeps one lit.' },
+    { id: 'candle', name: 'Grave candle', icon: '🕯', category: 'tool', price: 18, description: 'Press F to set it down and light it. The walkers keep out of its light for a minute and a half.' },
+    { id: 'name-slip', name: 'Folded slip', icon: '📜', category: 'quest', maxStack: 1, description: 'Your name, in your own hand. You do not remember writing it. Read it every morning.' },
 ];
 
 /** What the general store stocks from the first day. Better seeds are added by upgrades. */

@@ -20,6 +20,10 @@ export type VillagerContent = {
     look: FolkSpec;
     /** Where they stand, relative to the village centre. */
     spot: { x: number; z: number; yaw: number };
+    /** Index of their house in `VILLAGE.houses`. Barnaby has none: the store never closes. */
+    home?: number;
+    /** The hours they come out to the square and go home again. */
+    hours?: [number, number];
     lines: (context: VillagerContext) => string[];
     topics: VillagerTopic[];
     thanks: string[];
@@ -101,6 +105,8 @@ export const VILLAGERS: VillagerContent[] = [
         portrait: '🐰',
         look: { species: 'rabbit', fur: 0xd8cfc4, accent: 0xe8a8a8, clothes: 0x7a5a6a, missingArm: 'left', height: 1.45 },
         spot: { x: 5, z: 7, yaw: -Math.PI / 3 },
+        home: 0,
+        hours: [7.5, 18.5],
         lines: ({ hearts }) => [
             'Hi! Sorry, I can only wave with the one. It saves time, really.',
             'I counted eleven walkers by the chapel this morning. A new record! I gave them all names. Three of them already had names.',
@@ -160,6 +166,8 @@ export const VILLAGERS: VillagerContent[] = [
         portrait: '🦊',
         look: { species: 'fox', fur: 0xb8622e, clothes: 0x2e3a52, neck: 3.2, headTilt: 0.25 },
         spot: { x: 9, z: -4, yaw: -Math.PI / 2 },
+        home: 1,
+        hours: [6.5, 20],
         lines: ({ hearts }) => [
             'Post is late. The road was busy. By busy I mean they were standing on it again, facing the wrong way.',
             'Bike is the way to travel. They are slow. You are not. That is the whole of what I know, and it has been enough.',
@@ -228,6 +236,8 @@ export const VILLAGERS: VillagerContent[] = [
         portrait: '🐑',
         look: { species: 'sheep', fur: 0x3a3632, clothes: 0x6a6a5a, eyes: 'hollow', height: 1.55 },
         spot: { x: -2, z: -9, yaw: 0 },
+        home: 2,
+        hours: [7, 19],
         lines: ({ hearts }) => [
             'Keep a candle lit, dear. Not for them. For you. So you can find yourself again in the morning.',
             'My eyes went dark years ago. I see well enough. I see you, standing there with your whole heart still in.',
@@ -297,6 +307,8 @@ export const VILLAGERS: VillagerContent[] = [
         portrait: '🐕',
         look: { species: 'dog', fur: 0x8a6a48, clothes: 0x5a3a2a, eyes: 'extra', height: 1.4 },
         spot: { x: 3, z: -2, yaw: Math.PI },
+        home: 4,
+        hours: [8, 19.5],
         lines: ({ hearts }) => [
             'Hi! Hi. Hello. It is you! I knew it was you from the gate. I knew it was you from yesterday.',
             'You smell like the farm. And like them, a little. That is normal here, do not wash it off, it helps.',

@@ -147,7 +147,6 @@ export const HAUNTS = [
     { x: PLACES.mere.x - 15, y: 0, z: PLACES.mere.z - 6 },
     { x: PLACES.stones.x, y: 0, z: PLACES.stones.z },
     { x: PLACES.ruin.x + 3, y: 0, z: PLACES.ruin.z - 2 },
-    { x: -17, y: 0, z: 26 },
     { x: 30, y: 0, z: -20 },
 ];
 
@@ -162,3 +161,15 @@ export const CLEARINGS = [
     { x: PLACES.graveyard.x, z: PLACES.graveyard.z, radius: 10 },
     { x: PLACES.lookout.x, z: PLACES.lookout.z, radius: 7 },
 ];
+
+/** Where the road turns for the chapel. Pell stands here, a step off the brown, facing it. */
+export const BEND = { x: -10.5, z: 20.5, yaw: Math.atan2(-8 - -10.5, 16 - 20.5) };
+
+/** The doorstep of a village house: a few steps out towards the square, facing it. */
+export function homeOf(house: number): { x: number; z: number; yaw: number } {
+    const spot = VILLAGE.houses[house] as { x: number; z: number };
+    const dx = VILLAGE.center.x - spot.x;
+    const dz = VILLAGE.center.z - spot.z;
+    const distance = Math.hypot(dx, dz);
+    return { x: spot.x + (dx / distance) * 7, z: spot.z + (dz / distance) * 7, yaw: Math.atan2(dx, dz) };
+}

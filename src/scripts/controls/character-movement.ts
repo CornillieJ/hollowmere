@@ -57,6 +57,9 @@ export class CharacterMovement {
         this.turnSpeed = options.turnSpeed ?? CONSTANTS.MOVEMENT.TURN_SPEED;
     }
 
+    /** Multiplies every speed: 0.5 for mud or water, 1.3 for a speed boost. `addGroundDrag` drives it. */
+    speedScale = 1;
+
     /** Current horizontal speed in meters per second. */
     get speed(): number {
         return this.body.speed;
@@ -79,7 +82,7 @@ export class CharacterMovement {
      * @param intent Sprint, crouch and jump flags for this step.
      */
     move(direction: THREE.Vector3, step: number, intent: { sprint?: boolean; crouch?: boolean; jump?: boolean } = {}): void {
-        const speed = intent.crouch ? this.crouchSpeed : intent.sprint ? this.sprintSpeed : this.walkSpeed;
+        const speed = (intent.crouch ? this.crouchSpeed : intent.sprint ? this.sprintSpeed : this.walkSpeed) * this.speedScale;
 
         this.target.copy(direction).setY(0);
         if (this.target.lengthSq() > 1) this.target.normalize();
