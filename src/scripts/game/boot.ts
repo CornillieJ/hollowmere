@@ -6,6 +6,7 @@ import { DayCycle } from '../game/daycycle';
 import { Farm } from '../game/farm';
 import { Synth } from '../audio/synth';
 import { fitModel } from '../helpers/transform';
+import { addFullscreenButton } from '../helpers/fullscreen';
 import { SYSTEM_ORDER } from '../core/systems';
 import {
     addAtmosphere,
@@ -39,7 +40,7 @@ import { BEND, FARM, HAUNTS, MERE_LEVEL, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF
 import { buildWorld, stump } from './world';
 import { setupMood } from './mood';
 import { setupFarming, shipEverything } from './farming';
-import { animateHollow, forgetHollow, hollowTarget, isNight, pickKind, spawnHollow, updateWatchers, type HollowKind } from './monsters';
+import { animateHollow, forgetHollow, hollowTarget, isNight, pickKind, setNightTemper, spawnHollow, updateWatchers, type HollowKind } from './monsters';
 import { buildFarmyard, buildInfirmary } from './farmyard';
 import { OMEN_THOUGHTS, setupOmens } from './omens';
 import { setupDread } from './dread';
@@ -494,7 +495,8 @@ export async function boot(): Promise<void> {
         enemies: world.enemies,
         target: () => hollowTarget(dayCycle, hunting()),
         spawn: (position, post) => spawnHollow(world.enemies, position, { night: isNight(dayCycle), post, hunting: hunting(), kind: pickKind(dayCycle.day) }),
-        interval: () => (isNight(dayCycle) ? [2.5, 5] : [5, 10]),
+        // Night fills up fast; day thins out slowly.
+        interval: () => (isNight(dayCycle) ? [1, 2.5] : [4, 8]),
         // Not in a lit place, not on a cliff, and not standing in the water.
         canSpawnAt: (position) => !safeZones.zoneAt(position) && terrain.slopeAt(position.x, position.z) < 0.15 && ground(position.x, position.z) > MERE_LEVEL + 0.3,
         heightAt: ground,
@@ -503,7 +505,23 @@ export async function boot(): Promise<void> {
         onDespawn: forgetHollow,
     });
     setupDread(game, { enemies: world.enemies, look, dayCycle, isRiding: () => bike.mounted });
-    game.systems.add({ name: 'watchers', order: SYSTEM_ORDER.GAMEPLAY - 2, update: () => updateWatchers(game.camera) });
+    // Nightfall and dawn: 3 times as many walk at night, and they come on harder.
+    let wasNight = isNight(dayCycle);
+    game.systems.add({
+        name: 'watchers',
+        order: SYSTEM_ORDER.GAMEPLAY - 2,
+        update: () => {
+            updateWatchers(game.camera);
+            const night = isNight(dayCycle);
+            if (night === wasNight) return;
+            wasNight = night;
+            setNightTemper(night);
+            if (!hunting()) return;
+            game.toasts.push(night ? 'Night. The fog is full of them now.' : 'Dawn. Most of them drift back into the fog.', { color: night ? '#c8a0a0' : '#e8e0c8' });
+            if (night) synth.tone({ frequency: 46, duration: 3, type: 'sawtooth', gain: 0.16, sweep: 0.7 });
+            if (night) think('night', ['Night. There are 3 of them now for every one I saw by day, and they are not wandering any more.', 'A lamp, a candle, a door. Or the bicycle, and do not stop.']);
+        },
+    });
 
     /**
      * Until the first night is behind the farmer, the Hollow keep their distance:
@@ -745,7 +763,7 @@ export async function boot(): Promise<void> {
         order: SYSTEM_ORDER.EFFECTS,
         always: true,
         update: () => {
-            game.hud.setStat('day', `Day ${dayCycle.day}`, dayCycle.clock);
+            game.hud.setStat('day', `${isNight(dayCycle) ? '☾ Night' : '☀ Day'} ${dayCycle.day}`, dayCycle.clock);
             if (!story.finished) return;
             // After the first day the best paid request is the thing to chase.
             const request = [...(villagers.requests?.open ?? [])].sort((a, b) => b.reward - a.reward)[0];
@@ -773,6 +791,7 @@ export async function boot(): Promise<void> {
 
     const settings = addSettings(game, {
         namespace: 'hollowmere',
+        fullscreen: true,
         volume: ['master', 'ambient', 'sfx'],
         settings: [
             { id: 'look', label: 'Mouse sensitivity', kind: 'slider', min: 0.2, max: 2, step: 0.05, default: 1, percent: true, apply: (value) => (world.controls.look.sensitivity = LOOK_BASE * value) },
@@ -783,6 +802,9 @@ export async function boot(): Promise<void> {
             { id: 'shake', label: 'Screen shake', kind: 'toggle', default: true, apply: (on) => (game.effects.shakeEnabled = on) },
         ],
     });
+    // Top left, clear of the objective. It can be clicked from any menu; in play the mouse is held by the game.
+    addFullscreenButton({ parent: game.uiRoot, corner: 'top-left', hideWhenActive: false, landscape: false });
+
     const saves = addSaveMenu(game, {
         flow: world.flow,
         slot: SAVE_SLOT,
@@ -817,6 +839,7 @@ export async function boot(): Promise<void> {
 
     game.world = { ...world, narration, body, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, letters, morning, lightCandle, goToBed, omens, wake, hunting,
         // For the probe and for trying things out from the console.
+        hollowTarget: () => hollowTarget(dayCycle, hunting()),
         spawnKind: (x: number, z: number, kind: HollowKind) => spawnHollow(world.enemies, terrain.point(x, z, 0.4), { night: isNight(dayCycle), hunting: hunting(), kind }),
     };
 }

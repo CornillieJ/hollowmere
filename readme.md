@@ -33,7 +33,7 @@ npm run dev          # http://localhost:5260
 | Tab or I | the backpack |
 | J | the notebook: tasks, requests, recipes, how everything works |
 | Shift | run |
-| Escape | pause: save, settings |
+| Escape | pause: save, settings (fullscreen, sensitivity, picture effects, volumes) |
 
 On a phone the on-screen stick and buttons appear at the first touch.
 
@@ -57,6 +57,10 @@ On a phone the on-screen stick and buttons appear at the first touch.
   seeds, hens and cows. His counter sells seeds and buys anything at half price.
 - **Bond.** Talk every day and ask about things. People open up as they come to
   like you, and what they say gets stranger.
+- **Day and night.** A day is 10 minutes. Night runs from 19:30 to 05:30, and
+  the clock at the bottom right shows ☀ or ☾. At night 3 times as many of the
+  Hollow roam, they see farther, walk a quarter faster and head for you
+  instead of wandering. At dawn the extra ones slip away.
 - **Survive.** The Hollow wander towards wherever you are, weaving, never at a
   steady pace, and hurry a little once they are close. More come at night and
   one more every day. Crawlers turn up from day 3, and from day 5 pale ones

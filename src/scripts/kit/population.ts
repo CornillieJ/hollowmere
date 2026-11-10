@@ -49,6 +49,12 @@ export type AddPopulationOptions = {
     /** Fixed places that keep their own regulars while the player is in the area. */
     posts?: PopulationPost[];
     onDespawn?: (enemy: Enemy) => void;
+    /**
+     * When the target drops (dawn, a calmer area), let the surplus go: the
+     * farthest roamer that is well away from the player leaves at each spawn
+     * interval. Defaults to true.
+     */
+    trim?: boolean;
 };
 
 /** A place with regulars. `count` of them spawn within `radius` of it. */
@@ -123,9 +129,28 @@ export function addPopulation(game: Game, options: AddPopulationOptions): Popula
             }
 
             timer -= delta;
-            if (timer > 0 || roamers.size >= options.target()) return;
+            const target = options.target();
+            if (timer > 0 || roamers.size === target) return;
             const interval = options.interval?.() ?? [6, 12];
             timer = Array.isArray(interval) ? randomFloat(interval[0], interval[1]) : interval;
+            if (roamers.size > target) {
+                if (options.trim === false) return;
+                // Too many for now: the one farthest away slips off, but never one close enough to be seen going.
+                let farthest: Enemy | undefined;
+                let farthestDistance = near * 0.6;
+                for (const enemy of roamers) {
+                    const distance = enemy.root.position.distanceTo(player.position);
+                    if (distance > farthestDistance) {
+                        farthestDistance = distance;
+                        farthest = enemy;
+                    }
+                }
+                if (farthest) {
+                    roamers.delete(farthest);
+                    release(farthest);
+                }
+                return;
+            }
             const spot = spawnSpot(player.position);
             if (spot) roamers.add(options.spawn(spot, undefined));
         },

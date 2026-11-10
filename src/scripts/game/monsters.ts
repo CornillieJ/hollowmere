@@ -25,6 +25,8 @@ export type HollowKind = 'walker' | 'crawler' | 'watcher';
 
 const animators = new Map<number, FolkAnimator>();
 const watchers = new Set<Enemy>();
+/** What each one was made as, so its temper can follow the hour. */
+const made = new Map<Enemy, { kind: HollowKind; posted: boolean; hunting: boolean; daySpeed: number }>();
 let seed = 0;
 
 /** The `animate` hook for the enemy manager: walk each Hollow with its own rig. */
@@ -36,14 +38,18 @@ export function animateHollow(enemy: Enemy, speed: number, step: number): void {
     animator.update(speed, step);
 }
 
-export const isNight = (dayCycle: DayCycle): boolean => dayCycle.phase === 'night' || dayCycle.phase === 'dusk';
+/** Night runs from half past seven in the evening to half past five in the morning. */
+export const isNight = (dayCycle: DayCycle): boolean => dayCycle.hour >= 19.5 || dayCycle.hour < 5.5;
+
+/** Roaming at night, for every one by day. */
+export const NIGHT_FACTOR = 3;
 
 /** How many should be roaming near the player right now. One more turns up every day, to a limit. */
 export function hollowTarget(dayCycle: DayCycle, hunting: boolean): number {
     // Before the farmer has found their feet there are only a few, and they keep their distance.
     if (!hunting) return 3;
-    const days = dayCycle.day - 1;
-    return isNight(dayCycle) ? 8 + Math.min(9, days) : 4 + Math.min(7, days);
+    const byDay = 3 + Math.min(5, dayCycle.day - 1);
+    return isNight(dayCycle) ? byDay * NIGHT_FACTOR : byDay;
 }
 
 /** Which kind turns up, by day. The odd ones stay rare. */
@@ -84,7 +90,7 @@ export function spawnHollow(enemies: EnemyManager, position: THREE.Vector3, opti
         });
     }
 
-    const speed = kind === 'crawler' ? randomFloat(1.9, 2.5) : kind === 'watcher' ? 3.1 : night ? randomFloat(1.5, 2.1) : randomFloat(1.1, 1.6);
+    const speed = kind === 'crawler' ? randomFloat(1.9, 2.5) : kind === 'watcher' ? 3.1 : randomFloat(1.1, 1.6);
     const enemy = enemies.spawn({
         position,
         object: rig.root,
@@ -97,7 +103,7 @@ export function spawnHollow(enemies: EnemyManager, position: THREE.Vector3, opti
         attackCooldown: 1.6,
         // Half a second with its arms up before the blow: time to get out of reach.
         attackWindup: 0.55,
-        aggroRange: !hunting ? 5 : kind === 'crawler' ? 11 : kind === 'watcher' ? 26 : night ? 20 : 14,
+        aggroRange: !hunting ? 5 : kind === 'crawler' ? 11 : kind === 'watcher' ? 26 : 14,
         wanderRadius: post ? Math.max(4, post.radius ?? 3) : 13,
         wanderSpeed: 0.5,
         // They come on in a wandering line and at an uneven pace, and hurry a little at the end.
@@ -113,12 +119,36 @@ export function spawnHollow(enemies: EnemyManager, position: THREE.Vector3, opti
     });
     animators.set(enemy.id, new FolkAnimator(rig, kind === 'crawler' ? { stride: 1.2, stutter: 4, armSwing: 0.6 } : { stride: 0.7, stutter: 3, armSwing: 0.2 }));
     if (kind === 'watcher') watchers.add(enemy);
+    made.set(enemy, { kind, posted: post !== undefined, hunting, daySpeed: speed });
+    setTemper(enemy, night);
     return enemy;
 }
 
 export function forgetHollow(enemy: Enemy): void {
     animators.delete(enemy.id);
     watchers.delete(enemy);
+    made.delete(enemy);
+}
+
+/**
+ * Day or night manners for one of them. By night they see farther, close in
+ * on the farmer faster and more directly, and walk a little quicker. Still
+ * slower than a walking farmer, let alone a running one.
+ */
+function setTemper(enemy: Enemy, night: boolean): void {
+    const origin = made.get(enemy);
+    if (!origin || !origin.hunting) return;
+    const { kind, posted, daySpeed } = origin;
+    if (kind !== 'watcher') enemy.options.speed = daySpeed * (night ? 1.25 : 1);
+    enemy.options.aggroRange = (kind === 'crawler' ? 11 : kind === 'watcher' ? 26 : 14) * (night ? 1.5 : 1);
+    enemy.options.meander = kind === 'watcher' ? 0 : night ? 0.55 : 0.85;
+    enemy.options.wanderSpeed = night ? 0.7 : 0.5;
+    if (!posted) enemy.options.drift = night ? 1.1 : 0.55;
+}
+
+/** Switch every one of them to day or night manners. Call when the hour crosses over. */
+export function setNightTemper(night: boolean): void {
+    for (const enemy of made.keys()) setTemper(enemy, night);
 }
 
 const TO_WATCHER = new THREE.Vector3();

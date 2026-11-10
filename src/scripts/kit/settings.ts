@@ -1,4 +1,5 @@
 import type { Bus } from '../audio/audio';
+import { canFullscreen, exitFullscreen, isFullscreen, requestFullscreen } from '../helpers/fullscreen';
 import type { MenuButton } from '../ui/menus';
 
 //#region Settings
@@ -50,6 +51,8 @@ export type AddSettingsOptions = {
     /** Storage key prefix, so two games on one origin keep separate settings. */
     namespace: string;
     settings: Setting[];
+    /** Add a fullscreen entry. It is not remembered: a browser only goes fullscreen on a press. */
+    fullscreen?: boolean;
     /** Sound sliders to add: `'master'` and any bus. */
     volume?: Array<Bus | 'master'>;
     title?: string;
@@ -134,6 +137,15 @@ export function addSettings(game: Game, options: AddSettingsOptions): SettingsHa
                   action: () => set(setting.id, !values.get(setting.id)),
               },
     );
+    if (options.fullscreen && canFullscreen()) {
+        // The label lags the browser by a moment, so it also follows the browser's own event.
+        document.addEventListener('fullscreenchange', () => game.menus.resync());
+        buttons.unshift({
+            label: 'Fullscreen',
+            text: () => `Fullscreen: ${isFullscreen() ? 'on' : 'off'}`,
+            action: () => void (isFullscreen() ? exitFullscreen() : requestFullscreen()),
+        });
+    }
     buttons.push({ label: 'Back', primary: true, action: () => (returnTo ? game.menus.show(returnTo) : game.menus.hide(menuId)) });
     game.menus.register(menuId, { title: options.title ?? 'Settings', buttons });
 

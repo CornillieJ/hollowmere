@@ -961,6 +961,23 @@ footer {
 	pointer-events: auto;
 }
 
+.fullscreen-button.is-top-left {
+	right: auto;
+	left: 10px;
+}
+
+.fullscreen-button.is-bottom-right {
+	top: auto;
+	bottom: 10px;
+}
+
+.fullscreen-button.is-bottom-left {
+	top: auto;
+	right: auto;
+	bottom: 10px;
+	left: 10px;
+}
+
 html,
 body {
 	height: 100dvh;

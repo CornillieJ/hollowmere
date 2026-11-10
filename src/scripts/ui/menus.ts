@@ -159,6 +159,14 @@ export class Menus {
         for (const listener of this.openListeners) listener(id);
     }
 
+    /** Re-read the labels and visibility of the open menu's dynamic entries, e.g. after something outside it changed. */
+    resync(): void {
+        const panel = this.currentId ? this.panels.get(this.currentId) : undefined;
+        if (!panel) return;
+        for (const row of panel.querySelectorAll<HTMLElement & { sync?: () => void }>('.menu-slider')) row.sync?.();
+        for (const element of panel.querySelectorAll<Synced>('.menu-dynamic')) element.syncEntry?.();
+    }
+
     /** Hide a menu by id, or hide whatever is open when no id is given. */
     hide(id?: string): void {
         if (id && this.currentId !== id) return;

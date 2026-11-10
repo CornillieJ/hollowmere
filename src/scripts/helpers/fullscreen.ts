@@ -63,6 +63,8 @@ export async function requestLandscape(): Promise<boolean> {
 export type FullscreenButtonOptions = {
     /** Where to mount it. Defaults to the UI root, top right. */
     parent: HTMLElement;
+    /** Which corner of the screen it sits in. Defaults to the top right. */
+    corner?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
     /** Also try to lock the orientation. Defaults to true. */
     landscape?: boolean;
     /** Hide the button once fullscreen is on. Defaults to true. */
@@ -78,7 +80,7 @@ export type FullscreenButtonOptions = {
 export function addFullscreenButton(options: FullscreenButtonOptions): () => void {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'fullscreen-button';
+    button.className = `fullscreen-button is-${options.corner ?? 'top-right'}`;
     button.textContent = '⛶';
     button.title = 'Fullscreen';
     options.parent.appendChild(button);

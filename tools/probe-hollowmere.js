@@ -317,6 +317,16 @@
     await sleep(900);
     expect(world.controls.movement.speedScale > 0.9, 'and dry ground does not');
 
+    // 13ff. Fullscreen: a button on screen and an entry in the settings.
+    expect(Boolean(document.querySelector('.fullscreen-button.is-top-left')), 'there is a fullscreen button');
+    world.flow.pause();
+    await sleep(200);
+    world.settings.open();
+    await sleep(200);
+    expect([...document.querySelectorAll('.menu:not(.is-hidden) .menu-button')].some((button) => button.textContent.startsWith('Fullscreen')), 'the settings offer fullscreen');
+    world.flow.resume();
+    await sleep(300);
+
     // 13g. The wheel picks a hotbar slot and leaves the camera alone.
     const zoom = world.controls.distance;
     world.hotbar.select(0);
@@ -367,6 +377,22 @@
     await sleep(300);
     for (const id of ['psx', 'mist']) world.settings.set(id, true);
     world.settings.set('shimmer', 0.6);
+
+    // 13jj. Night: 3 times as many are wanted, and the ones about turn on the farmer.
+    world.dayCycle.setHour(12);
+    await sleep(300);
+    const roamersByDay = world.hollowTarget();
+    const roamer = world.spawnKind(40, 40, 'walker');
+    const dayTemper = { speed: roamer.options.speed, aggro: roamer.options.aggroRange, drift: roamer.options.drift };
+    world.dayCycle.setHour(22);
+    await sleep(400);
+    expect(world.hollowTarget() === roamersByDay * 3, `night wants 3 times the roamers: ${roamersByDay} by day, ${world.hollowTarget()} by night`);
+    expect(roamer.options.speed > dayTemper.speed && roamer.options.aggroRange > dayTemper.aggro && roamer.options.drift > dayTemper.drift, 'at night they are quicker, see farther and close in harder');
+    expect(roamer.options.speed < 4.5, `and still slower than a walking farmer, ${roamer.options.speed.toFixed(2)} m/s`);
+    expect(document.querySelector('.hud').textContent.includes('Night'), 'the clock says it is night');
+    world.dayCycle.setHour(12);
+    await sleep(400);
+    expect(roamer.options.speed === dayTemper.speed, 'and calm down again by day');
 
     // 13k. One of them winds up before it hits, the hit shows, and there is a breather after it.
     world.population.clear();
