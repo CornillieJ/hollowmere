@@ -76,7 +76,7 @@ export class ListPanel {
 
         // Capture phase: Escape closes the panel and must not also pause the game.
         this.onKey = (event) => {
-            if (!this.isOpen || event.key !== 'Escape') return;
+            if (!this.isOpen || (event.key !== 'Escape' && event.code !== 'Escape')) return;
             event.preventDefault();
             event.stopPropagation();
             this.close();

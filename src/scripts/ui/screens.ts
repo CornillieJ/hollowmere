@@ -38,6 +38,8 @@ export class Screens {
     private readonly blocking: Set<ScreenName>;
     private readonly listeners = new Set<() => void>();
     private zIndex = 10;
+    private wasBlocking = false;
+    private unblockedAt = -Infinity;
 
     constructor(root: HTMLElement, options: ScreensOptions = {}) {
         this.root = root;
@@ -133,6 +135,15 @@ export class Screens {
         return false;
     }
 
+    /**
+     * True for a moment after the last blocking layer closed. The key that closed
+     * a panel (usually Escape) is still "just pressed" on that frame, and must not
+     * also pause the game.
+     */
+    get justUnblocked(): boolean {
+        return performance.now() - this.unblockedAt < 200;
+    }
+
     /** True when any layer at all is visible. */
     get anyVisible(): boolean {
         return this.visible.length > 0;
@@ -169,6 +180,9 @@ export class Screens {
     }
 
     private notify(): void {
+        const blocking = this.blocksInput;
+        if (this.wasBlocking && !blocking) this.unblockedAt = performance.now();
+        this.wasBlocking = blocking;
         for (const listener of [...this.listeners]) listener();
     }
 }

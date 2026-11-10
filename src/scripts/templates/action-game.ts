@@ -197,9 +197,10 @@ export function setupActionGame<TControls extends ActionControls>(game: Game, cr
     game.save.register('player', {
         save: () => ({ health: player.health.current, lives: player.lives, position: player.position.toArray() }),
         load: (data) => {
-            const saved = data as { health?: number; lives?: number; position?: number[] } | undefined;
+            const saved = data as { health?: number; lives?: number | null; position?: number[] } | undefined;
             if (!saved) return;
-            if (saved.lives !== undefined) player.lives = saved.lives;
+            // Endless lives do not survive JSON (Infinity becomes null), so only a real count is restored.
+            if (typeof saved.lives === 'number') player.lives = saved.lives;
             if (saved.health !== undefined) player.health.set(saved.health);
             if (saved.position?.length === 3) player.body.teleport(new THREE.Vector3(saved.position[0], saved.position[1], saved.position[2]));
             refreshInventoryHud(game);

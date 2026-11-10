@@ -153,7 +153,7 @@ export class GameFlow {
         const pauseKey = input.keyboard.wasPressed('Escape') || input.wasPressedUngated('pause');
 
         // An open panel owns Escape; it closes itself and the game keeps running.
-        if (state.is('playing') && pauseKey && !screens.blocksInput) this.pause();
+        if (state.is('playing') && pauseKey && !screens.blocksInput && !screens.justUnblocked) this.pause();
         else if (state.is('paused') && pauseKey) this.resume();
         else if (state.is('victory', 'dead') && (input.keyboard.wasPressed('Enter') || input.wasPressedUngated('jump'))) this.restart();
     }
