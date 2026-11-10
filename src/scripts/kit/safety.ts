@@ -10,7 +10,7 @@ import type { EnemyManager } from '../game/enemies';
  * shrine, a lit porch, the farmhouse. Enemies steer around the edge instead of
  * pushing in, so a zone works without walls.
  */
-export type SafeZone = { position: Vec3; radius: number; name?: string };
+export type SafeZone = { position: Vec3; radius: number; name?: string; /** Set false for a zone with no ring on the ground. */ ring?: boolean };
 
 export type AddSafeZonesOptions = {
     enemies: EnemyManager;
@@ -52,7 +52,7 @@ export function addSafeZones(game: Game, options: AddSafeZonesOptions): SafeZone
     const ringOf = new Map<SafeZone, THREE.Mesh>();
     const timers = new Map<SafeZone, { left: number; onExpire: ((zone: SafeZone) => void) | undefined }>();
     const drawRing = (zone: SafeZone): void => {
-        if (options.showRing === false) return;
+        if (options.showRing === false || zone.ring === false) return;
         const ring = new THREE.Mesh(new THREE.RingGeometry(zone.radius - 0.12, zone.radius, 48), ringMaterial);
         ring.rotation.x = -Math.PI / 2;
         ring.position.set(zone.position.x, zone.position.y + 0.03, zone.position.z);

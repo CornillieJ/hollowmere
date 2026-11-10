@@ -23,6 +23,10 @@ export type RetroLookHandle = {
     setResolutionScale: (scale: number) => void;
     /** Turn the tape effect on or off, e.g. stronger during a scare. */
     setVhs: (enabled: boolean) => void;
+    /** Turn the vertex wobble on or off: it shimmers, which some players find tiring. */
+    setSnap: (enabled: boolean) => void;
+    /** Turn colour reduction and dithering on or off. */
+    setPsx: (enabled: boolean) => void;
     vhsUniforms: Record<string, THREE.IUniform> | undefined;
     dispose: () => void;
 };
@@ -35,7 +39,7 @@ export function addRetroLook(game: Game, options: RetroLookOptions = {}): RetroL
     const pipeline = postPipeline(game);
     pipeline.resolutionScale = options.resolutionScale ?? 0.33;
     pipeline.resize();
-    if (options.psx !== false) pipeline.add(psxPass(options.psx ?? {}));
+    const psx = options.psx === false ? undefined : pipeline.add(psxPass(options.psx ?? {}));
     const vhs = options.vhs === false ? undefined : pipeline.add(vhsPass(options.vhs ?? {}));
     const snap = options.snap === false ? undefined : snapVertices(game, new THREE.Vector2(options.snap?.x ?? 240, options.snap?.y ?? 180));
 
@@ -47,6 +51,10 @@ export function addRetroLook(game: Game, options: RetroLookOptions = {}): RetroL
         },
         setVhs: (enabled) => {
             if (vhs) vhs.enabled = enabled;
+        },
+        setSnap: (enabled) => snap?.setEnabled(enabled),
+        setPsx: (enabled) => {
+            if (psx) psx.enabled = enabled;
         },
         vhsUniforms: vhs?.material.uniforms,
         dispose: () => {

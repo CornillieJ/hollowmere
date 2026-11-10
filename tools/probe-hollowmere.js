@@ -114,6 +114,9 @@
     expect(!world.bike.mounted, 'got off the bike');
 
     // 6. The village is up on its rise; the shopkeeper talks, and has things to ask about.
+    // Midday, so everyone is out in the square and nobody is mid-walk next to someone else.
+    world.dayCycle.setHour(12);
+    world.villagers.snapToSchedule();
     await go(47.2, -34.8);
     log.villageHeight = +game.player.position.y.toFixed(1);
     expect(Math.abs(log.villageHeight - 4) < 0.3, `the village stands 4 m up, player at ${log.villageHeight}`);
@@ -196,6 +199,7 @@
     hold('fence-kit');
     const fences = world.barriers.all.length;
     await press('KeyF');
+    await until(() => world.barriers.all.length === fences + 1);
     expect(world.barriers.all.length === fences + 1, 'put a fence down');
 
     // 11. Safe zones: a Hollow beside the player in the square ignores them.
@@ -272,6 +276,7 @@
     expect(game.time.effectiveScale > 0, 'time runs again after reading');
 
     // 13e. The tall one at the bend stands still and does no harm.
+    world.population.clear();
     const pell = game.scene.getObjectByName('pell');
     await go(pell.position.x + 1.5, pell.position.z + 1);
     const healthBefore = game.player.health.current;
@@ -330,17 +335,33 @@
     world.farm.fromJSON(stash.field);
     expect(world.villagers.requests.tier <= world.cookpot.station.tier, 'requests never outrun the pot');
 
-    // 14. Outside, it comes for you, and fainting wakes you at home on a new day.
+    // 13j. The valley gets worse by the day, and the settings can calm the picture.
+    expect(world.omens.showing > 0 && world.hunting(), `signs of trouble appear from day 2, showing ${world.omens.showing}`);
+    for (const id of ['snap', 'psx', 'mist']) world.settings.set(id, false);
+    await sleep(300);
+    for (const id of ['snap', 'psx', 'mist']) world.settings.set(id, true);
+
+    // 14. Outside, they kill. The farmer wakes in the infirmary 3 days on, with only the tools.
+    world.population.clear();
+    game.player.heal(100);
     const day = world.dayCycle.day;
+    world.pockets.add('turnip', 4);
     await go(80, -80);
     world.enemies.spawn({ position: at(81, -80), health: 1e9, speed: 0, aggroRange: 30, damage: 200, attackCooldown: 0.2, color: 0x444444 });
-    for (let index = 0; index < 40 && !game.player.isDead; index += 1) await sleep(100);
-    expect(game.player.isDead, 'the Hollow can hurt you');
-    for (let index = 0; index < 60 && game.player.isDead; index += 1) await sleep(100);
-    await sleep(300);
+    await until(() => game.player.isDead, 5000);
+    expect(game.player.isDead, 'the Hollow can kill you');
+    await until(() => game.state.current === 'dead', 4000);
+    expect(game.state.current === 'dead', `a death screen comes up, state ${game.state.current}`);
+    const wakeUp = [...document.querySelectorAll('.menu:not(.is-hidden) .menu-button')].find((button) => button.textContent === 'Wake up');
+    expect(Boolean(wakeUp), 'the death screen offers to wake up');
+    wakeUp?.click();
+    await sleep(600);
     log.wokeAt = game.player.position.toArray().map((value) => +value.toFixed(0));
-    expect(Math.hypot(game.player.position.x + 58, game.player.position.z - 54) < 4, 'woke up at home');
-    expect(world.dayCycle.day === day + 1, `a new day began, day ${world.dayCycle.day}`);
+    expect(game.state.current === 'playing' && !game.player.isDead, 'awake again');
+    expect(Math.hypot(game.player.position.x - 52, game.player.position.z + 40) < 26, `woke inside the village, at ${log.wokeAt}`);
+    expect(world.dayCycle.day === day + 3, `3 days are gone: day ${day} became ${world.dayCycle.day}`);
+    log.kept = [...world.pockets.inventory.slots, ...world.bag.inventory.slots].map((slot) => slot.itemId).sort();
+    expect(log.kept.join() === 'axe,watering-can', `only the tools are left, got ${log.kept}`);
     expect(world.story.story.current?.id === 'regular', `the story is on to the days after, got ${world.story.story.current?.id}`);
 
     // 15. Back at the title screen there is a save to continue.

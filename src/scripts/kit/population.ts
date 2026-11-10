@@ -13,8 +13,10 @@ import type { Enemy, EnemyManager } from '../game/enemies';
  * out of sight at a distance, and the ones left far behind are let go, so the
  * count travels with the player across a large map.
  *
- * `posts` are fixed places that always have someone standing at them, which is
- * how a graveyard or a crossroads gets its regular.
+ * `posts` are fixed places with regulars of their own: one figure at a
+ * crossroads, or a handful that keep to a graveyard. They are counted apart from
+ * the roamers and never follow the player away, so a crowd cannot be gathered
+ * in one corner to leave the rest of the map empty.
  *
  * ```ts
  * addPopulation(game, {
@@ -30,8 +32,8 @@ export type AddPopulationOptions = {
     enemies: EnemyManager;
     /** How many roamers should be around right now. */
     target: () => number;
-    /** Create one at a position. `post` is set for the ones that stand at a fixed place. */
-    spawn: (position: THREE.Vector3, post: Vec3 | undefined) => Enemy;
+    /** Create one at a position. `post` is set for the ones that belong to a fixed place. */
+    spawn: (position: THREE.Vector3, post: PopulationPost | undefined) => Enemy;
     /** New ones appear between these distances from the player. Defaults to 38 and 60. */
     spawnDistance?: [number, number];
     /** Anything farther than this is removed. Defaults to 95. */
@@ -44,10 +46,13 @@ export type AddPopulationOptions = {
     heightAt?: (x: number, z: number) => number;
     /** Half the map size: nothing spawns outside it. */
     bounds?: number;
-    /** Fixed places that always have one standing there while the player is in the area. */
-    posts?: Vec3[];
+    /** Fixed places that keep their own regulars while the player is in the area. */
+    posts?: PopulationPost[];
     onDespawn?: (enemy: Enemy) => void;
 };
+
+/** A place with regulars. `count` of them spawn within `radius` of it. */
+export type PopulationPost = Vec3 & { count?: number; radius?: number; name?: string };
 
 export type PopulationHandle = {
     /** Roamers alive right now, not counting the ones at posts. */
@@ -59,7 +64,7 @@ export type PopulationHandle = {
 
 export function addPopulation(game: Game, options: AddPopulationOptions): PopulationHandle {
     const roamers = new Set<Enemy>();
-    const posted = new Map<Vec3, Enemy>();
+    const posted = new Map<PopulationPost, Enemy[]>();
     const [near, far] = options.spawnDistance ?? [38, 60];
     const despawnDistance = options.despawnDistance ?? 95;
     let timer = 2;
@@ -103,12 +108,17 @@ export function addPopulation(game: Game, options: AddPopulationOptions): Popula
             // Posts fill while the player is in the area but too far to see it happen.
             for (const post of options.posts ?? []) {
                 const distance = Math.hypot(post.x - player.position.x, post.z - player.position.z);
-                const standing = posted.get(post);
-                if (standing && (!alive(standing) || distance > despawnDistance)) {
-                    if (alive(standing)) release(standing);
-                    posted.delete(post);
-                } else if (!standing && distance > near * 0.6 && distance < despawnDistance - 10) {
-                    posted.set(post, options.spawn(new THREE.Vector3(post.x, ground(post.x, post.z) + 0.4, post.z), post));
+                const standing = (posted.get(post) ?? []).filter(alive);
+                posted.set(post, standing);
+                if (distance > despawnDistance) {
+                    for (const enemy of standing) release(enemy);
+                    standing.length = 0;
+                } else if (standing.length < (post.count ?? 1) && distance > near * 0.6 && distance < despawnDistance - 10) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const reach = Math.random() * (post.radius ?? 0);
+                    const x = post.x + Math.sin(angle) * reach;
+                    const z = post.z + Math.cos(angle) * reach;
+                    standing.push(options.spawn(new THREE.Vector3(x, ground(x, z) + 0.4, z), post));
                 }
             }
 
@@ -122,7 +132,7 @@ export function addPopulation(game: Game, options: AddPopulationOptions): Popula
     });
 
     const clear = (): void => {
-        for (const enemy of [...roamers, ...posted.values()]) if (alive(enemy)) release(enemy);
+        for (const enemy of [...roamers, ...[...posted.values()].flat()]) if (alive(enemy)) release(enemy);
         roamers.clear();
         posted.clear();
     };

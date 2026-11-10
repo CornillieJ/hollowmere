@@ -43,6 +43,28 @@ export type EnemyOptions = {
     height?: number;
     /** How far the enemy wanders before it sees the player. */
     wanderRadius?: number;
+    /** Wandering speed as a fraction of `speed`. Defaults to 0.35. */
+    wanderSpeed?: number;
+    /**
+     * 0..1: how much the enemy weaves while chasing instead of walking a straight
+     * line. It still arrives; it just cannot be led like a train.
+     */
+    meander?: number;
+    /** 0..1: how uneven the pace is. The speed swells and drops around `speed`. */
+    pace?: number;
+    /** Inside this distance the enemy fixes on its target: it weaves less and moves at `focusBoost` times its speed. */
+    focusRange?: number;
+    focusBoost?: number;
+    /**
+     * 0..1: while idle, how strongly the enemy's home ground creeps towards the
+     * player. A little of it keeps wanderers nearby without it reading as a chase.
+     */
+    drift?: number;
+    /**
+     * The farthest the enemy goes from its home ground. Past it the enemy gives
+     * up and walks back, so a pack cannot be led across the map.
+     */
+    leash?: number;
     /** Loot granted on death, handed to the manager's `onLoot` callback. */
     loot?: Array<{ itemId: string; amount?: number; chance?: number }>;
     /** Multiplier applied to the health bar colour, e.g. to mark an elite. */
@@ -78,6 +100,8 @@ export type Enemy = {
     path: Cell[];
     wanderTarget: THREE.Vector3;
     homePosition: THREE.Vector3;
+    /** Seconds left of ignoring the player, after hitting the end of its leash. */
+    calm: number;
     dead: boolean;
 };
 
@@ -118,6 +142,7 @@ export class EnemyManager {
     private readonly bodyGeometry = new THREE.CapsuleGeometry(0.3, 1.1, 6, 12);
     private readonly headGeometry = new THREE.SphereGeometry(0.16, 10, 8);
     private nextId = 1;
+    private clock = 0;
 
     constructor(game: Game, options: EnemyManagerOptions = {}) {
         this.game = game;
@@ -217,6 +242,7 @@ export class EnemyManager {
             path: [],
             wanderTarget: new THREE.Vector3().copy(root.position),
             homePosition: root.position.clone(),
+            calm: 0,
             dead: false,
         };
         this.nextId += 1;
@@ -268,7 +294,8 @@ export class EnemyManager {
         const player = this.game.player;
         const candidate = player && !player.isDead ? player.position : undefined;
         // A target in a safe place is not a target at all.
-        const playerPosition = candidate && !this.rules.some((rule) => rule.ignoresTarget?.(candidate)) ? candidate : undefined;
+        const target = candidate && !this.rules.some((rule) => rule.ignoresTarget?.(candidate)) ? candidate : undefined;
+        this.clock += step;
         const eyeHeight = player ? player.eyeHeight * 0.6 : 0;
 
         for (const enemy of [...this.enemies]) {
@@ -280,6 +307,11 @@ export class EnemyManager {
             enemy.shootTimer = Math.max(0, enemy.shootTimer - step);
 
             const position = enemy.root.position;
+            const { leash, drift, meander, pace } = enemy.options;
+            // At the end of its leash an enemy loses interest for a while and heads home.
+            enemy.calm = Math.max(0, enemy.calm - step);
+            if (leash !== undefined && position.distanceTo(enemy.homePosition) > leash) enemy.calm = 8;
+            const playerPosition = enemy.calm > 0 ? undefined : target;
             const toPlayer = playerPosition ? playerPosition.clone().add(new THREE.Vector3(0, eyeHeight, 0)).sub(position.clone().setY(position.y + 0.9)) : undefined;
             const distanceToPlayer = toPlayer?.length() ?? Infinity;
 
@@ -288,17 +320,32 @@ export class EnemyManager {
             const velocity = enemy.body.velocity;
             const desired = new THREE.Vector3();
 
+            // Each enemy keeps its own rhythm, so a group never moves in step.
+            const beat = this.clock + enemy.id * 1.7;
+            const speed = enemy.options.speed * (pace ? 1 + Math.sin(beat * 0.9) * 0.3 * pace + Math.sin(beat * 2.3) * 0.12 * pace : 1);
+
             if (enemy.state.is('chase') && toPlayer) {
-                desired.copy(this.chaseDirection(enemy, playerPosition, toPlayer, step)).setY(0).normalize().multiplyScalar(enemy.options.speed);
+                const focused = distanceToPlayer <= (enemy.options.focusRange ?? 0);
+                desired.copy(this.chaseDirection(enemy, playerPosition, toPlayer, step)).setY(0).normalize();
+                // Weave around the true heading, less when fixed on the target and not at all at arm's length.
+                const weave = (meander ?? 0) * (focused ? 0.35 : 1) * Math.min(1, distanceToPlayer / 4);
+                if (weave > 0) desired.applyAxisAngle(UP, (Math.sin(beat * 0.5) + Math.sin(beat * 1.3) * 0.5) * 0.75 * weave);
+                desired.multiplyScalar(speed * (focused ? (enemy.options.focusBoost ?? 1) : 1));
             } else if (enemy.state.is('idle')) {
                 enemy.path.length = 0;
                 enemy.repathTimer = 0;
-                if (position.distanceToSquared(enemy.wanderTarget) < 1) {
+                // Home ground creeps towards the player, so wanderers end up nearby without ever heading straight there.
+                if (drift && candidate && enemy.calm <= 0) {
+                    TEMP_DIRECTION.copy(candidate).sub(enemy.homePosition).setY(0);
+                    if (TEMP_DIRECTION.length() > 12) enemy.homePosition.addScaledVector(TEMP_DIRECTION.normalize(), drift * enemy.options.speed * 0.4 * step);
+                }
+                if (enemy.calm > 0 && position.distanceToSquared(enemy.homePosition) > 9) enemy.wanderTarget.copy(enemy.homePosition);
+                else if (position.distanceToSquared(enemy.wanderTarget) < 1) {
                     enemy.wanderTarget
                         .copy(enemy.homePosition)
                         .add(new THREE.Vector3(randomFloat(-1, 1), 0, randomFloat(-1, 1)).normalize().multiplyScalar(randomFloat(1, enemy.options.wanderRadius ?? 4)));
                 }
-                desired.copy(enemy.wanderTarget).sub(position).setY(0).normalize().multiplyScalar(enemy.options.speed * 0.35);
+                desired.copy(enemy.wanderTarget).sub(position).setY(0).normalize().multiplyScalar(speed * (enemy.calm > 0 ? 0.7 : (enemy.options.wanderSpeed ?? 0.35)));
             }
 
             for (const rule of this.rules) rule.steer?.(enemy, desired, step);
@@ -432,6 +479,7 @@ export class EnemyManager {
 
 /** Scratch vector for path following, so chasing allocates nothing per frame. */
 const TEMP_DIRECTION = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0);
 
 /** Tag used to keep enemies from shooting each other. */
 export const ENEMY_TAG = 'enemy';

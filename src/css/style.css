@@ -1534,3 +1534,50 @@ canvas.webgl {
 		transform: none;
 	}
 }
+
+/* Compass strip */
+
+.compass {
+	position: absolute;
+	top: 16px;
+	left: 50%;
+	width: min(420px, 60vw);
+	height: 30px;
+	transform: translateX(-50%);
+	overflow: hidden;
+	border-radius: 8px;
+	background: var(--ui-bg-soft);
+	mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+}
+
+.compass-needle {
+	position: absolute;
+	left: 50%;
+	top: 0;
+	width: 2px;
+	height: 7px;
+	background: var(--ui-accent);
+	transform: translateX(-50%);
+}
+
+.compass-point,
+.compass-marker {
+	position: absolute;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	color: var(--ui-muted);
+	font-size: 12px;
+	letter-spacing: 0.06em;
+	white-space: nowrap;
+}
+
+.compass-point.is-cardinal {
+	color: var(--ui-fg);
+	font-size: 15px;
+	font-weight: 700;
+}
+
+.compass-marker {
+	top: 58%;
+	font-size: 15px;
+}

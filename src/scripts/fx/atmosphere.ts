@@ -42,6 +42,8 @@ export type Atmosphere = {
     readonly uniforms: Record<string, THREE.IUniform>;
     setDensity: (density: number) => void;
     setColor: (color: THREE.ColorRepresentation) => void;
+    /** How strongly the mist drifts in banks, 0 for an even, still fog. */
+    setNoise: (amount: number) => void;
     remove: () => void;
 };
 
@@ -145,6 +147,9 @@ export function setupAtmosphere(game: Game, options: AtmosphereOptions = {}): At
         uniforms,
         setDensity: (density) => {
             fog.density = density;
+        },
+        setNoise: (amount) => {
+            (uniforms.uFogNoiseAmount as THREE.IUniform<number>).value = amount;
         },
         setColor: (next) => {
             fog.color.set(next);

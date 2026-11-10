@@ -31,7 +31,7 @@ export const INTRO = [
     'Last night I fell asleep in my own house. I am a farmer. That much I still know.',
     'Now there is fog up to the fence, and shapes standing in it that do not move like people.',
     'I see no road home. So: food first, answers later.',
-    'I have seeds, a watering can and an axe. The field is just south of the house.',
+    'I have seeds, a watering can and an axe. The field is north of the house: the compass up top will show me.',
 ];
 
 export function setupStory(game: Game, narration: NarrationHandle, facts: StoryFacts): StorylineHandle {
@@ -45,7 +45,7 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
         {
             id: 'wake',
             objective: 'Look around the farm',
-            detail: 'Walk with WASD, look with the mouse. Hold Shift to run.',
+            detail: 'Walk with WASD, look with the mouse. Hold Shift to run. The ➤ on the compass points at the next job.',
             done: () => farFrom(FARM.door, 7),
             after: ['Good dark soil. I will plant what I have and see what grows here.'],
         },
@@ -92,7 +92,7 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
         {
             id: 'ride',
             objective: 'Ride the bicycle up the road to the village',
-            detail: 'Press E at the bicycle by the porch. W pedals, A and D steer, E gets off. Follow the brown road north east.',
+            detail: 'Press E at the bicycle by the porch. W pedals, A and D steer, E gets off. Follow the brown road north east: the 🕯 on the compass is the village.',
             done: () => !farFrom(VILLAGE.center, VILLAGE.wallRadius - 2),
             say: ['There is a bicycle by the porch. Faster than walking, and faster than whatever is in the fog.'],
             after: ['A village. Lamps. People. ...Mostly people. Somebody here must buy and sell.'],
@@ -125,7 +125,7 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
         {
             id: 'mailbox',
             objective: 'Check the mailbox by the porch',
-            detail: 'A letter is waiting when the ✉ shows over the mailbox, north of the farmhouse door. One comes each morning for a while.',
+            detail: 'A letter is waiting when the ✉ shows over the mailbox, beside the farmhouse door. One comes each morning for a while.',
             done: () => facts.lettersRead() >= 1,
             say: ['Something is in the mailbox. Nobody knows I am here.'],
         },

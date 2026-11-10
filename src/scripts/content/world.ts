@@ -40,6 +40,8 @@ export const VILLAGE = {
     center: { x: 52, z: -40 },
     /** The low wall that marks where the village ends. */
     wallRadius: 28,
+    /** The house nobody lives in. It is the infirmary now. */
+    infirmary: 3,
     store: { x: 40, z: -48, yaw: 0.5 },
     houses: [
         { x: 66, z: -50, yaw: -0.8, kind: 'a' },
@@ -141,13 +143,22 @@ export const SAFE_ZONES = [
     { position: { x: PLACES.lookout.x, y: 0, z: PLACES.lookout.z }, radius: 5, name: 'Lookout lamp' },
 ];
 
-/** Places that always have one of the Hollow standing at them. */
+/**
+ * Ground the Hollow keep to. Each has its own few, who wander it and will not
+ * be led far from it, so there is never a corner of the valley that has been
+ * emptied by drawing them all somewhere else.
+ */
 export const HAUNTS = [
-    { x: PLACES.graveyard.x - 3, y: 0, z: PLACES.graveyard.z + 1 },
-    { x: PLACES.mere.x - 15, y: 0, z: PLACES.mere.z - 6 },
-    { x: PLACES.stones.x, y: 0, z: PLACES.stones.z },
-    { x: PLACES.ruin.x + 3, y: 0, z: PLACES.ruin.z - 2 },
-    { x: 30, y: 0, z: -20 },
+    { name: 'graveyard', x: PLACES.graveyard.x - 3, y: 0, z: PLACES.graveyard.z + 1, count: 3, radius: 8 },
+    { name: 'mere', x: PLACES.mere.x - 15, y: 0, z: PLACES.mere.z - 6, count: 2, radius: 9 },
+    { name: 'stones', x: PLACES.stones.x, y: 0, z: PLACES.stones.z, count: 2, radius: 6 },
+    { name: 'ruin', x: PLACES.ruin.x + 3, y: 0, z: PLACES.ruin.z - 2, count: 2, radius: 7 },
+    { name: 'road', x: 30, y: 0, z: -20, count: 1, radius: 4 },
+    // The open ground between the road and the mere, and the deep woods either side of the valley.
+    { name: 'plains', x: 34, y: 0, z: 26, count: 3, radius: 15 },
+    { name: 'north woods', x: -44, y: 0, z: -22, count: 3, radius: 15 },
+    { name: 'south woods', x: -22, y: 0, z: 78, count: 2, radius: 12 },
+    { name: 'east woods', x: 84, y: 0, z: -4, count: 2, radius: 12 },
 ];
 
 /** Clearings the woods leave alone. */

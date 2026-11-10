@@ -433,7 +433,7 @@ function penFence(game: Game, root: THREE.Object3D): void {
     }
 }
 
-function railFence(length: number): THREE.Object3D {
+export function railFence(length: number): THREE.Object3D {
     const group = new THREE.Group();
     const wood = new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 1 });
     for (const y of [0.45, 0.9]) {

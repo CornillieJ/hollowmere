@@ -58,6 +58,8 @@ export type CraftingHandle = {
     open: () => void;
     /** Start a recipe as if its button was pressed. */
     start: (recipeId: string) => boolean;
+    /** Let time pass at the station without the game clock, e.g. while the player sleeps. Returns true when a job finished. */
+    skip: (seconds: number) => boolean;
     /** Take whatever is finished. Returns true when something was taken. */
     collect: () => boolean;
     dispose: () => void;
@@ -173,6 +175,7 @@ export function addCraftingStation(game: Game, options: AddCraftingStationOption
         panel,
         open: () => panel.open(),
         start,
+        skip: (seconds) => station.update(seconds) !== undefined,
         collect,
         dispose: () => {
             for (const remove of removers) remove();

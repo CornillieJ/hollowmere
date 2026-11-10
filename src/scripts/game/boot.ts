@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 import { createThirdPersonGame } from '../templates/third-person-game';
-import { PAUSE_MENU } from '../core/game-state';
+import { DEATH_MENU, PAUSE_MENU } from '../core/game-state';
 import { DayCycle } from '../game/daycycle';
 import { Farm } from '../game/farm';
 import { Synth } from '../audio/synth';
@@ -10,6 +10,7 @@ import { SYSTEM_ORDER } from '../core/systems';
 import {
     addAtmosphere,
     addBarriers,
+    addCompass,
     addCraftingStation,
     addGroundDrag,
     addPanel,
@@ -37,7 +38,9 @@ import { BEND, FARM, HAUNTS, MERE_LEVEL, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF
 import { buildWorld, stump } from './world';
 import { setupMood } from './mood';
 import { setupFarming, shipEverything } from './farming';
-import { animateHollow, forgetHollow, hollowTarget, isNight, spawnHollow } from './monsters';
+import { animateHollow, forgetHollow, hollowTarget, isNight, pickKind, spawnHollow, updateWatchers } from './monsters';
+import { buildFarmyard, buildInfirmary } from './farmyard';
+import { OMEN_THOUGHTS, setupOmens } from './omens';
 import { setupDread } from './dread';
 import { INTRO, setupStory } from './story';
 import { setupJournal } from './journal';
@@ -98,6 +101,10 @@ export async function boot(): Promise<void> {
     const at = (spot: { x: number; z: number }, lift = 0): THREE.Vector3 => terrain.point(spot.x, spot.z, lift);
     // The ground arrived after the player did.
     world.player.body.teleport(at(FARM.door, 0.2));
+
+    buildFarmyard(game, game.scene, terrain, refs.solids);
+    buildInfirmary(game.scene, terrain);
+    const omens = setupOmens(game, terrain);
 
     const dayCycle = new DayCycle(game, { dayLength: DAY_LENGTH, startHour: 7 });
     setupMood(game, { dayCycle, atmosphere, lighting: world.scene.lighting, lamps: refs.lamps });
@@ -307,6 +314,11 @@ export async function boot(): Promise<void> {
             today.delivered += 1;
         },
         formatReward: coin,
+        onExpired: (request) => {
+            const name = VILLAGERS.find((villager) => villager.id === request.from)?.name ?? 'Someone';
+            game.toasts.push(`${name} stopped waiting for ${request.amount} ${pockets.inventory.registry.resolve(request.itemId).name.toLowerCase()}`, { color: '#c8a0a0' });
+            villagers.relationships.add(request.from, -25);
+        },
         dialogue: { speed: 50 },
     });
 
@@ -451,8 +463,8 @@ export async function boot(): Promise<void> {
 
     const population = addPopulation(game, {
         enemies: world.enemies,
-        target: () => hollowTarget(dayCycle),
-        spawn: (position, post) => spawnHollow(world.enemies, position, isNight(dayCycle), post !== undefined),
+        target: () => hollowTarget(dayCycle, hunting()),
+        spawn: (position, post) => spawnHollow(world.enemies, position, { night: isNight(dayCycle), post, hunting: hunting(), kind: pickKind(dayCycle.day) }),
         interval: () => (isNight(dayCycle) ? [2.5, 5] : [5, 10]),
         // Not in a lit place, not on a cliff, and not standing in the water.
         canSpawnAt: (position) => !safeZones.zoneAt(position) && terrain.slopeAt(position.x, position.z) < 0.15 && ground(position.x, position.z) > MERE_LEVEL + 0.3,
@@ -462,19 +474,53 @@ export async function boot(): Promise<void> {
         onDespawn: forgetHollow,
     });
     setupDread(game, { enemies: world.enemies, look, dayCycle, isRiding: () => bike.mounted });
+    game.systems.add({ name: 'watchers', order: SYSTEM_ORDER.GAMEPLAY - 2, update: () => updateWatchers(game.camera) });
 
-    // Fainting is not an ending: someone carries you home, and it costs a little.
+    /**
+     * Until the first night is behind the farmer, the Hollow keep their distance:
+     * a few wander the valley and can be met, but none come looking, and the
+     * whole farm is ground they stay off. After that only the lit places are.
+     */
+    const hunting = (): boolean => story.story.completed.some((step) => step.id === 'sleep');
+    let quietFarm: (() => void) | undefined = safeZones.add({ position: { x: FARM.centre.x, y: 0, z: FARM.centre.z }, radius: 31, name: 'The farm', ring: false });
+    function endQuiet(): void {
+        if (!quietFarm || !hunting()) return;
+        quietFarm();
+        quietFarm = undefined;
+        // The ones already out there were made harmless; let them go and the real ones come.
+        population.clear();
+        think('yard', ['Tracks in the yard this morning. Right up to the field.', 'They come onto the farm now. Only the porch and the barn lamp keep them off.']);
+    }
+
+    // They kill. The farmer is found, days later, and wakes in the infirmary with nothing but their tools.
+    const DAYS_LOST = 3;
     game.events.on('player:death', () => {
-        const lost = Math.floor(coins.value() * 0.1);
-        coins.add(-lost);
-        game.effects.flash(1.2, 0x000000, 0.9);
-        game.toasts.push(lost > 0 ? `You wake at home. ${coin(lost)} missing from your purse.` : 'You wake at home.', { color: '#c8a0a0' });
-    });
-    game.events.on('player:respawn', () => {
         if (bike.mounted) bike.dismount();
-        world.player.body.teleport(at(FARM.door, 0.2));
-        sleep();
+        game.effects.flash(1.6, 0x1a0000, 0.95);
+        synth.tone({ frequency: 52, duration: 2.2, type: 'sawtooth', gain: 0.22, sweep: 0.4 });
+        window.setTimeout(() => world.flow.die(), 900);
     });
+    game.menus.register(DEATH_MENU, {
+        title: 'You died',
+        subtitle: `They found you in the fog and carried you to the infirmary. ${DAYS_LOST} days are gone, and so is everything you carried. Your tools were kept for you.`,
+        buttons: [{ label: 'Wake up', primary: true, action: () => world.flow.restart() }],
+    });
+    game.events.on('state:changed', ({ from, to }) => {
+        if (from === 'dead' && to === 'playing') wake();
+    });
+    function wake(): void {
+        for (const inventory of carried) {
+            for (const slot of [...inventory.inventory.slots]) if (!slot.definition.keep) inventory.remove(slot.itemId, slot.amount);
+        }
+        // The last of the lost days ends with a morning, like any other.
+        dayCycle.day += DAYS_LOST - 1;
+        sleep();
+        const bed = homeOf(VILLAGE.infirmary);
+        world.player.body.teleport(at({ x: bed.x + 0.4, z: bed.z + 0.8 }, 0.2));
+        narration.clear();
+        narration.say(['The infirmary. Clean sheets. Nobody about.', `${DAYS_LOST} days gone, and my pockets with them. Whoever was waiting on me has stopped waiting.`, 'They left my tools by the cot. Back to the farm, then. More carefully.']);
+        saves.save();
+    }
 
     //#endregion The Hollow
 
@@ -524,6 +570,37 @@ export async function boot(): Promise<void> {
         day: () => dayCycle.day,
     });
 
+    // The compass: home, the village, and wherever the current task is.
+    const fieldCentre = { x: FARM.field.x + 2.4, z: FARM.field.z + 1.6 };
+    const mailboxSpot = { x: FARM.door.x + 1.5, z: FARM.door.z + 3.2 };
+    const TARGETS: Record<string, { x: number; z: number }> = {
+        wake: fieldCentre,
+        plant: fieldCentre,
+        water: fieldCentre,
+        harvest: fieldCentre,
+        chop: FARM.orchard[0] as { x: number; z: number },
+        cook: FARM.hearth,
+        ride: VILLAGE.center,
+        meet: { x: VILLAGE.center.x - 6, z: VILLAGE.center.z + 4 },
+        sleep: FARM.door,
+        mailbox: mailboxSpot,
+        letters: mailboxSpot,
+        pot: { x: VILLAGE.store.x + 5.6, z: VILLAGE.store.z + 4.8 },
+        pell: BEND,
+    };
+    addCompass(game, {
+        markers: () => {
+            const step = story.story.current?.id;
+            const target = step === 'deliver' ? villagerSpot(villagers.requests?.open[0]?.from) : step ? TARGETS[step] : undefined;
+            return [
+                { glyph: '🏠', position: { x: FARM.door.x, y: 0, z: FARM.door.z }, hideWithin: 14 },
+                { glyph: '🕯', position: { x: VILLAGE.center.x, y: 0, z: VILLAGE.center.z }, hideWithin: 22 },
+                ...(target ? [{ glyph: '➤', position: { x: target.x, y: 0, z: target.z }, hideWithin: 3 }] : []),
+            ];
+        },
+    });
+    const villagerSpot = (id: string | undefined): { x: number; z: number } | undefined => (id ? game.scene.getObjectByName(`villager-${id}`)?.position : undefined);
+
     /** Something the farmer thinks once, the first time it comes up. */
     function think(id: string, lines: string[]): void {
         if (thoughts.has(id) || !game.state.is('playing')) return;
@@ -564,6 +641,9 @@ export async function boot(): Promise<void> {
             if (thoughtTimer > 0 || !player) return;
             thoughtTimer = 0.5;
             rescue();
+            endQuiet();
+            const sign = omens.near(player);
+            if (sign) think(`omen-${sign}`, OMEN_THOUGHTS[sign]);
             for (const sight of SIGHTS) if (Math.hypot(player.x - sight.spot.x, player.z - sight.spot.z) < sight.within) think(sight.id, sight.lines);
             if (dayCycle.hour >= 18 && dayCycle.hour < 21) think('dusk', ['The light is going. There will be more of them soon.', 'A lamp, a door, or the bicycle. Not the open road.']);
             const nearest = world.enemies.nearest(player);
@@ -590,6 +670,7 @@ export async function boot(): Promise<void> {
             { icon: '🍲', title: 'Dishes cooked', meta: String(today.cooked) },
             { icon: '🌱', title: 'Crops picked', meta: String(today.picked) },
             ...(letters.waiting ? [{ icon: '✉', title: 'There is a letter in the mailbox' }] : []),
+            ...(cookpot.station.ready.length > 0 ? [{ icon: '🍲', title: 'The pot finished overnight' }] : []),
             { title: 'Saved.', dim: true, action: { label: 'Get up', onPress: () => morning.close() } },
         ],
         onClose: () => Object.assign(today, { earned: 0, delivered: 0, cooked: 0, picked: 0 }),
@@ -606,6 +687,9 @@ export async function boot(): Promise<void> {
 
     function sleep(message?: string): void {
         dayCycle.sleep();
+        // A night is long enough for anything left on the fire or the bench.
+        cookpot.skip(DAY_LENGTH);
+        bench.skip(DAY_LENGTH);
         population.clear();
         villagers.snapToSchedule();
         if (message) game.toasts.push(message, { color: '#d0c8e0' });
@@ -623,6 +707,7 @@ export async function boot(): Promise<void> {
     dayCycle.hooks.onDayStart = (day) => {
         farm.newDay();
         villagers.newDay();
+        omens.setDay(day);
         game.toasts.push(`Day ${day}`, { color: '#e8e0c8' });
     };
 
@@ -648,6 +733,7 @@ export async function boot(): Promise<void> {
             if (!saved) return;
             dayCycle.day = saved.day ?? 1;
             dayCycle.setHour(saved.hour ?? 7);
+            omens.setDay(dayCycle.day);
             if (saved.field) farm.fromJSON(saved.field);
             Object.assign(tally, saved.tally);
             thoughts.clear();
@@ -661,7 +747,10 @@ export async function boot(): Promise<void> {
         volume: ['master', 'ambient', 'sfx'],
         settings: [
             { id: 'look', label: 'Mouse sensitivity', kind: 'slider', min: 0.2, max: 2, step: 0.05, default: 1, percent: true, apply: (value) => (world.controls.look.sensitivity = LOOK_BASE * value) },
-            { id: 'vhs', label: 'VHS filter', kind: 'toggle', default: true, apply: (on) => look.setVhs(on) },
+            { id: 'vhs', label: 'VHS tape (wobble, colour fringes, static)', kind: 'toggle', default: true, apply: (on) => look.setVhs(on) },
+            { id: 'snap', label: 'PS1 shimmer (wobbling edges)', kind: 'toggle', default: true, apply: (on) => look.setSnap(on) },
+            { id: 'psx', label: 'PS1 colours (dithering)', kind: 'toggle', default: true, apply: (on) => look.setPsx(on) },
+            { id: 'mist', label: 'Drifting mist', kind: 'toggle', default: true, apply: (on) => atmosphere.setNoise(on ? 0.7 : 0) },
             { id: 'shake', label: 'Screen shake', kind: 'toggle', default: true, apply: (on) => (game.effects.shakeEnabled = on) },
         ],
     });
@@ -697,7 +786,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, letters, morning, lightCandle, goToBed };
+    game.world = { ...world, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, letters, morning, lightCandle, goToBed, omens, wake, hunting };
 }
 
 /** A counter for the store, or the stand its order book lies on. */

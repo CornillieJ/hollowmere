@@ -80,6 +80,8 @@ export type AddVillagersOptions = {
     held?: () => string | undefined;
     /** Errands villagers can ask for. Omit for no requests. */
     requests?: Pick<RequestBoardOptions, 'templates' | 'maxOpen' | 'tier' | 'deliveriesPerTier'>;
+    /** Called for each request that ran out of time, e.g. to tell the player and cool the friendship. */
+    onExpired?: (request: Request) => void;
     /** Pays out a finished request. */
     onPaid?: (amount: number, request: Request) => void;
     /** How a reward reads in the thank-you line. Defaults to the bare number. */
@@ -347,7 +349,7 @@ export function addVillagers(game: Game, options: AddVillagersOptions): Villager
         hasMet: (id) => met.has(id),
         snapToSchedule,
         newDay: () => {
-            requests?.expire();
+            for (const lapsed of requests?.expire() ?? []) options.onExpired?.(lapsed);
             requests?.refill();
             refreshMarkers();
         },

@@ -130,7 +130,7 @@ export function vhsPass(options: VhsOptions = {}): PostPassOptions {
  * effect, and a uniform you can change at run time.
  * @param resolution Grid size in screen cells. 160 by 120 is roughly the PS1.
  */
-export function snapVertices(game: Game, resolution = new THREE.Vector2(240, 180)): { remove: () => void; resolution: THREE.IUniform<THREE.Vector2> } {
+export function snapVertices(game: Game, resolution = new THREE.Vector2(240, 180)): { remove: () => void; setEnabled: (enabled: boolean) => void; resolution: THREE.IUniform<THREE.Vector2> } {
     const uniform: THREE.IUniform<THREE.Vector2> = { value: resolution };
     const remove = addMaterialPatch(game, {
         key: 'psx-snap',
@@ -149,5 +149,7 @@ export function snapVertices(game: Game, resolution = new THREE.Vector2(240, 180
             )}`;
         },
     });
-    return { remove, resolution: uniform };
+    // A grid far finer than any screen snaps nothing, which turns the wobble off without recompiling a shader.
+    const off = new THREE.Vector2(1e5, 1e5);
+    return { remove, setEnabled: (enabled) => (uniform.value = enabled ? resolution : off), resolution: uniform };
 }

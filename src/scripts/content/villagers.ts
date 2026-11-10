@@ -48,6 +48,16 @@ export const VILLAGERS: VillagerContent[] = [
         ],
         topics: [
             {
+                id: 'missing',
+                label: 'Ask who has not been in',
+                minDay: 3,
+                lines: ({ day }) => [
+                    day >= 7 ? 'Seven names moved this week. I have had to rule new lines in the black book. I do not like ruling new lines.' : 'The Marlow boy did not come for his milk. Nor the day before. I have moved him to the other book, in pencil for now.',
+                    day >= 5 ? 'Old Tansy from the mill went out for kindling and her basket came back without her. It is on my shelf. Somebody may want it.' : 'His mother says he is visiting. She has set his place at table every night since. One sets a place for visitors, I suppose.',
+                    'It is always worst out on the open ground by the road. I would keep to the brown, and I would not stop to look at anything lying on it.',
+                ],
+            },
+            {
                 id: 'store',
                 label: 'Ask about the store',
                 lines: [
@@ -118,6 +128,16 @@ export const VILLAGERS: VillagerContent[] = [
         ],
         topics: [
             {
+                id: 'missing',
+                label: 'Ask about the new walkers',
+                minDay: 3,
+                lines: ({ day }) => [
+                    `There are loads more now! I counted ${10 + day * 2} from the wall this morning. I knew two of them. One still had her apron on.`,
+                    'Some of the new ones go on their hands and knees. They are quicker, but they cannot see very far. I do not think they like standing up any more.',
+                    day >= 5 ? 'And there are white ones! Tall. They only move when you are not looking. So I look. I am very good at looking. I have not blinked since breakfast.' : 'Mum says more will come. She said it with her eyes shut. She says most things with her eyes shut now.',
+                ],
+            },
+            {
                 id: 'arm',
                 label: 'Ask about her arm',
                 lines: [
@@ -165,7 +185,7 @@ export const VILLAGERS: VillagerContent[] = [
         name: 'Fen',
         portrait: '🦊',
         look: { species: 'fox', fur: 0xb8622e, clothes: 0x2e3a52, neck: 3.2, headTilt: 0.25 },
-        spot: { x: 9, z: -4, yaw: -Math.PI / 2 },
+        spot: { x: 10, z: 3, yaw: -Math.PI / 2 },
         home: 1,
         hours: [6.5, 20],
         lines: ({ hearts }) => [
@@ -178,6 +198,16 @@ export const VILLAGERS: VillagerContent[] = [
             'My rounds take an hour longer every month. The road is the same length. I have measured. I would rather not talk about it.',
         ],
         topics: [
+            {
+                id: 'missing',
+                label: 'Ask about the things on the road',
+                minDay: 3,
+                lines: ({ day }) => [
+                    'You have seen them, then. The boot. The basket. I step round. It is not my job to pick things up, only to put things through doors.',
+                    day >= 6 ? 'There is more every morning now. I counted four houses on my round with the door standing open and the lamp still lit. I posted the letters anyway.' : 'There was blood by the first bend on Tuesday. By Wednesday somebody had swept it. Nobody here owns up to sweeping.',
+                    'If you find a letter out there with no envelope, bring it to me. Do not read it. They are never addressed to the person who finds them, and they are always meant for them.',
+                ],
+            },
             {
                 id: 'neck',
                 label: 'Ask about his neck',
@@ -249,6 +279,16 @@ export const VILLAGERS: VillagerContent[] = [
         ],
         topics: [
             {
+                id: 'missing',
+                label: 'Ask about the ones who are gone',
+                minDay: 4,
+                lines: ({ day }) => [
+                    day >= 8 ? 'I have finished six shawls this week, dear. My hands ache. I have never had to knit so fast.' : 'I finished two shawls this week, dear. That is two more than I like to finish.',
+                    'They are not lost. Do not think of them as lost. They are only on the other side of the wall now, and facing the wrong way.',
+                    'More of them come every day, yes. The valley has been hungry lately. It will pass. It has always passed. Eat your supper and keep your candle lit.',
+                ],
+            },
+            {
                 id: 'shrine',
                 label: 'Ask about the shrine',
                 lines: [
@@ -319,6 +359,16 @@ export const VILLAGERS: VillagerContent[] = [
             'I am a very good boy. Mother Hollis said so. She said it right after, so I know she meant it.',
         ],
         topics: [
+            {
+                id: 'missing',
+                label: 'Ask what he smells on the road',
+                minDay: 3,
+                lines: ({ day }) => [
+                    'Blood. New. And the place where somebody was and then was not. That smell stays for days. It is like a door left open.',
+                    day >= 6 ? 'There are so many now that the whole road smells of people I used to know. I say hello to all of them. It takes me ages to get anywhere.' : 'I followed one of the drag marks into the trees. It stopped. It just stopped, in the middle of the ground. I did not dig. I am a good boy.',
+                    'The white ones do not smell of anything. That is how I know to turn round.',
+                ],
+            },
             {
                 id: 'eyes',
                 label: 'Ask about his eyes',
