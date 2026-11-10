@@ -37,18 +37,31 @@ with Continue and New game, save from the pause menu, settings (sensitivity,
 VHS, screen shake, 3 volumes), deeper villager writing with topics that open
 with hearts.
 
+## Done in round 3 (November 2026)
+
+Lethal Hollow with a death screen, infirmary, 3 lost days and loss of
+everything but kept items; weaving, uneven pace, drift towards the player,
+territories with leashes (`HAUNTS`), crawlers and watchers, one more every day;
+a quiet first day (the farm is safe until the `sleep` step is done); omens by
+day and villagers talking about the missing; farmyard clutter; letters and
+Pell; grave candles; wading in the mere; villager day schedules; morning
+summary; cooking finishes overnight; compass; settings for every picture
+effect; softlock guards (`keep` items, request availability, seed rescue);
+store buys what you carry; hotbar owns the wheel.
+
 ## Not verified by a person yet
 
 - Pointer lock handover when a panel or dialogue opens and closes: the probe
   runs headless, where there is no pointer lock. Test in a real browser.
-- Balance: prices, crop times, how many Hollow feel right at night.
+- Balance: prices, crop times, how many Hollow feel right at night, how hard
+  the watchers and crawlers are, whether 25 damage a hit is fair.
+- Which effect the player meant by "shimmer": VHS, PS1 shimmer, PS1 colours
+  and drifting mist each have a toggle now.
 - Sound levels of the new chop and cooking cues.
 
 ## Ideas, not started
 
 - A ribbon mesh for the road (crisper than vertex colours).
-- Water that slows the player in the mere.
-- Villagers that walk between home and the square through the day.
-- Letters from Fen as a late story thread (his "letters" topic sets it up).
-- More storyline after day 1: Pell, the previous farmer, is "the tall one by
-  the bend in the road" (Pike's topic).
+- Villagers walk in straight lines between stops; they can clip a corner.
+- The store only buys out of the pockets, not the backpack.
+- A chapter 3 after Pell: what the shrine costs (Hollis's topic).
