@@ -6,13 +6,20 @@
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const failures = [];
     const expect = (condition, message) => condition || failures.push(message);
+    // The farmer's own lines hold the game; nothing is pressed until they are read.
+    let started = false;
+    const quiet = async () => {
+        for (let waited = 0; waited < 8000 && started && world.narration.speaking; waited += 50) await sleep(50);
+    };
     const press = async (code, hold = 60) => {
+        await quiet();
         window.dispatchEvent(new KeyboardEvent('keydown', { code, key: code.replace('Key', '').toLowerCase(), bubbles: true }));
         await sleep(hold);
         window.dispatchEvent(new KeyboardEvent('keyup', { code, key: code.replace('Key', '').toLowerCase(), bubbles: true }));
         await sleep(120);
     };
     const go = async (x, z) => {
+        await quiet();
         game.player.body.teleport({ x, y: world.terrain.heightAt(x, z) + 0.2, z });
         await sleep(250);
     };
@@ -28,11 +35,25 @@
     expect(game.state.current === 'menu', `starts on the title screen, got ${game.state.current}`);
     expect(!document.querySelector('.menu:not(.is-hidden) .menu-dynamic:not(.is-hidden)'), 'no Continue button without a save');
     world.saves.newGame();
-    await sleep(500);
+    await sleep(700);
     expect(game.state.current === 'playing', `playing, got ${game.state.current}`);
+    // The opening is spoken in a box that holds the game until it is read.
+    const selfBox = () => document.querySelector('.dialogue-self:not(.is-hidden)');
+    expect(Boolean(selfBox()) && selfBox().textContent.includes('You'), 'the farmer speaks the opening in a dialogue box');
+    expect(game.time.effectiveScale === 0 && game.screens.blocksInput, 'the game waits while the opening is read');
+    log.introPresses = 0;
+    for (; log.introPresses < 30 && selfBox(); log.introPresses += 1) {
+        await press('Space');
+        await sleep(150);
+    }
+    expect(!selfBox() && log.introPresses >= 5, `the opening closes once every line is read, after ${log.introPresses} presses`);
+    expect(game.time.effectiveScale > 0, 'and the game runs again');
     expect(step() === 'wake', `the story starts at waking, got ${step()}`);
-    await sleep(600);
-    expect(!document.querySelector('.subtitles').classList.contains('is-hidden'), 'the farmer thinks aloud at the start');
+    // From here on the probe reads the farmer's own lines as soon as they come up.
+    started = true;
+    const reader = setInterval(() => {
+        if (selfBox()) window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true }));
+    }, 120);
 
     // 1. Plant 3, water 3.
     const plots = world.farm.plots.filter((plot) => plot.active);
@@ -172,6 +193,8 @@
         expect(log.paid >= request.reward, `paid at least ${request.reward}, got ${log.paid}`);
         expect(world.villagers.requests.completed === 1, 'the delivery was counted');
         expect(!world.villagers.dialogue.isOpen, 'the conversation closed');
+        await sleep(200);
+        await quiet();
         expect(game.time.effectiveScale > 0, 'time runs again after talking');
     }
     await sleep(300);
@@ -273,6 +296,8 @@
         await sleep(300);
     }
     expect(world.letters.read === 1, `read the first letter, read ${world.letters.read}`);
+    await sleep(200);
+    await quiet();
     expect(game.time.effectiveScale > 0, 'time runs again after reading');
 
     // 13e. The tall one at the bend stands still and does no harm.
@@ -337,9 +362,33 @@
 
     // 13j. The valley gets worse by the day, and the settings can calm the picture.
     expect(world.omens.showing > 0 && world.hunting(), `signs of trouble appear from day 2, showing ${world.omens.showing}`);
-    for (const id of ['snap', 'psx', 'mist']) world.settings.set(id, false);
+    for (const id of ['psx', 'mist']) world.settings.set(id, false);
+    world.settings.set('shimmer', 0);
     await sleep(300);
-    for (const id of ['snap', 'psx', 'mist']) world.settings.set(id, true);
+    for (const id of ['psx', 'mist']) world.settings.set(id, true);
+    world.settings.set('shimmer', 0.6);
+
+    // 13k. One of them winds up before it hits, the hit shows, and there is a breather after it.
+    world.population.clear();
+    game.player.heal(100);
+    await go(20, 62);
+    const striker = world.spawnKind(21.2, 62, 'walker');
+    await until(() => striker.attackProgress > 0, 6000);
+    expect(striker.attackProgress > 0 && game.player.health.current === 100, 'it raises its arms before the blow lands');
+    await until(() => game.player.health.current < 100, 3000);
+    log.hit = 100 - game.player.health.current;
+    expect(log.hit === 25, `the blow costs 25 health, cost ${log.hit}`);
+    expect(game.player.health.isInvulnerable, 'the farmer cannot be hit again straight away');
+    expect(document.querySelector('.damage-vignette').classList.contains('is-hit'), 'the screen edges flash on a hit');
+    await sleep(1200);
+    expect(game.player.health.current === 75, `no second hit inside the breather, health ${game.player.health.current}`);
+    world.population.clear();
+    world.enemies.clear();
+
+    // 13l. Work has motions: the axe swings, and riding is sitting.
+    world.body.play('swing');
+    await sleep(200);
+    expect(Math.abs(world.body.hand.rotation.x) > 0.8, 'the axe arm comes up for a swing');
 
     // 14. Outside, they kill. The farmer wakes in the infirmary 3 days on, with only the tools.
     world.population.clear();
@@ -371,5 +420,6 @@
     log.continueLabel = continueButton?.textContent;
     expect(Boolean(continueButton) && !continueButton.classList.contains('is-hidden'), 'the title screen offers Continue');
 
+    clearInterval(reader);
     return { ok: failures.length === 0, failures, log, state: game.state.current };
 })();

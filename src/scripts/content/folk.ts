@@ -246,38 +246,127 @@ export function createHollow(seed = 0): FolkRig {
     return { root, torso, head, arms, legs, tail: undefined };
 }
 
+/** One-off motions layered over the walk: chopping, pouring, bending to the ground. */
+export type FolkAction = 'swing' | 'pour' | 'reach';
+
+const ACTION_SECONDS: Record<FolkAction, number> = { swing: 0.5, pour: 0.9, reach: 0.45 };
+
 /**
- * Walk, idle and limp cycles for a folk rig, from speed alone.
+ * Walk, idle, ride and work cycles for a folk rig, from speed alone.
  * `stutter` quantises time, so the Hollow move in jerks like a missing frame.
  */
 export class FolkAnimator {
+    /** Seated and pedalling instead of walking. */
+    riding = false;
+    /** 0..1 through an attack, set every frame by whoever drives the rig; 0 for none. */
+    strike = 0;
+
     private phase = Math.random() * 10;
     private idle = Math.random() * 10;
+    private action: { kind: FolkAction; elapsed: number } | undefined;
+    private readonly baseLean: number;
 
     constructor(
         private readonly rig: FolkRig,
         private readonly options: { stride?: number; stutter?: number; armSwing?: number } = {},
-    ) {}
+    ) {
+        this.baseLean = rig.torso.rotation.x;
+    }
+
+    /** Start a one-off motion. A new one replaces whatever was playing. */
+    play(kind: FolkAction): void {
+        this.action = { kind, elapsed: 0 };
+    }
+
+    /** The arm that holds things: the right one, or the only one. */
+    get hand(): THREE.Object3D | undefined {
+        return this.rig.arms[this.rig.arms.length - 1];
+    }
 
     update(speed: number, delta: number): void {
         const { rig } = this;
         const stride = this.options.stride ?? 1;
-        this.phase += delta * speed * 3.2 * stride;
+        this.phase += delta * speed * (this.riding ? 1.1 : 3.2 * stride);
         this.idle += delta;
         const step = this.options.stutter ? Math.floor(this.phase * this.options.stutter) / this.options.stutter : this.phase;
         const amount = Math.min(1, speed / 2.5);
-
-        const swing = Math.sin(step) * 0.7 * amount;
         const [left, right] = rig.legs;
-        if (left) left.rotation.x = swing;
-        if (right) right.rotation.x = -swing;
-        const armSwing = this.options.armSwing ?? 0.6;
-        rig.arms.forEach((arm, index) => {
-            arm.rotation.x = (index === 0 ? -swing : swing) * armSwing + (this.options.stutter ? -0.25 : 0);
-        });
+        let lean = this.baseLean;
+
+        if (this.riding) {
+            // Sitting: thighs forward, feet going round, hands out on the bars, back bent to them.
+            const turn = Math.sin(step) * 0.5;
+            if (left) left.rotation.x = -0.95 + turn;
+            if (right) right.rotation.x = -0.95 - turn;
+            for (const arm of rig.arms) arm.rotation.set(-0.95, 0, 0);
+            lean += 0.32;
+        } else {
+            const swing = Math.sin(step) * 0.7 * amount;
+            if (left) left.rotation.x = swing;
+            if (right) right.rotation.x = -swing;
+            const armSwing = this.options.armSwing ?? 0.6;
+            rig.arms.forEach((arm, index) => {
+                arm.rotation.set((index === 0 ? -swing : swing) * armSwing + (this.options.stutter ? -0.25 : 0), 0, 0);
+            });
+        }
+
+        // An attack: both arms come up over the head through the wind-up, then down hard.
+        if (this.strike > 0) {
+            const raised = this.strike < 0.6 ? this.strike / 0.6 : 1 - (this.strike - 0.6) / 0.4;
+            for (const arm of rig.arms) arm.rotation.x = -0.25 - raised * 2.5;
+            lean += this.strike < 0.6 ? -0.25 * raised : 0.35 * (1 - raised);
+        }
+
+        const hand = this.hand;
+        if (this.action && hand) {
+            this.action.elapsed += delta;
+            const t = Math.min(1, this.action.elapsed / ACTION_SECONDS[this.action.kind]);
+            if (this.action.kind === 'swing') {
+                // Up and back for the first 40%, then down through the trunk.
+                const lift = t < 0.4 ? t / 0.4 : 1 - (t - 0.4) / 0.6;
+                hand.rotation.x = -0.5 - lift * 2.3;
+                rig.torso.rotation.y = (t < 0.4 ? -0.5 : 0.35) * Math.sin(t * Math.PI);
+                lean += t >= 0.4 ? 0.3 * Math.sin(((t - 0.4) / 0.6) * Math.PI) : -0.1;
+            } else if (this.action.kind === 'pour') {
+                // Arm out, wrist tipped, a small rock while the water runs.
+                const hold = Math.sin(Math.min(1, t * 4) * (Math.PI / 2)) * (t > 0.85 ? (1 - t) / 0.15 : 1);
+                hand.rotation.x = -1.25 * hold;
+                hand.rotation.z = (-0.5 + Math.sin(t * 14) * 0.08) * hold;
+                lean += 0.18 * hold;
+            } else {
+                // Bend and reach to the ground with whatever arms there are.
+                const bend = Math.sin(t * Math.PI);
+                for (const arm of rig.arms) arm.rotation.x = -1 * bend;
+                lean += 0.55 * bend;
+            }
+            if (t >= 1) {
+                this.action = undefined;
+                rig.torso.rotation.y = 0;
+            }
+        }
+
+        rig.torso.rotation.x = lean;
         // Breathing when still, a bob when walking.
-        rig.torso.position.y = (rig.torso.userData.baseY ??= rig.torso.position.y) + Math.abs(Math.sin(step)) * 0.03 * amount + Math.sin(this.idle * 1.8) * 0.006;
+        rig.torso.position.y = (rig.torso.userData.baseY ??= rig.torso.position.y) + (this.riding ? 0 : Math.abs(Math.sin(step)) * 0.03 * amount) + Math.sin(this.idle * 1.8) * 0.006;
         if (rig.tail) rig.tail.rotation.y = Math.sin(this.idle * 1.3) * 0.35;
         if (this.options.stutter) rig.head.rotation.z = Math.sin(this.idle * 0.7) * 0.25 + (Math.sin(this.idle * 5.3) > 0.97 ? 0.4 : 0);
     }
+}
+
+/** The things the farmer can be seen holding. Each hangs from the end of the arm. */
+export function createHeldTool(kind: 'axe' | 'watering-can' | 'candle'): THREE.Object3D {
+    const group = new THREE.Group();
+    group.position.set(0, -0.5, 0.04);
+    if (kind === 'axe') {
+        const handle = part(new THREE.CylinderGeometry(0.018, 0.018, 0.6, 5), 0x5a4632, group, { x: 0, y: 0, z: 0.26 });
+        handle.rotation.x = Math.PI / 2;
+        part(new THREE.BoxGeometry(0.03, 0.18, 0.14), 0x8a8e90, group, { x: 0, y: -0.05, z: 0.52 });
+    } else if (kind === 'watering-can') {
+        part(new THREE.CylinderGeometry(0.09, 0.09, 0.17, 7), 0x6a7a78, group, { x: 0, y: -0.1, z: 0.05 });
+        const spout = part(new THREE.CylinderGeometry(0.015, 0.025, 0.26, 5), 0x6a7a78, group, { x: 0, y: -0.06, z: 0.22 });
+        spout.rotation.x = 1.1;
+    } else {
+        part(new THREE.BoxGeometry(0.05, 0.16, 0.05), 0xfff2d0, group, { x: 0, y: -0.06, z: 0.04 }, 0xffc070);
+    }
+    return group;
 }

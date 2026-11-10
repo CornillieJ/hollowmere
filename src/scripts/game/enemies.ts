@@ -34,6 +34,12 @@ export type EnemyOptions = {
     attackRange?: number;
     /** Seconds between melee attacks. */
     attackCooldown?: number;
+    /**
+     * Seconds the enemy winds up before a melee hit lands. It stops, raises its
+     * arms (see `attackProgress`), and the hit only counts if the target is still
+     * in reach at the end, so a player who reacts gets away.
+     */
+    attackWindup?: number;
     /** Seconds between ranged shots. Omit for a melee-only enemy. */
     shootCooldown?: number;
     /** Seconds between ranged shots. */
@@ -100,6 +106,12 @@ export type Enemy = {
     path: Cell[];
     wanderTarget: THREE.Vector3;
     homePosition: THREE.Vector3;
+    /** Seconds until the wound-up hit lands; 0 when no attack is under way. */
+    windup: number;
+    /** 0..1 through the current attack, wind-up and follow-through together; 0 when not attacking. For animation. */
+    attackProgress: number;
+    /** Seconds since the current attack began, or -1. */
+    attackClock: number;
     /** Seconds left of ignoring the player, after hitting the end of its leash. */
     calm: number;
     dead: boolean;
@@ -108,6 +120,8 @@ export type Enemy = {
 export type EnemyManagerOptions = {
     /** Called when an enemy dies, e.g. to drop loot through a `PickupManager`. */
     onDeath?: (game: Game, enemy: Enemy) => void;
+    /** Called when an enemy starts winding up a hit, e.g. for a warning sound. */
+    onWindup?: (game: Game, enemy: Enemy) => void;
     /** Called when an enemy lands a hit on the player. */
     onAttack?: (game: Game, enemy: Enemy, damage: number) => void;
     /** Called every step with the enemy's speed, e.g. to drive walk and idle animations. */
@@ -242,6 +256,9 @@ export class EnemyManager {
             path: [],
             wanderTarget: new THREE.Vector3().copy(root.position),
             homePosition: root.position.clone(),
+            windup: 0,
+            attackProgress: 0,
+            attackClock: -1,
             calm: 0,
             dead: false,
         };
@@ -348,6 +365,21 @@ export class EnemyManager {
                 desired.copy(enemy.wanderTarget).sub(position).setY(0).normalize().multiplyScalar(speed * (enemy.calm > 0 ? 0.7 : (enemy.options.wanderSpeed ?? 0.35)));
             }
 
+            // An attack under way: stand, strike when the wind-up runs out, then recover.
+            if (enemy.attackClock >= 0) {
+                const windupTime = enemy.options.attackWindup ?? 0;
+                enemy.attackClock += step;
+                enemy.attackProgress = Math.min(1, enemy.attackClock / (windupTime + FOLLOW_THROUGH));
+                desired.set(0, 0, 0);
+                if (enemy.windup > 0) {
+                    enemy.windup -= step;
+                    if (enemy.windup <= 0) this.land(enemy, player, distanceToPlayer);
+                } else if (enemy.attackClock >= windupTime + FOLLOW_THROUGH) {
+                    enemy.attackClock = -1;
+                    enemy.attackProgress = 0;
+                }
+            }
+
             for (const rule of this.rules) rule.steer?.(enemy, desired, step);
             enemy.body.setVelocity(new THREE.Vector3(desired.x, velocity.y, desired.z));
             this.options.animate?.(enemy, Math.hypot(desired.x, desired.z), step);
@@ -399,8 +431,22 @@ export class EnemyManager {
     }
 
     private attack(enemy: Enemy, player: Game['player'], toPlayer: THREE.Vector3 | undefined): void {
-        if (!player || !toPlayer || enemy.attackTimer > 0) return;
+        if (!player || !toPlayer || enemy.attackTimer > 0 || enemy.attackClock >= 0) return;
+        const windup = enemy.options.attackWindup ?? 0;
+        if (windup <= 0) {
+            this.land(enemy, player, 0);
+            return;
+        }
+        enemy.windup = windup;
+        enemy.attackClock = 0;
+        this.options.onWindup?.(this.game, enemy);
+    }
+
+    /** The moment a hit connects, or misses because the target got out of reach during the wind-up. */
+    private land(enemy: Enemy, player: Game['player'], distance: number): void {
+        enemy.windup = 0;
         enemy.attackTimer = enemy.options.attackCooldown;
+        if (!player || player.isDead || distance > enemy.options.attackRange * 1.35) return;
         player.damage(enemy.options.damage, enemy.root);
         this.game.effects.shakeCamera(0.18);
         this.options.onAttack?.(this.game, enemy, enemy.options.damage);
@@ -480,6 +526,8 @@ export class EnemyManager {
 /** Scratch vector for path following, so chasing allocates nothing per frame. */
 const TEMP_DIRECTION = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
+/** Seconds an enemy stays in its strike pose after the hit. */
+const FOLLOW_THROUGH = 0.35;
 
 /** Tag used to keep enemies from shooting each other. */
 export const ENEMY_TAG = 'enemy';

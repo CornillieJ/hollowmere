@@ -12,6 +12,7 @@ import {
     addBarriers,
     addCompass,
     addCraftingStation,
+    addDamageFeedback,
     addGroundDrag,
     addPanel,
     addHotbar,
@@ -30,7 +31,7 @@ import {
     addVillagers,
     type AnimalDefinition,
 } from '../kit';
-import { createFolk, FolkAnimator, type FolkRig } from '../content/folk';
+import { createFolk, createHeldTool, FolkAnimator, type FolkRig } from '../content/folk';
 import { createBike, spinWheels } from '../content/bike';
 import { COOKING, CROPS, ITEMS, NEEDS_CROP, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
 import { REQUESTS, VILLAGERS } from '../content/villagers';
@@ -86,7 +87,13 @@ export async function boot(): Promise<void> {
         flow: { pointerLock: true, crosshairWhen: [] },
         game: { stats: false, exposeDebug: true },
     });
-    animatePlayer(game, new FolkAnimator(cat));
+    const body = new FolkAnimator(cat);
+    // What is in the hand shows in the hand.
+    const heldTools = new Map((['axe', 'watering-can', 'candle'] as const).map((kind) => [kind as string, createHeldTool(kind)]));
+    for (const tool of heldTools.values()) {
+        tool.visible = false;
+        body.hand?.add(tool);
+    }
     const synth = new Synth(game);
 
     //#region Look and land
@@ -108,7 +115,7 @@ export async function boot(): Promise<void> {
 
     const dayCycle = new DayCycle(game, { dayLength: DAY_LENGTH, startHour: 7 });
     setupMood(game, { dayCycle, atmosphere, lighting: world.scene.lighting, lamps: refs.lamps });
-    const narration = addNarration(game);
+    const narration = addNarration(game, { speaker: 'You', portrait: '🐱' });
 
     //#endregion Look and land
 
@@ -120,6 +127,17 @@ export async function boot(): Promise<void> {
     bag.offerTransfer('To pockets', pockets);
     pockets.offerTransfer('To backpack', bag);
     const hotbar = addHotbar(game, { inventory: pockets, slots: 8, useAction: 'use', onUse: (slot) => (slot.itemId === 'candle' ? void lightCandle() : farming.useHeld(slot)) });
+    game.systems.add({
+        name: 'player-anim',
+        order: SYSTEM_ORDER.GAMEPLAY + 7,
+        update: (delta) => {
+            body.riding = bike.mounted;
+            // Hands are on the bars while riding, so nothing is carried in them.
+            for (const [id, tool] of heldTools) tool.visible = !bike.mounted && hotbar.selectedId === id;
+            body.update(bike.mounted ? Math.abs(bike.speed) : (game.player?.body.speed ?? 0), delta);
+        },
+    });
+    addDamageFeedback(game, { invulnerableSeconds: 1.6, onHit: () => synth.noise({ duration: 0.25, gain: 0.2, filter: 400 }) });
     const carried = [pockets, bag];
     const have = (itemId: string): number => pockets.count(itemId) + bag.count(itemId);
 
@@ -163,6 +181,12 @@ export async function boot(): Promise<void> {
     const farming = setupFarming(game, { farm, pockets, hotbar, barriers, give, nodes: () => nodes, onHarvest: (_itemId, amount) => {
             tally.harvested += amount;
             today.picked += amount;
+        },
+        onWork: (kind, plot) => {
+            body.play(kind === 'water' ? 'pour' : 'reach');
+            if (kind !== 'water') return;
+            synth.noise({ duration: 0.7, gain: 0.07, filter: 3200 });
+            game.effects.particles.burst(plot.position.clone().setY(0.7), { count: 18, color: 0x8fb8c8, size: 0.04, speed: 1.2, lifetime: 0.7 });
         },
     });
 
@@ -229,6 +253,7 @@ export async function boot(): Promise<void> {
             game.toasts.push(`+${amount} ${pockets.inventory.registry.resolve(itemId).name.toLowerCase()}`, { color: '#d8e8b0' });
         },
         onHit: (node) => {
+            body.play(node.kindId === 'tree' ? 'swing' : 'reach');
             if (node.kindId !== 'tree') return;
             synth.noise({ duration: 0.09, gain: 0.16, filter: 700 + Math.random() * 400 });
             game.effects.particles.burst(node.object.position.clone().setY(node.object.position.y + 1), { count: 6, color: 0x4a3e32, size: 0.06, speed: 2, lifetime: 0.4 });
@@ -249,7 +274,10 @@ export async function boot(): Promise<void> {
         give: stow,
         prompt: 'Cook at the fire',
         verb: 'Cook',
-        onStarted: () => synth.noise({ duration: 0.5, gain: 0.08, filter: 2400 }),
+        onStarted: () => {
+            body.play('reach');
+            synth.noise({ duration: 0.5, gain: 0.08, filter: 2400 });
+        },
         onFinished: () => synth.tone({ frequency: 660, duration: 0.25, type: 'sine', gain: 0.12 }),
         onCollected: () => {
             tally.cooked += 1;
@@ -427,6 +455,7 @@ export async function boot(): Promise<void> {
     const lightCandle = (): boolean => {
         const player = game.player;
         if (!player || !takeCarried('candle', 1)) return false;
+        body.play('reach');
         const spot = player.position.clone();
         const candle = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.26, 0.1), new THREE.MeshStandardMaterial({ color: 0xfff2d0, emissive: 0xffc070, emissiveIntensity: 3 }));
         candle.position.copy(spot).setY(spot.y + 0.13);
@@ -748,7 +777,7 @@ export async function boot(): Promise<void> {
         settings: [
             { id: 'look', label: 'Mouse sensitivity', kind: 'slider', min: 0.2, max: 2, step: 0.05, default: 1, percent: true, apply: (value) => (world.controls.look.sensitivity = LOOK_BASE * value) },
             { id: 'vhs', label: 'VHS tape (wobble, colour fringes, static)', kind: 'toggle', default: true, apply: (on) => look.setVhs(on) },
-            { id: 'snap', label: 'PS1 shimmer (wobbling edges)', kind: 'toggle', default: true, apply: (on) => look.setSnap(on) },
+            { id: 'shimmer', label: 'PS1 shimmer (wobbling edges)', kind: 'slider', min: 0, max: 1.5, step: 0.05, default: 0.6, percent: true, apply: (value) => look.setSnapStrength(value) },
             { id: 'psx', label: 'PS1 colours (dithering)', kind: 'toggle', default: true, apply: (on) => look.setPsx(on) },
             { id: 'mist', label: 'Drifting mist', kind: 'toggle', default: true, apply: (on) => atmosphere.setNoise(on ? 0.7 : 0) },
             { id: 'shake', label: 'Screen shake', kind: 'toggle', default: true, apply: (on) => (game.effects.shakeEnabled = on) },
@@ -761,7 +790,7 @@ export async function boot(): Promise<void> {
         subtitle: 'Grow. Cook. Deliver. Keep moving.',
         hint: 'WASD to walk, E to interact, F to use what you hold, 1 to 8 to pick it, Tab for the bag, J for the notebook',
         describe: (save) => `day ${(save.data.hollowmere as Saved | undefined)?.day ?? 1}`,
-        onNewGame: () => narration.say(INTRO),
+        onNewGame: () => void narration.speak(INTRO),
         onContinue: () => villagers.snapToSchedule(),
         buttons: [settings.button],
     });
@@ -786,7 +815,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, letters, morning, lightCandle, goToBed, omens, wake, hunting,
+    game.world = { ...world, narration, body, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, letters, morning, lightCandle, goToBed, omens, wake, hunting,
         // For the probe and for trying things out from the console.
         spawnKind: (x: number, z: number, kind: HollowKind) => spawnHollow(world.enemies, terrain.point(x, z, 0.4), { night: isNight(dayCycle), hunting: hunting(), kind }),
     };
@@ -847,9 +876,4 @@ async function loadAnimal(game: Game, kind: 'hen' | 'cow', id: string, index: nu
             mixer?.update(delta);
         },
     };
-}
-
-/** The player's walk cycle, driven by the character body's speed. */
-export function animatePlayer(game: Game, animator: FolkAnimator): void {
-    game.systems.add({ name: 'player-anim', order: SYSTEM_ORDER.GAMEPLAY + 7, update: (delta) => animator.update(game.player?.body.speed ?? 0, delta) });
 }

@@ -49,6 +49,14 @@ summary; cooking finishes overnight; compass; settings for every picture
 effect; softlock guards (`keep` items, request availability, seed rescue);
 store buys what you carry; hotbar owns the wheel.
 
+## Done in round 4 (November 2026)
+
+Tutorial and intro lines are spoken in a dialogue box that must be read
+(`narration.speak`, `addStoryline({ spoken: true })`); enemy wind-up before a
+hit with a raised-arms pose; damage feedback and 1.6 s of invulnerability;
+work motions (axe swing, pour, reach) and held tools on the farmer; a seated,
+pedalling pose on the bicycle; a slider for the PS1 shimmer (default 60%).
+
 ## Not verified by a person yet
 
 - Pointer lock handover when a panel or dialogue opens and closes: the probe

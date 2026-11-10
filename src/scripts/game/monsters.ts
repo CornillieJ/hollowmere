@@ -29,7 +29,11 @@ let seed = 0;
 
 /** The `animate` hook for the enemy manager: walk each Hollow with its own rig. */
 export function animateHollow(enemy: Enemy, speed: number, step: number): void {
-    animators.get(enemy.id)?.update(speed, step);
+    const animator = animators.get(enemy.id);
+    if (!animator) return;
+    // The arms go up while it winds up, which is the moment to step back.
+    animator.strike = enemy.attackProgress;
+    animator.update(speed, step);
 }
 
 export const isNight = (dayCycle: DayCycle): boolean => dayCycle.phase === 'night' || dayCycle.phase === 'dusk';
@@ -91,6 +95,8 @@ export function spawnHollow(enemies: EnemyManager, position: THREE.Vector3, opti
         damage: kind === 'watcher' ? 40 : 25,
         attackRange: 1.3,
         attackCooldown: 1.6,
+        // Half a second with its arms up before the blow: time to get out of reach.
+        attackWindup: 0.55,
         aggroRange: !hunting ? 5 : kind === 'crawler' ? 11 : kind === 'watcher' ? 26 : night ? 20 : 14,
         wanderRadius: post ? Math.max(4, post.radius ?? 3) : 13,
         wanderSpeed: 0.5,

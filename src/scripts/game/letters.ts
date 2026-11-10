@@ -77,8 +77,7 @@ export function setupLetters(game: Game, options: LettersOptions): LettersHandle
         if (!letter || !waiting()) return;
         await show(letter.lines, `A letter (${read + 1} of ${LETTERS.length})`, '✉');
         read += 1;
-        if (read === LETTERS.length) options.narration.say(['The tall one at the bend. I have walked past him every day.', 'Say hello, he says. All right, Pell. All right.']);
-        else if (read === 1) options.narration.say(['No stamp. And it knows which bed I woke in.']);
+        if (read === 1) options.narration.say(['No stamp. And it knows which bed I woke in.']);
     }
 
     game.interactions.add(mailbox, {

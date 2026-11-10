@@ -1,5 +1,6 @@
 import { SYSTEM_ORDER } from '../core/systems';
 import { Storyline, type StoryStep } from '../game/storyline';
+import { DialogueBox } from '../ui/dialogue-box';
 import { Subtitles } from '../ui/subtitles';
 
 //#region Narration
@@ -8,6 +9,10 @@ import { Subtitles } from '../ui/subtitles';
  * Lines the player reads while still playing: the character thinking aloud, a
  * narrator, a voice on the radio. Lines queue up and each stays long enough to
  * read, so a game can say three things in a row and walk away.
+ *
+ * `say` is for colour: it never stops play, and so it can be missed. `speak` is
+ * for what must be read: it opens the dialogue box with the game held still,
+ * and the player presses a key for each line.
  */
 export type NarrationOptions = {
     /** Seconds per character on top of the minimum. Defaults to 0.055. */
@@ -16,11 +21,24 @@ export type NarrationOptions = {
     minimumSeconds?: number;
     /** Called when a line appears, e.g. for a soft sound. */
     onLine?: (line: string) => void;
+    /** Who is talking in the `speak` box, e.g. "You". */
+    speaker?: string;
+    /** Emoji shown as the portrait in the `speak` box. */
+    portrait?: string;
+    /** Characters per second in the `speak` box. Defaults to 45. */
+    speed?: number;
 };
 
 export type NarrationHandle = {
-    /** Queue one or more lines. */
+    /** Queue one or more lines as subtitles. They pass by themselves. */
     say: (lines: string | string[], speaker?: string) => void;
+    /**
+     * Show lines in the dialogue box, one key press each, with the game held
+     * still. It waits for any open panel to close first. Resolves once read.
+     */
+    speak: (lines: string | string[], options?: { speaker?: string; portrait?: string }) => Promise<void>;
+    /** True while the `speak` box is up or has lines waiting. */
+    readonly speaking: boolean;
     /** Drop everything queued and hide the current line. */
     clear: () => void;
     /** True while a line is up or waiting. */
@@ -34,6 +52,25 @@ export function addNarration(game: Game, options: NarrationOptions = {}): Narrat
     let remaining = 0;
     let showing = false;
     let last = performance.now();
+
+    const box = new DialogueBox(game.screens.layer('modal'), { speed: options.speed ?? 45 });
+    box.root.classList.add('dialogue-self');
+    const speeches: Array<{ lines: string[]; speaker: string; portrait: string | undefined; done: () => void }> = [];
+    let speaking = false;
+
+    async function deliver(speech: (typeof speeches)[number]): Promise<void> {
+        speaking = true;
+        game.time.pause(box);
+        game.screens.show('modal', box);
+        try {
+            await box.say(speech.lines.map((text) => ({ text, portrait: speech.portrait })), speech.speaker);
+        } finally {
+            game.screens.hide('modal', box);
+            game.time.resume(box);
+            speaking = false;
+            speech.done();
+        }
+    }
 
     const removeSystem = game.systems.add({
         name: 'narration',
@@ -49,6 +86,9 @@ export function addNarration(game: Game, options: NarrationOptions = {}): Narrat
             const covered = game.screens.blocksInput || !game.state.is('playing');
             subtitles.root.style.visibility = covered ? 'hidden' : '';
             if (covered) return;
+            // Something to be read comes before anything that merely passes by.
+            const speech = speeches.shift();
+            if (speech) return void deliver(speech);
             remaining -= elapsed;
             if (remaining > 0) return;
             const next = queue.shift();
@@ -68,7 +108,15 @@ export function addNarration(game: Game, options: NarrationOptions = {}): Narrat
         say: (lines, speaker) => {
             for (const line of Array.isArray(lines) ? lines : [lines]) queue.push({ line, speaker });
         },
+        speak: (lines, extra) =>
+            new Promise<void>((resolve) => {
+                speeches.push({ lines: Array.isArray(lines) ? lines : [lines], speaker: extra?.speaker ?? options.speaker ?? '', portrait: extra?.portrait ?? options.portrait, done: resolve });
+            }),
+        get speaking() {
+            return speaking || speeches.length > 0;
+        },
         clear: () => {
+            for (const speech of speeches.splice(0)) speech.done();
             queue.length = 0;
             remaining = 0;
             showing = false;
@@ -80,6 +128,7 @@ export function addNarration(game: Game, options: NarrationOptions = {}): Narrat
         dispose: () => {
             removeSystem();
             subtitles.dispose();
+            box.dispose();
         },
     };
 }
@@ -105,6 +154,11 @@ export type AddStorylineOptions = {
     steps: StoryStep[];
     /** Says each step's `say` and `after` lines. */
     narration?: NarrationHandle;
+    /**
+     * Put each step's `say` lines in the dialogue box, where they have to be
+     * read, instead of in passing subtitles. `after` lines stay subtitles.
+     */
+    spoken?: boolean;
     /** Write the current step to the HUD objective line. Defaults to true. */
     hud?: boolean;
     /** Save key. Defaults to `'story'`. */
@@ -129,7 +183,7 @@ export function addStoryline(game: Game, options: AddStorylineOptions): Storylin
     removers.push(
         story.onEvent((event) => {
             if (event.type === 'started' && event.step) {
-                if (event.step.say) options.narration?.say(event.step.say);
+                if (event.step.say) void (options.spoken ? options.narration?.speak(event.step.say) : options.narration?.say(event.step.say));
                 options.onStepStarted?.(event.step);
             } else if (event.type === 'completed' && event.step) {
                 if (event.step.after) options.narration?.say(event.step.after);

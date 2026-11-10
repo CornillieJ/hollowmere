@@ -1581,3 +1581,62 @@ canvas.webgl {
 	top: 58%;
 	font-size: 15px;
 }
+
+/* Damage feedback */
+
+.damage-vignette {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	opacity: 0;
+	background: radial-gradient(ellipse at center, transparent 45%, var(--damage-color, rgba(150, 10, 10, 0.75)) 100%);
+}
+
+.damage-vignette.is-low {
+	animation: damage-low 1.4s ease-in-out infinite;
+}
+
+.damage-vignette.is-hit {
+	animation: damage-hit 0.7s ease-out;
+}
+
+.hud-bar.is-hit {
+	animation: damage-jolt 0.4s ease-out;
+}
+
+@keyframes damage-hit {
+	0% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+
+@keyframes damage-low {
+	0%,
+	100% {
+		opacity: 0.2;
+	}
+	50% {
+		opacity: 0.45;
+	}
+}
+
+@keyframes damage-jolt {
+	0% {
+		transform: translateX(0) scale(1.08);
+	}
+	25% {
+		transform: translateX(-6px) scale(1.08);
+	}
+	50% {
+		transform: translateX(5px);
+	}
+	75% {
+		transform: translateX(-3px);
+	}
+	100% {
+		transform: none;
+	}
+}

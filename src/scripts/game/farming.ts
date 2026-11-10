@@ -23,6 +23,8 @@ export type FarmingOptions = {
     /** Trees and other things to gather from, for the axe. */
     nodes: () => ResourceNodesHandle | undefined;
     onHarvest?: (itemId: string, amount: number) => void;
+    /** Called when the farmer does something at a plot, for the motion and the splash. */
+    onWork?: (kind: 'plant' | 'water' | 'pick', plot: PlotState) => void;
 };
 
 export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (slot: InventorySlot) => void } {
@@ -39,6 +41,7 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
                 run: () => {
                     const harvest = farm.harvest(plot);
                     if (!harvest) return;
+                    options.onWork?.('pick', plot);
                     options.give(harvest.itemId, harvest.amount);
                     // The crop seeds itself: one back for the next planting, sometimes two.
                     if (harvest.seeds) {
@@ -54,11 +57,11 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
             return {
                 label: `Plant ${pockets.inventory.registry.resolve(held).name.toLowerCase()}`,
                 run: () => {
-                    if (pockets.remove(held, 1)) farm.plant(plot, cropId, false);
+                    if (pockets.remove(held, 1) && farm.plant(plot, cropId, false)) options.onWork?.('plant', plot);
                 },
             };
         }
-        if (plot.crop && !plot.watered && held === 'watering-can') return { label: 'Water', run: () => void farm.water(plot) };
+        if (plot.crop && !plot.watered && held === 'watering-can') return { label: 'Water', run: () => void (farm.water(plot) && options.onWork?.('water', plot)) };
         return undefined;
     }
 

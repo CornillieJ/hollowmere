@@ -25,6 +25,8 @@ export type RetroLookHandle = {
     setVhs: (enabled: boolean) => void;
     /** Turn the vertex wobble on or off: it shimmers, which some players find tiring. */
     setSnap: (enabled: boolean) => void;
+    /** How heavy the vertex wobble is: 0 is steady, 1 is the configured grid, 2 is twice as coarse. For a settings slider. */
+    setSnapStrength: (strength: number) => void;
     /** Turn colour reduction and dithering on or off. */
     setPsx: (enabled: boolean) => void;
     vhsUniforms: Record<string, THREE.IUniform> | undefined;
@@ -53,6 +55,7 @@ export function addRetroLook(game: Game, options: RetroLookOptions = {}): RetroL
             if (vhs) vhs.enabled = enabled;
         },
         setSnap: (enabled) => snap?.setEnabled(enabled),
+        setSnapStrength: (strength) => snap?.setStrength(strength),
         setPsx: (enabled) => {
             if (psx) psx.enabled = enabled;
         },

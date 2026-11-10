@@ -66,3 +66,4 @@ export * from './saves';
 export * from './settings';
 export * from './ground';
 export * from './compass';
+export * from './feedback';

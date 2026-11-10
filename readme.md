@@ -39,8 +39,8 @@ On a phone the on-screen stick and buttons appear at the first touch.
 
 ## The loop
 
-- **The first day** is a short chain of jobs, told by the farmer thinking
-  aloud: plant, water, chop, pick, cook, ride to the village, deliver, sleep.
+- **The first day** is a short chain of jobs. The farmer says each one in a
+  dialogue box that waits to be read (Space, E or a click): plant, water, chop, pick, cook, ride to the village, deliver, sleep.
 - **Farm.** Hold seeds and press E at an empty plot, hold the watering can and
   press E to water (watered plots grow twice as fast that day), press E on a
   ripe crop. Every harvest hands a seed back, sometimes two. Collect eggs and
@@ -65,6 +65,10 @@ On a phone the on-screen stick and buttons appear at the first touch.
   the farm; after it only the lit places are safe: the farmhouse porch, the
   barn lamp, the wayside chapel, the shrine in the square, the lamp on the
   lookout, and for 90 seconds any grave candle you set down.
+- **Getting hit.** One of the Hollow stops and raises its arms for half a
+  second before the blow, which is the moment to step back. A hit takes 25 of
+  100 health, flashes the screen edges and gives 1.6 seconds in which nothing
+  can hurt you again. Health is the bar at the bottom left; it mends by itself.
 - **Dying** costs 3 days and everything you carry except your tools. Requests
   have deadlines, so anyone waiting on you gives up, and likes you less for it.
 - **Letters.** From day 2 a letter waits in the mailbox each morning. Reading
