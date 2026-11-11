@@ -45,7 +45,7 @@ export function setupEscape(game: Game, options: { coins: ResourceHandle; day: (
             void narration.speak([
                 'The last day came and went.',
                 'I tried to say the name of my own street this morning. I said "Hollowveil". It felt true.',
-                'So I am not going home. There are worse places. There are worse neighbours. The field wants planting.',
+                'So I am not going home. I think I will know it properly when I have slept on it. (Go to bed.)',
             ]),
     });
     const line = (text: string): { text: string; portrait: string } => ({ text, portrait: PELL });
@@ -79,7 +79,7 @@ export function setupEscape(game: Game, options: { coins: ResourceHandle; day: (
         void narration.speak([
             `${format(ESCAPE.price)} in ${ESCAPE.days} days. That is a great deal of soup.`,
             'Hollowveil Farm. So that is what I have been calling home: a farm for the hollow, on the wrong side of the veil.',
-            'But there is a way back through. (Bring coins to Pell on the hill whenever there are some to spare. What is left, and the days, show at the bottom right.)',
+            'But there is a way back through. (Bring coins to Pell on the hill whenever there are some to spare. What is left, and the days, show under the clock.)',
         ]);
     }
 

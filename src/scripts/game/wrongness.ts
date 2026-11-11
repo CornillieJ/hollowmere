@@ -46,6 +46,8 @@ export type WrongnessOptions = {
     scarecrow: THREE.Object3D;
     /** Say something once in the farmer's own voice. Returns nothing; safe to call every frame. */
     think: (id: string, lines: string[]) => void;
+    /** True once the farmer has stayed for good: then nothing is wrong any more. */
+    settled?: () => boolean;
     /** Water whatever is planted and dry. Returns how many plots it did. */
     waterField: () => number;
     onNoticed?: (id: WrongId, count: number) => void;
@@ -119,7 +121,8 @@ const SCARECROW_STOPS = 9.2;
 export function setupWrongness(game: Game, options: WrongnessOptions): WrongnessHandle {
     const { terrain } = options;
     const noticed = new Set<WrongId>();
-    const active = (id: WrongId): boolean => options.day() >= WRONG_FROM[id];
+    const settled = (): boolean => options.settled?.() === true;
+    const active = (id: WrongId): boolean => !settled() && options.day() >= WRONG_FROM[id];
     const notice = (id: WrongId, lines: string[]): void => {
         options.think(`wrong-${id}`, lines);
         if (noticed.has(id)) return;
@@ -161,7 +164,7 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
     //#region The signpost
 
     const signLevel = (): number => (active('sign') ? Math.min(SIGNS.length - 1, 1 + level()) : 0);
-    const signText = (): [string, string] => SIGNS[signLevel()] as [string, string];
+    const signText = (): [string, string] => (settled() ? ['HOLLOWVEIL', 'home'] : (SIGNS[signLevel()] as [string, string]));
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 96;
@@ -171,8 +174,9 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
     texture.colorSpace = THREE.SRGBColorSpace;
     let painted = -1;
     const paintSign = (): void => {
-        if (painted === signLevel()) return;
-        painted = signLevel();
+        const shown = settled() ? 99 : signLevel();
+        if (painted === shown) return;
+        painted = shown;
         const context = canvas.getContext('2d');
         if (!context) return;
         const [top, bottom] = signText();
@@ -367,10 +371,10 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
         newDay: () => {
             const day = options.day();
             const rows: PanelRow[] = [];
-            if (active('scarecrow')) {
-                steps += 1;
-                standScarecrow();
-            }
+            if (active('scarecrow')) steps += 1;
+            else if (settled()) steps = 0;
+            standScarecrow();
+            if (settled()) double.visible = false;
             placeHouse();
             if (active('night')) {
                 // Every third night it is the field: watered, properly, by nobody.
@@ -387,7 +391,7 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
         denial,
         talked: (id) => lastTalk.set(id, options.day()),
         clock: () => (slipLeft > 0 ? slipText : undefined),
-        questLabel: () => (level() >= 4 ? '✦ You forgot something' : level() >= 3 ? "✦ Don't forget who you are" : "✦ Don't forget"),
+        questLabel: () => (settled() ? '✦ Today' : level() >= 4 ? '✦ You forgot something' : level() >= 3 ? "✦ Don't forget who you are" : "✦ Don't forget"),
         rows: () => {
             const ids = Object.keys(NOTES) as WrongId[];
             const seen = ids.filter((id) => noticed.has(id));

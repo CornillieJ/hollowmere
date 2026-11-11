@@ -929,6 +929,46 @@
         await quiet();
     }
 
+    // 14e7. Staying: the last day passes, the farmer sleeps on it, and nothing is wrong any more.
+    {
+        const { ending, wrongness, escape, dayCycle } = world;
+        expect(escape.pledge.state === 'running', `the bargain is on, ${escape.pledge.state}`);
+        const day = dayCycle.day;
+        dayCycle.day = escape.pledge.deadline + 1;
+        await sleep(500);
+        await quiet();
+        expect(escape.pledge.state === 'missed', 'the last day passes unpaid');
+        dayCycle.setHour(22);
+        world.goToBedNow();
+        await sleep(400);
+        expect(ending.playing && document.querySelector('.ending.is-stay.is-open'), 'going to bed after that plays the ending for staying');
+        expect(game.time.effectiveScale === 0, 'and the valley holds still under it');
+        const firstCard = document.querySelector('.ending-text').textContent;
+        let cards = 0;
+        for (; cards < 12 && document.querySelector('.ending-button').classList.contains('is-hidden'); cards += 1) {
+            ending.next();
+            await sleep(60);
+        }
+        expect(cards === 7 && firstCard.includes('soup'), `7 cards are read before the last one, ${cards}`);
+        expect(document.querySelector('.ending-tally').textContent.includes('Days in Hollowveil'), 'the last card adds the life up');
+        expect(document.querySelector('.ending-button').textContent === 'Go on living here', 'and offers to go on');
+        document.querySelector('.ending-button').click();
+        await sleep(300);
+        expect(!ending.playing && world.morning.isOpen, 'then it is morning, like any other');
+        world.morning.close();
+        await sleep(200);
+        expect(world.tally.stayed > 0 && world.deeds.has('stayed'), 'staying is kept');
+        expect(wrongness.sign.text()[1] === 'home' && wrongness.questLabel() === '✦ Today' && wrongness.scarecrowSteps === 0, 'nothing is wrong any more');
+        dayCycle.setHour(22);
+        world.goToBedNow();
+        await sleep(300);
+        expect(!ending.playing && world.morning.isOpen, 'the ending plays once');
+        world.morning.close();
+        dayCycle.day = day;
+        dayCycle.setHour(10);
+        await quiet();
+    }
+
     // 14f. The plates: the task top left, the day, hour and purse top right.
     {
         const quest = document.querySelector('.hv-quest').getBoundingClientRect();
