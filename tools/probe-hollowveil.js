@@ -771,6 +771,86 @@
         dayCycle.setHour(10);
     }
 
+    // 14e5. Regulars: a standing order at 1 heart, a dish at 2, a favour at 3.
+    {
+        const { regulars, villagers, dayCycle } = world;
+        const hearts = villagers.relationships;
+        dayCycle.setHour(10);
+        villagers.snapToSchedule();
+        await sleep(300);
+        hearts.add('wren', -1000);
+        expect(regulars.orderOf('wren') === undefined, 'a stranger keeps no regular order');
+        hearts.add('wren', 120);
+        regulars.newDay();
+        await sleep(300);
+        await quiet();
+        const order = regulars.orderOf('wren');
+        expect(order?.open && order.itemId === 'boiled-egg' && order.amount === 2, `at 1 heart Wren's order comes round: ${JSON.stringify(order)}`);
+        expect(order.pay > world.shop.inventory.sellPrice('boiled-egg') * 2 * 1.5, `it pays well over the stall, ${order.pay}`);
+        expect(world.crate.isOpen === false && regulars.wanted('boiled-egg') === 'Wren', 'the crate will know it is spoken for');
+        const wren = game.scene.getObjectByName('villager-wren');
+        const pick = async (text) => {
+            await go(wren.position.x + 1.2, wren.position.z + 1.2);
+            await talkUntilChoices();
+            const choice = choices().find((option) => option.textContent.includes(text));
+            choice?.click();
+            await sleep(500);
+            for (let index = 0; index < 8 && choices().length === 0; index += 1) {
+                await press('Space');
+                await sleep(350);
+            }
+            choices().find((option) => option.textContent.includes('Goodbye'))?.click();
+            await sleep(500);
+            await quiet();
+            return Boolean(choice);
+        };
+        expect(!(await pick('regular order')), 'with nothing to hand over the order is not offered');
+        world.pockets.add('boiled-egg', 2);
+        world.warmth.collected('boiled-egg', 2);
+        const before = world.coins.value();
+        const hourBefore = dayCycle.hour;
+        expect(await pick('regular order'), 'with the eggs in hand it is');
+        const paid = world.coins.value() - before;
+        expect(paid === Math.round(order.pay * 1.3) && have('boiled-egg') === 0, `handed over hot it pays the order and 30% more: ${paid} for ${order.pay}`);
+        expect(!regulars.orderOf('wren').open && regulars.orderOf('wren').dueDay === dayCycle.day + 3, 'and the next one comes round in 3 days');
+        expect(Math.abs(dayCycle.hour - hourBefore - 3) < 0.4, 'the call took 3 hours');
+        // 2 hearts: she teaches her dish, and the order changes to it.
+        hearts.add('wren', 200 - hearts.points('wren'));
+        dayCycle.setHour(10);
+        expect(!world.potRecipes.some((recipe) => recipe.id === 'turnip-mash'), 'turnip mash is not known yet');
+        expect(await pick('favourite'), 'at 2 hearts she can be asked what she likes');
+        expect(regulars.taught('wren') && world.potRecipes.some((recipe) => recipe.id === 'turnip-mash'), 'the pot can make turnip mash now');
+        expect(regulars.orderOf('wren').itemId === 'turnip-mash', 'and her order is for mash from now on');
+        // 3 hearts: a favour that lasts.
+        hearts.add('wren', 300 - hearts.points('wren'));
+        dayCycle.setHour(10);
+        expect(await pick('buried half'), 'at 3 hearts she offers a favour');
+        expect(regulars.has('seeds'), 'Wren leaves seeds from now on');
+        // The others' favours do what they say.
+        const kept = regulars.toJSON();
+        regulars.fromJSON({ ...kept, favours: ['seeds', 'ledger', 'shortcut', 'cosy', 'guard'] });
+        expect(world.crate.priceOf('pumpkin') === world.shop.inventory.sellPrice('pumpkin'), 'in the green book the crate pays the stall price');
+        expect(world.visitHours() === 2, 'the short way round makes a call 2 hours');
+        dayCycle.setHour(8);
+        world.pockets.add('bread', 1);
+        world.warmth.collected('bread', 1);
+        expect(Math.abs(world.warmth.hoursLeft('bread') - 6) < 0.2, 'the cosy keeps a dish hot for 6 hours');
+        world.pockets.remove('bread', 1);
+        regulars.fromJSON(kept);
+        expect(regulars.taught('wren') && world.potRecipes.some((recipe) => recipe.id === 'turnip-mash') && world.visitHours() === 3, 'what was taught and granted comes back from a save, and no more');
+        // Left too long, an order lapses.
+        hearts.add('fen', 120);
+        regulars.newDay();
+        const day = dayCycle.day;
+        dayCycle.day = day + 3;
+        const fenBefore = hearts.points('fen');
+        regulars.newDay();
+        expect(!regulars.orderOf('fen').open && hearts.points('fen') < fenBefore, 'an order left 3 days lapses and costs some goodwill');
+        dayCycle.day = day;
+        dayCycle.setHour(10);
+        await quiet();
+    }
+
     // 14f. The plates: the task top left, the day, hour and purse top right.
     {
         const quest = document.querySelector('.hv-quest').getBoundingClientRect();

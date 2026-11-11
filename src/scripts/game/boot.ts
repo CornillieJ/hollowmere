@@ -51,6 +51,8 @@ import { setupCrate } from './crate';
 import { setupBarn } from './barn';
 import { HOT_HOURS, setupWarmth } from './warmth';
 import { LANTERN, setupLanterns } from './lanterns';
+import { setupRegulars } from './regulars';
+import { REGULARS } from '../content/regulars';
 import { HELD_PLACEHOLDER, setupPlates, type PlatesHandle } from './plates';
 import { OMEN_THOUGHTS, setupOmens } from './omens';
 import { setupDread } from './dread';
@@ -250,7 +252,7 @@ export async function boot(): Promise<void> {
     //#region Farm, animals and the bike
 
     /** Counted for the story and the journal, and saved with the day. */
-    const tally = { harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0, bestStreak: 0, bestDay: 0, dodged: 0 };
+    const tally = { harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0, bestStreak: 0, bestDay: 0, dodged: 0, regulars: 0 };
     const thoughts = new Set<string>();
 
     /** The watering can holds this many waterings, and is filled at the well. */
@@ -407,14 +409,73 @@ export async function boot(): Promise<void> {
     });
 
     // Dishes are hot out of the pot and cool by the hour; hot ones pay more.
-    const warmth = setupWarmth(game, { dishes: new Set(COOKING.map((recipe) => recipe.output.itemId)), have, now: () => dayCycle.day * 24 + dayCycle.hour });
+    const warmth = setupWarmth(game, {
+        dishes: new Set([...COOKING, ...REGULARS.map((regular) => regular.teaches)].map((recipe) => recipe.output.itemId)),
+        have,
+        now: () => dayCycle.day * 24 + dayCycle.hour,
+        // Mother Hollis's cosy keeps a basket hot half as long again.
+        keep: () => (regulars.has('cosy') ? 1.5 : 1),
+    });
     game.save.register('warmth', { save: () => warmth.toJSON(), load: (data) => warmth.fromJSON(data) });
+
+    // What the pot can make: the dishes anyone knows, and the ones a villager has taught.
+    const potRecipes = [...COOKING];
+    const regulars = setupRegulars({
+        day: () => dayCycle.day,
+        hearts: (id) => villagers.relationships.hearts(id),
+        nameOf: (id) => VILLAGERS.find((villager) => villager.id === id)?.name ?? id,
+        itemName: (itemId) => pockets.inventory.registry.resolve(itemId).name,
+        have,
+        take: takeCarried,
+        stallPrice: (itemId) => shop.inventory.sellPrice(itemId),
+        format: coin,
+        onRecipesChanged: () => {
+            potRecipes.length = 0;
+            potRecipes.push(...COOKING, ...REGULARS.filter((regular) => regulars.taught(regular.id)).map((regular) => regular.teaches));
+        },
+        onTaught: (regular) => {
+            const dish = pockets.inventory.registry.resolve(regular.teaches.output.itemId);
+            juice.banner(`${dish.icon ?? '🍲'} ${dish.name}`, `${VILLAGERS.find((villager) => villager.id === regular.id)?.name} taught you a dish. It is in the pot's list now.`, { color: '#b8f0a0', seconds: 4 });
+            juice.chime('fanfare');
+        },
+        onFavour: (regular) => {
+            juice.banner(`♥ ${regular.favour.title}`, regular.favour.text, { color: '#ffc8d8', seconds: 5 });
+            juice.chime('fanfare');
+        },
+        onDelivered: (regular, itemId, _amount, pay) => {
+            today.delivered += 1;
+            const heat = warmth.heatOf(itemId);
+            const heatBonus = Math.round(pay * warmth.bonus(itemId));
+            dayCycle.advance(visitHours());
+            coins.add(pay + heatBonus);
+            villagers.relationships.add(regular.id, heat === 'hot' ? 45 : 35);
+            tally.bestStreak = Math.max(tally.bestStreak, today.delivered);
+            tally.regulars += 1;
+            const name = VILLAGERS.find((villager) => villager.id === regular.id)?.name ?? '';
+            juice.banner('Regular order filled', `${name}  +${coin(pay)}${heat === 'hot' ? `  ·  still hot: +${coin(heatBonus)}` : heat === 'warm' ? `  ·  still warm: +${coin(heatBonus)}` : heat === 'cold' ? '  ·  gone cold' : ''}`, { color: '#ffe9a8' });
+            juice.chime('fanfare');
+            game.toasts.push(`${visitHours()} hours pass. It is ${dayCycle.clock}.`, { color: '#c8c0b0' });
+        },
+        onOpened: (regular, itemId, first) => {
+            const name = VILLAGERS.find((villager) => villager.id === regular.id)?.name ?? '';
+            game.toasts.push(`${name}'s regular order has come round: ${regular.amount} ${pockets.inventory.registry.resolve(itemId).name.toLowerCase()}`, { color: '#ffe9a8' });
+            if (first) think(`regular-${regular.id}`, [regular.asks, '(Regular orders are in the notebook, under Regulars. Hand one over when you talk to them.)']);
+        },
+        onLapsed: (regular, itemId) => {
+            const name = VILLAGERS.find((villager) => villager.id === regular.id)?.name ?? 'Someone';
+            game.toasts.push(`${name} went without their ${pockets.inventory.registry.resolve(itemId).name.toLowerCase()} this time`, { color: '#c8a0a0' });
+            villagers.relationships.add(regular.id, -15);
+        },
+    });
+    game.save.register('regulars', { save: () => regulars.toJSON(), load: (data) => regulars.fromJSON(data) });
+    /** A call on somebody takes this much of the day. Fen knows a shorter way round. */
+    const visitHours = (): number => (regulars.has('shortcut') ? 2 : 3);
 
     const cookpot = addCraftingStation(game, {
         id: 'cookpot',
         title: 'Cooking',
         object: refs.spots.hearth,
-        recipes: COOKING,
+        recipes: potRecipes,
         tierNames: POT_TIERS,
         sources: carried,
         give: stow,
@@ -471,7 +532,7 @@ export async function boot(): Promise<void> {
             // Out in the square by day, on their own doorstep by night, facing out.
             ...(home && villager.hours ? { schedule: [{ from: villager.hours[0], position: square, yaw: villager.spot.yaw }, { from: villager.hours[1], position: at(home), yaw: home.yaw }] } : {}),
             lines: villager.lines,
-            topics: villager.topics,
+            topics: [...regulars.topicsFor(villager.id), ...villager.topics],
             thanks: villager.thanks,
             };
         }),
@@ -495,9 +556,9 @@ export async function boot(): Promise<void> {
             // Read before the visit takes its hours: it is as hot as it was when it was handed over.
             const heat = warmth.heatOf(request.itemId);
             const heatBonus = Math.round(request.reward * warmth.bonus(request.itemId));
-            // A delivery is a visit: 3 hours go by.
-            dayCycle.advance(3);
-            game.toasts.push(`3 hours pass. It is ${dayCycle.clock}.`, { color: '#c8c0b0' });
+            // A delivery is a visit: hours go by.
+            dayCycle.advance(visitHours());
+            game.toasts.push(`${visitHours()} hours pass. It is ${dayCycle.clock}.`, { color: '#c8c0b0' });
             // Each further delivery on the same day pays a little more, up to half as much again.
             const streak = Math.min(5, today.delivered - 1);
             const bonus = Math.round(request.reward * 0.1 * streak);
@@ -533,7 +594,7 @@ export async function boot(): Promise<void> {
     /** The name of whoever has asked for this, if anybody has. */
     const wantedBy = (itemId: string): string | undefined => {
         const request = villagers.requests?.open.find((open) => open.itemId === itemId);
-        return request ? VILLAGERS.find((villager) => villager.id === request.from)?.name : undefined;
+        return request ? VILLAGERS.find((villager) => villager.id === request.from)?.name : regulars.wanted(itemId);
     };
 
     const stock = [...STORE_STOCK];
@@ -654,6 +715,8 @@ export async function boot(): Promise<void> {
         yaw: Math.PI,
         carried,
         coins,
+        // In Barnaby's green book the crate pays what the stall does.
+        share: () => (regulars.has('ledger') ? 1 : 0.8),
         stallPrice: (itemId) => shop.inventory.sellPrice(itemId),
         wantedBy: (itemId) => wantedBy(itemId),
         format: coin,
@@ -832,7 +895,8 @@ export async function boot(): Promise<void> {
 
     // Hot food carries on the air. 4 hot dishes is as strong as it gets; a lit place or the barn hides it.
     let scentTimer = 0;
-    const scentLevel = (): number => (!hunting() || barn.inside || safeZones.playerSafe ? 0 : Math.min(1, warmth.scent() / 8));
+    // Pike's smell on the basket halves it.
+    const scentLevel = (): number => (!hunting() || barn.inside || safeZones.playerSafe ? 0 : Math.min(1, warmth.scent() / 8) * (regulars.has('guard') ? 0.5 : 1));
     game.systems.add({
         name: 'scent',
         order: SYSTEM_ORDER.GAMEPLAY - 2,
@@ -1142,15 +1206,17 @@ export async function boot(): Promise<void> {
         have,
         day: () => dayCycle.day,
         deeds: () => deeds.rows(),
-        extra: () =>
-            escape.pledge.state === 'running'
+        extra: () => [
+            ...regulars.rows(),
+            ...(escape.pledge.state === 'running'
                 ? [
                       { heading: true, title: 'Going home' },
-                      { icon: '🌅', title: `Pay Fen ${coin(escape.pledge.remaining)} more`, detail: `${escape.pledge.daysLeft} days left, to the end of day ${escape.pledge.deadline}. Paid so far: ${coin(escape.pledge.paid)}. Dying costs 3 days.`, progress: escape.pledge.paid / ESCAPE.price },
+                      { icon: '🌅', title: `Burn ${coin(escape.pledge.remaining)} more at the old tree`, detail: `${escape.pledge.daysLeft} days left, to the end of day ${escape.pledge.deadline}. Paid so far: ${coin(escape.pledge.paid)}. Dying costs 3 days.`, progress: escape.pledge.paid / ESCAPE.price },
                   ]
                 : escape.waiting
                   ? [{ heading: true, title: 'Going home' }, { icon: '🕯', title: 'Pell is waiting on the hill', detail: 'Up the west path from the chapel, to the old tree on the lookout. He has something to say about going home.' }]
-                  : [],
+                  : []),
+        ],
     });
 
     // The compass: home, the village, and wherever the current task is.
@@ -1303,6 +1369,14 @@ export async function boot(): Promise<void> {
     dayCycle.hooks.onDayStart = (day) => {
         farm.newDay();
         villagers.newDay();
+        regulars.newDay();
+        // Wren's half: a few seeds on the step, of whatever the store stocks.
+        if (regulars.has('seeds')) {
+            const seeds = stock.filter((itemId) => itemId.endsWith('-seed'));
+            const seed = seeds[day % seeds.length] as string;
+            give(seed, 2);
+            game.toasts.push(`Wren left 2 ${pockets.inventory.registry.resolve(seed).name.toLowerCase()} on your step`, { color: '#b8f0a0' });
+        }
         happenings.newDay();
         omens.setDay(day);
         juice.banner(`Day ${day}`, escape.pledge.state === 'running' ? `${escape.pledge.daysLeft} days left to wake` : '');
@@ -1411,7 +1485,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
+    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         spawnKind: (x: number, z: number, kind: HollowKind) => spawnHollow(world.enemies, terrain.point(x, z, 0.4), { night: isNight(dayCycle), hunting: hunting(), kind }),
