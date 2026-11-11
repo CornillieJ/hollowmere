@@ -142,5 +142,8 @@ out on the far side.
 npm run smoke:play    # with the dev server running
 ```
 
-Models are CC0; see `static/models/ATTRIBUTION.md`. The characters and the
-places off the road are built in code.
+Buildings, props and animals are CC0 downloads; see
+`static/models/ATTRIBUTION.md`. The farmer and the villagers are original
+models, built and textured by `tools/blender/build_folk.py` (`npm run models`,
+needs Blender) into `static/models/folk/`. The Hollow and the places off the
+road are built in code.

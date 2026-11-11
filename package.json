@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node tools/unit.mjs",
     "smoke": "node tools/smoke.mjs http://localhost:5260/",
+    "models": "blender -b -P tools/blender/build_folk.py",
     "smoke:play": "node tools/smoke.mjs http://localhost:5260/ tools/probe-hollowveil.js"
   },
   "devDependencies": {

@@ -246,6 +246,61 @@ export function createHollow(seed = 0): FolkRig {
     return { root, torso, head, arms, legs, tail: undefined };
 }
 
+/**
+ * Swap a rig's primitive stand-in for its modelled self.
+ *
+ * The models come from `tools/blender/build_folk.py`: one GLB per character,
+ * made of loose parts named like the rig's joints, each with its origin at the
+ * joint. The rig keeps its pivots, so every animation written for the
+ * primitives plays on the model unchanged. Until the model has loaded, and if
+ * it never does, the primitives stay.
+ */
+export async function dressFolk(game: Game, rig: FolkRig, id: string): Promise<void> {
+    let model: THREE.Object3D;
+    try {
+        model = await game.assets.loadModel(`models/folk/${id}.glb`);
+    } catch {
+        return;
+    }
+    model.updateMatrixWorld(true);
+    const piece = (name: string): THREE.Mesh | undefined => model.getObjectByName(name) as THREE.Mesh | undefined;
+    const torsoPiece = piece('torso');
+    if (!torsoPiece) return;
+    const torsoAt = torsoPiece.position.clone();
+
+    /** Hang a model part on a pivot, in place of the primitives that were there. */
+    const dress = (pivot: THREE.Object3D | undefined, name: string, relativeTo?: THREE.Vector3): void => {
+        const mesh = piece(name);
+        if (!pivot || !mesh) return;
+        // Take the primitives off, and keep what else hangs here: other joints, a held tool, a lamp.
+        for (const child of [...pivot.children]) if ((child as THREE.Mesh).isMesh) child.removeFromParent();
+        pivot.position.copy(mesh.position);
+        if (relativeTo) pivot.position.sub(relativeTo);
+        mesh.position.set(0, 0, 0);
+        mesh.castShadow = true;
+        const material = mesh.material as THREE.MeshStandardMaterial;
+        // Hard pixels, lit like everything else in the valley.
+        if (material.map) {
+            material.map.magFilter = THREE.NearestFilter;
+            material.map.minFilter = THREE.NearestFilter;
+            material.map.needsUpdate = true;
+        }
+        material.roughness = 1;
+        material.metalness = 0;
+        pivot.add(mesh);
+    };
+
+    dress(rig.torso, 'torso');
+    dress(rig.head, 'head', torsoAt);
+    for (const arm of rig.arms) dress(arm, arm.name, torsoAt);
+    for (const leg of rig.legs) dress(leg, leg.name);
+    dress(rig.tail, 'tail');
+    // The animator bobs the torso about its resting height, and tools hang from the end of the arm.
+    rig.torso.userData.baseY = rig.torso.position.y;
+    rig.root.userData.armLength = 0.36;
+    for (const arm of rig.arms) for (const child of arm.children) if (!(child as THREE.Mesh).isMesh) child.position.y = -0.36;
+}
+
 /** One-off motions layered over the walk: chopping, pouring, bending to the ground. */
 export type FolkAction = 'swing' | 'pour' | 'reach';
 

@@ -36,7 +36,7 @@ import {
     addVillagers,
     type AnimalDefinition,
 } from '../kit';
-import { createFolk, createHeldTool, FolkAnimator, type FolkRig } from '../content/folk';
+import { createFolk, createHeldTool, dressFolk, FolkAnimator, type FolkRig } from '../content/folk';
 import { createBike, spinWheels } from '../content/bike';
 import { COOKING, CROPS, ITEMS, NEEDS_CROP, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
 import { REQUESTS, VILLAGERS } from '../content/villagers';
@@ -94,6 +94,7 @@ export async function boot(): Promise<void> {
         flow: { pointerLock: true, crosshairWhen: [] },
         game: { stats: false, exposeDebug: true },
     });
+    void dressFolk(game, cat, 'farmer');
     const body = new FolkAnimator(cat);
     // What is in the hand shows in the hand.
     const heldTools = new Map((['axe', 'watering-can', 'candle'] as const).map((kind) => [kind as string, createHeldTool(kind)]));
@@ -414,6 +415,7 @@ export async function boot(): Promise<void> {
         villagers: VILLAGERS.map((villager) => {
             const rig = createFolk(villager.look);
             folk.set(villager.id, { rig, animator: new FolkAnimator(rig) });
+            void dressFolk(game, rig, villager.id);
             const square = at({ x: VILLAGE.center.x + villager.spot.x, z: VILLAGE.center.z + villager.spot.z });
             const home = villager.home !== undefined ? homeOf(villager.home) : undefined;
             return {

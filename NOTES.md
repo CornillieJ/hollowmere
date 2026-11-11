@@ -80,6 +80,17 @@ E along a row. Ripe crops glint, crops hop on growth. Delivery streak bonus
 summary. Timer over the pot. FOV widens on the bicycle. A self-writing tune by
 day and night with its own volume slider.
 
+## Done in round 7 (November 2026): the rename and the models
+
+Renamed to Hollowveil Farm (village: Hollowveil; fog: the Veil; walkers: the
+Hollow; lake: the black pool). Slopes and house colliders fixed in the
+template. Crossing the edge is hidden behind a full-screen Veil. Item badges.
+The farmer and the 5 villagers are Blender models (`npm run models`), hung on
+the existing rig by `dressFolk`; the primitives remain as the fallback.
+
+Still open: the GitHub and ark repos are still named hollowmere (creating or
+renaming a repo needs Jeffrey).
+
 ## Not verified by a person yet
 
 - Pointer lock handover when a panel or dialogue opens and closes: the probe
