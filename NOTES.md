@@ -155,7 +155,31 @@ In this order, each on its own branch, each with a probe step:
 7. `feat/endings`: a spoken, pictured ending for waking up, and a second one
    for staying when the last day passes.
 
+## Batch 10: done on `dev` (11 November 2026), not on `main`
+
+All 7 branches are merged into `dev`, plus `fix/phone-menus-and-colliders`.
+`hotfix/phone-menus-and-colliders` is the same 2 fixes on top of `main`,
+pushed and not merged: merging it is what puts them on GitHub Pages.
+
+Where things live: `barn.ts` (the room hangs 90 m above the yard), `crate.ts`
+(both sell windows), `warmth.ts`, scent in `monsters.ts` (`setScent`),
+`lanterns.ts` and `veilAt` in `boot.ts`, `regulars.ts` with
+`content/regulars.ts`, `wrongness.ts`, `ending.ts`. Colliders are measured in
+`world.ts` `solid()`: the faces between knee and head height, measured again
+when a stand-in is swapped for its model.
+
+Numbers to tune after play: `HOT_HOURS`, `WARM_HOURS`, `HEAT_BONUS`; scent
+(4 hot dishes is full strength; +70% notice range, up to +5 Hollow at night);
+`LANTERN` (24 h a flask, 10 at most), the Veil factor (up to 1.9); regular
+orders (`PREMIUM` 1.7, every 3 days, 3 days' patience); `WRONG_FROM` days.
+
 ## Not verified by a person yet
+
+- Everything in batch 10 was checked by probe and screenshot only: how the
+  thick Veil feels at night, whether the scent makes a hot round too hard,
+  how the barn room and the lantern look up close, the pacing of the endings.
+- The double on the road and the house in the woods were not seen in a
+  screenshot, only checked by the probe.
 
 - Pointer lock handover when a panel or dialogue opens and closes: the probe
   runs headless, where there is no pointer lock. Test in a real browser.

@@ -54,6 +54,7 @@ import { LANTERN, setupLanterns } from './lanterns';
 import { setupRegulars } from './regulars';
 import { REGULARS } from '../content/regulars';
 import { setupWrongness } from './wrongness';
+import { STAY_SLIDES, WAKE_SLIDES, setupEnding } from './ending';
 import { HELD_PLACEHOLDER, setupPlates, type PlatesHandle } from './plates';
 import { OMEN_THOUGHTS, setupOmens } from './omens';
 import { setupDread } from './dread';
@@ -253,7 +254,7 @@ export async function boot(): Promise<void> {
     //#region Farm, animals and the bike
 
     /** Counted for the story and the journal, and saved with the day. */
-    const tally = { harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0, bestStreak: 0, bestDay: 0, dodged: 0, regulars: 0 };
+    const tally = { harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0, bestStreak: 0, bestDay: 0, dodged: 0, regulars: 0, stayed: 0 };
     const thoughts = new Set<string>();
 
     /** The watering can holds this many waterings, and is filled at the well. */
@@ -1065,6 +1066,7 @@ export async function boot(): Promise<void> {
             { id: 'noticing', icon: '✎', title: 'It is an ordinary valley', description: 'Notice 4 things that are not right.', done: () => wrongness.noticed.size >= 4 },
             { id: 'all-wrong', icon: '🪞', title: 'Everybody says so', description: 'Notice all 7.', hidden: true, done: () => wrongness.noticed.size >= 7 },
             { id: 'regulars', icon: '🧺', title: 'On the day', description: 'Fill 5 regular orders.', done: () => tally.regulars >= 5 },
+            { id: 'stayed', icon: '🌫', title: 'There are worse neighbours', description: 'Let the last day pass, and stay.', hidden: true },
             { id: 'died', icon: '🛏', title: 'Clean sheets', description: 'Wake up in the infirmary.', hidden: true },
         ],
     });
@@ -1079,6 +1081,8 @@ export async function boot(): Promise<void> {
         hour: () => dayCycle.hour,
         scarecrow: yard.scarecrow,
         think: (id, lines) => think(id, lines),
+        // Once the farmer belongs here nothing is out of place any more.
+        settled: () => tally.stayed > 0,
         waterField: () => farm.plots.filter((plot) => plot.active && plot.crop && !plot.ripe && farm.water(plot)).length,
         onNoticed: () => game.toasts.push('Written in the notebook, under "Not right"', { color: '#c8c0b0' }),
     });
@@ -1383,9 +1387,18 @@ export async function boot(): Promise<void> {
     function goToBed(): void {
         // Paid in full: this is the night the farmer does not wake up here.
         if (escape.pledge.state === 'kept') {
-            game.effects.flash(2.5, 0xffffff, 1);
             saves.save();
-            window.setTimeout(() => world.flow.win(), 1200);
+            void ending.play({ kind: 'wake', title: 'You woke up', slides: WAKE_SLIDES, tally: lifeTally(), button: 'Wake' }).then(() => world.flow.win());
+            return;
+        }
+        // The last day went by unpaid: this is the night the farmer stops being a visitor.
+        if (escape.pledge.state === 'missed' && tally.stayed === 0) {
+            tally.stayed = dayCycle.day;
+            tally.bestDay = Math.max(tally.bestDay, today.earned);
+            nightLine = 'You slept well. You always sleep well now.';
+            sleep();
+            deeds.award('stayed');
+            void ending.play({ kind: 'stay', title: 'You stayed', slides: STAY_SLIDES, tally: lifeTally(), button: 'Go on living here' }).then(() => morning.open());
             return;
         }
         tally.bestDay = Math.max(tally.bestDay, today.earned);
@@ -1394,6 +1407,18 @@ export async function boot(): Promise<void> {
         sleep();
         morning.open();
     }
+
+    const ending = setupEnding(game);
+    /** What a life here came to, for the last card of an ending. */
+    const lifeTally = (): Array<{ label: string; value: string }> => [
+        { label: 'Days in Hollowveil', value: String(dayCycle.day) },
+        { label: 'Requests filled', value: String(villagers.requests?.completed ?? 0) },
+        { label: 'Regular orders kept', value: String(tally.regulars) },
+        { label: 'Crops picked', value: String(tally.harvested) },
+        { label: 'Hearts', value: String(VILLAGERS.reduce((total, villager) => total + villagers.relationships.hearts(villager.id), 0)) },
+        { label: 'Things noticed that were not right', value: `${wrongness.noticed.size} of 7` },
+        { label: 'Deeds', value: String(deeds.earned) },
+    ];
 
     dayCycle.hooks.onDayStart = (day) => {
         farm.newDay();
@@ -1516,7 +1541,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
+    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         spawnKind: (x: number, z: number, kind: HollowKind) => spawnHollow(world.enemies, terrain.point(x, z, 0.4), { night: isNight(dayCycle), hunting: hunting(), kind }),
