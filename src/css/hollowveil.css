@@ -444,8 +444,13 @@ footer { display: none; }
 		box-sizing: border-box;
 	}
 
+	/* Two at a time, the newest: a third would run down into the banner. */
+	.toast-stack .toast:nth-last-child(n + 3) {
+		display: none;
+	}
+
 	.banner {
-		top: 264px;
+		top: 292px;
 		width: 92vw;
 	}
 

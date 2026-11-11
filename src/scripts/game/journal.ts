@@ -2,6 +2,7 @@ import { addPanel, type CraftingHandle, type PanelHandle, type PanelRow, type St
 import type { ItemRegistry } from '../game/items';
 import { POT_TIERS } from '../content/items';
 import { VILLAGERS } from '../content/villagers';
+import { worded } from './wording';
 
 /**
  * The notebook, on J: what to do next, who wants what, every recipe, and how
@@ -49,6 +50,7 @@ const GUIDE: Array<[string, string, string]> = [
 ];
 
 export function setupJournal(game: Game, options: JournalOptions): PanelHandle {
+    const say = worded(game);
     const name = (itemId: string): string => options.registry.resolve(itemId).name;
     const icon = (itemId: string): string => options.registry.resolve(itemId).icon ?? '';
     const who = (id: string): string => VILLAGERS.find((villager) => villager.id === id)?.name ?? id;
@@ -102,7 +104,7 @@ export function setupJournal(game: Game, options: JournalOptions): PanelHandle {
             { id: 'recipes', label: 'Recipes', rows: recipes },
             { id: 'deeds', label: 'Deeds', rows: options.deeds },
             { id: 'wrong', label: 'Not right', rows: options.wrong },
-            { id: 'guide', label: 'How to live here', rows: () => GUIDE.map(([glyph, title, detail]) => ({ icon: glyph, title, detail })) },
+            { id: 'guide', label: 'How to live here', rows: () => GUIDE.map(([glyph, title, detail]) => ({ icon: glyph, title, detail: say(detail) })) },
         ],
     });
 }

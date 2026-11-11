@@ -194,6 +194,7 @@ export async function buildWorld(game: Game): Promise<WorldRefs> {
     add(MODELS.cart, () => haystack(), { x: -44, z: 58, yaw: 0.6 }, true);
     penFence(game, root);
     const hearth = place(modelled(game, 'hearth', buildHearth()), FARM.hearth, root);
+    solid(game, hearth, { solids });
     const workbench = place(modelled(game, 'workbench', buildWorkbench()), { ...FARM.workbench, yaw: Math.PI / 2 }, root);
     solid(game, workbench, { solids });
     const fire = new THREE.PointLight(0xff8a3a, 6, 9, 1.6);
@@ -225,7 +226,7 @@ export async function buildWorld(game: Game): Promise<WorldRefs> {
 
     const chapelHut = place(modelled(game, 'chapel', chapel()), CHAPEL, root);
     solid(game, chapelHut, { solids });
-    place(modelled(game, 'shrine', shrine()), VILLAGE.center, root);
+    solid(game, place(modelled(game, 'shrine', shrine()), VILLAGE.center, root), { solids });
 
     const trees = buildWoods(game, root);
     const spots = buildPlaces(game, { root, terrain, solids, add, random });

@@ -1,5 +1,6 @@
 import { addStoryline, type NarrationHandle, type StorylineHandle, type StoryStep } from '../kit';
 import { FARM, VILLAGE } from '../content/world';
+import { worded } from './wording';
 
 /**
  * The first day, as a chain of small jobs, told by the farmer thinking aloud.
@@ -194,5 +195,10 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
         },
     ];
 
+    const say = worded(game);
+    for (const step of steps) {
+        if (typeof step.detail === 'string') step.detail = say(step.detail);
+        if (Array.isArray(step.say)) step.say = step.say.map(say);
+    }
     return addStoryline(game, { steps, narration, spoken: true });
 }

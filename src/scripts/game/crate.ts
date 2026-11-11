@@ -4,6 +4,7 @@ import { addPanel, type InventoryHandle, type PanelHandle, type ResourceHandle }
 import type { PanelRow } from '../ui/list-panel';
 import { SHIPPABLE } from '../content/items';
 import { modelled } from './models';
+import { solid } from './world';
 
 /**
  * A place that buys what the farmer carries, out of the pockets and the backpack alike.
@@ -32,6 +33,8 @@ export type CrateOptions = {
     payer?: string;
     /** The model in `static/models/props`. */
     model?: string;
+    /** Give the crate a solid box, and list it here for the Hollow to steer round. */
+    solids?: THREE.Box3[];
     /** Who has asked for this item, if anybody has. */
     wantedBy: (itemId: string) => string | undefined;
     format: (amount: number) => string;
@@ -134,6 +137,7 @@ export function setupCrate(game: Game, options: CrateOptions): CrateHandle {
     object.position.copy(options.position);
     object.rotation.y = options.yaw ?? 0;
     game.scene.add(object);
+    if (options.solids) solid(game, object, { solids: options.solids }, 1);
     game.interactions.add(object, { prompt: options.prompt ?? "Open Barnaby's collection crate", range: 2.2, onInteract: () => panel.open() });
 
     return Object.assign(panel, { object, priceOf, send, sendSpare });
