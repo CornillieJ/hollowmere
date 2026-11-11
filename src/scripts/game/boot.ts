@@ -48,6 +48,7 @@ import { useHollowModels, animateHollow, forgetHollow, hollowTarget, isNight, pi
 import { buildFarmyard, buildInfirmary } from './farmyard';
 import { modelOnly, modelled } from './models';
 import { setupCrate } from './crate';
+import { setupBarn } from './barn';
 import { HELD_PLACEHOLDER, setupPlates, type PlatesHandle } from './plates';
 import { OMEN_THOUGHTS, setupOmens } from './omens';
 import { setupDread } from './dread';
@@ -151,9 +152,34 @@ export async function boot(): Promise<void> {
         const yaw = player.root.rotation.y;
         const x = player.position.x + Math.sin(yaw) * 1.3;
         const z = player.position.z + Math.cos(yaw) * 1.3;
-        const name = pockets.inventory.registry.resolve(itemId).name;
-        world.pickups.spawn({ position: terrain.point(x, z, 0.45), itemId, amount, collect: 'interact', prompt: `Pick up ${amount > 1 ? `${amount} ` : ''}${name.toLowerCase()}`, color: 0xd8c8a0, size: 0.22 });
+        // At the farmer's own height: the ground is not always what is underfoot.
+        layDown({ itemId, amount, x, y: player.position.y + 0.45, z });
     };
+    /** What lies about, so it is still there after a reload. */
+    type Drop = { itemId: string; amount: number; x: number; y: number; z: number };
+    const drops = new Map<THREE.Object3D, Drop>();
+    const layDown = (drop: Drop): void => {
+        const name = pockets.inventory.registry.resolve(drop.itemId).name;
+        const pickup = world.pickups.spawn({
+            position: new THREE.Vector3(drop.x, drop.y, drop.z),
+            itemId: drop.itemId,
+            amount: drop.amount,
+            collect: 'interact',
+            prompt: `Pick up ${drop.amount > 1 ? `${drop.amount} ` : ''}${name.toLowerCase()}`,
+            color: 0xd8c8a0,
+            size: 0.22,
+            onCollect: (_game, object) => drops.delete(object),
+        });
+        drops.set(pickup, drop);
+    };
+    game.save.register('drops', {
+        save: (): Drop[] => [...drops.values()],
+        load: (data) => {
+            for (const pickup of drops.keys()) world.pickups.remove(pickup);
+            drops.clear();
+            for (const drop of Array.isArray(data) ? (data as Drop[]) : []) if (pockets.inventory.registry.get(drop.itemId)) layDown(drop);
+        },
+    });
     const stats = (): Array<{ icon: string; label: string; value: string }> => [
         { icon: '❤', label: 'Health', value: `${Math.ceil(game.player?.health.current ?? 0)}/${game.player?.health.max ?? 100}` },
         { icon: '🪙', label: 'Coins', value: coin(coins.value()) },
@@ -491,6 +517,12 @@ export async function boot(): Promise<void> {
         return stock.includes(seed) || have(seed) > 0 || have(crop) > 0 || farm.plots.some((plot) => plot.crop?.id === crop);
     };
 
+    /** The name of whoever has asked for this, if anybody has. */
+    const wantedBy = (itemId: string): string | undefined => {
+        const request = villagers.requests?.open.find((open) => open.itemId === itemId);
+        return request ? VILLAGERS.find((villager) => villager.id === request.from)?.name : undefined;
+    };
+
     const stock = [...STORE_STOCK];
     /** What is on the shelf: seeds by what has been ordered in, and the next backpack up. */
     function restock(): void {
@@ -517,7 +549,23 @@ export async function boot(): Promise<void> {
     lectern.position.copy(at({ x: VILLAGE.store.x + 5.6, z: VILLAGE.store.z + 4.8 }));
     lectern.rotation.y = VILLAGE.store.yaw;
     game.scene.add(counter, lectern);
-    game.interactions.add(counter, { prompt: 'Buy and sell at the store', range: 2.6, onInteract: () => shop.open() });
+    game.interactions.add(counter, { prompt: 'Buy at the store', range: 2.6, onInteract: () => shop.open() });
+    // The counter only reaches into the pockets. The crate at its end takes from the backpack as well.
+    const scales = setupCrate(game, {
+        position: at({ x: VILLAGE.store.x + 0.4, z: VILLAGE.store.z + 7.1 }),
+        yaw: VILLAGE.store.yaw,
+        carried,
+        coins,
+        stallPrice: (itemId) => shop.inventory.sellPrice(itemId),
+        share: 1,
+        title: 'Sell to Barnaby',
+        intro: { title: 'Half price, counted twice', detail: 'Barnaby buys crops, food and wood out of your pockets and your backpack. A villager who asked for something pays far more.' },
+        prompt: 'Sell to Barnaby',
+        payer: 'Barnaby',
+        model: 'crate',
+        wantedBy: (itemId) => wantedBy(itemId),
+        format: coin,
+    });
 
     const upgrades = addUpgrades(game, {
         title: "Barnaby's order book",
@@ -594,14 +642,11 @@ export async function boot(): Promise<void> {
         carried,
         coins,
         stallPrice: (itemId) => shop.inventory.sellPrice(itemId),
-        wantedBy: (itemId) => {
-            const request = villagers.requests?.open.find((open) => open.itemId === itemId);
-            return request ? VILLAGERS.find((villager) => villager.id === request.from)?.name : undefined;
-        },
+        wantedBy: (itemId) => wantedBy(itemId),
         format: coin,
     });
 
-    // A chest against the barn's yard wall, under the lamp: what is in it is safe from dying.
+    // A chest in the barn: what is in it is safe from dying.
     const barnWall = refs.solids.find((box) => box.containsPoint(new THREE.Vector3(FARM.barn.x, box.min.y + 1, FARM.barn.z)));
     const chestMesh = new THREE.Group();
     const chestBody = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.7, 0.8), new THREE.MeshStandardMaterial({ color: 0x5a4430, roughness: 1, flatShading: true }));
@@ -612,9 +657,21 @@ export async function boot(): Promise<void> {
     chestLock.position.set(0, 0.6, 0.42);
     chestMesh.add(chestBody, chestLid, chestLock);
     modelled(game, 'chest', chestMesh);
-    chestMesh.position.copy(at({ x: (barnWall?.min.x ?? FARM.barn.x - 5) - 0.6, z: FARM.barn.z + 3 }));
+    const barnFront = (barnWall?.min.x ?? FARM.barn.x - 5) - 0.5;
+    const barn = setupBarn(game, {
+        door: at({ x: barnFront, z: FARM.barn.z }, 1),
+        outside: at({ x: barnFront - 1.4, z: FARM.barn.z }, 0.3),
+        atmosphere,
+        canEnter: () => (bike.mounted ? 'The bicycle stays outside' : dayCycle.stalled ? 'You need to sleep. Go home to bed.' : undefined),
+        onEnter: () => {
+            plates?.setPlace('The barn');
+            think('barn', ['Straw, old wood, one lamp. And quiet: the first real quiet since I woke up here.', 'Nothing has ever come in after me. They do not seem to know it has an inside.']);
+        },
+        onLeave: () => plates?.setPlace(safeZones.zoneAt(game.player?.position ?? barn.floor)?.name),
+    });
+    chestMesh.position.set(3.6, 0, 2.2);
     chestMesh.rotation.y = -Math.PI / 2;
-    game.scene.add(chestMesh);
+    barn.room.add(chestMesh);
     game.interactions.add(chestMesh, { prompt: 'Open the chest', range: 2.4, onInteract: () => chestPack.open() });
 
     const well = new THREE.Object3D();
@@ -904,7 +961,7 @@ export async function boot(): Promise<void> {
         order: SYSTEM_ORDER.GAMEPLAY - 3,
         update: (delta) => {
             const spent = dayCycle.stalled;
-            game.interactions.filter = spent ? (object) => object === door : undefined;
+            game.interactions.filter = spent ? (object) => object === door || object === barn.exit : undefined;
             if (!spent) {
                 nagTimer = 0;
                 return;
@@ -1277,7 +1334,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates,
+    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         spawnKind: (x: number, z: number, kind: HollowKind) => spawnHollow(world.enemies, terrain.point(x, z, 0.4), { night: isNight(dayCycle), hunting: hunting(), kind }),

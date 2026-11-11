@@ -6,12 +6,13 @@ import { SHIPPABLE } from '../content/items';
 import { modelled } from './models';
 
 /**
- * Barnaby's collection crate, by the mailbox at the farmhouse door.
+ * A place that buys what the farmer carries, out of the pockets and the backpack alike.
  *
- * The one way to turn a surplus into coins without the ride to the village. It
- * pays less than the stall and far less than a villager who asked for the
- * thing, and the window says so: every stack is listed with what it fetches,
- * and whatever somebody is waiting for is marked and kept out of "send all".
+ * There are two. Barnaby's collection crate by the mailbox is the one way to
+ * turn a surplus into coins without the ride to the village, and pays less
+ * for it. The scales on his stall pay the full stall price. Both open the same
+ * window: every stack is listed with what it fetches, and whatever a villager
+ * is waiting for is marked and kept out of "sell all", because they pay more.
  */
 export type CrateOptions = {
     position: THREE.Vector3;
@@ -19,8 +20,18 @@ export type CrateOptions = {
     /** Everything the farmer carries, in the order it is taken from. */
     carried: InventoryHandle[];
     coins: ResourceHandle;
-    /** What the stall pays for one. The crate pays `CRATE_SHARE` of it. */
+    /** What the stall pays for one. */
     stallPrice: (itemId: string) => number;
+    /** The part of the stall price paid here. Defaults to `CRATE_SHARE`. */
+    share?: number;
+    title?: string;
+    /** The first row of the window: what this place is for. */
+    intro?: { title: string; detail: string };
+    prompt?: string;
+    /** Who pays, for the toast. */
+    payer?: string;
+    /** The model in `static/models/props`. */
+    model?: string;
     /** Who has asked for this item, if anybody has. */
     wantedBy: (itemId: string) => string | undefined;
     format: (amount: number) => string;
@@ -42,7 +53,9 @@ export const CRATE_SHARE = 0.8;
 
 export function setupCrate(game: Game, options: CrateOptions): CrateHandle {
     const { carried, coins, format } = options;
-    const priceOf = (itemId: string): number => Math.floor(options.stallPrice(itemId) * CRATE_SHARE);
+    const share = options.share ?? CRATE_SHARE;
+    const payer = options.payer ?? "Barnaby's crate";
+    const priceOf = (itemId: string): number => Math.floor(options.stallPrice(itemId) * share);
 
     /** One line per kind of thing, however many stacks and bags it is spread over. */
     const stock = (): Array<{ itemId: string; name: string; icon: string; amount: number; wanted: string | undefined }> => {
@@ -75,12 +88,12 @@ export function setupCrate(game: Game, options: CrateOptions): CrateHandle {
         const made = stock()
             .filter((line) => !line.wanted)
             .reduce((total, line) => total + send(line.itemId), 0);
-        game.toasts.push(made > 0 ? `Barnaby's crate paid ${format(made)}` : 'Nothing to send', { color: made > 0 ? '#d8e8b0' : '#c0b0a0' });
+        game.toasts.push(made > 0 ? `${payer} paid ${format(made)}` : 'Nothing to send', { color: made > 0 ? '#d8e8b0' : '#c0b0a0' });
         return made;
     };
 
     const panel = addPanel(game, {
-        title: "Barnaby's collection crate",
+        title: options.title ?? "Barnaby's collection crate",
         rows: (): PanelRow[] => {
             const lines = stock();
             const spare = lines.filter((line) => !line.wanted);
@@ -88,21 +101,21 @@ export function setupCrate(game: Game, options: CrateOptions): CrateHandle {
             return [
                 {
                     icon: '📦',
-                    title: 'Sell from home, for a little less',
-                    detail: 'For crops, food and wood you have too much of. Barnaby pays at once, but less than at his stall. A villager who asked for something pays far more.',
+                    title: options.intro?.title ?? 'Sell from home, for a little less',
+                    detail: options.intro?.detail ?? 'For crops, food and wood you have too much of. Barnaby pays at once, but less than at his stall. A villager who asked for something pays far more.',
                 },
                 { heading: true, title: 'What you carry' },
                 ...(lines.length === 0 ? [{ title: 'Nothing the crate takes.', detail: 'It does not take tools, seeds or the things you keep.', dim: true }] : []),
                 ...lines.map((line) => ({
                     icon: line.icon,
                     title: `${line.name} ×${line.amount}`,
-                    detail: line.wanted ? `${line.wanted} asked for this` : `${format(priceOf(line.itemId))} each (stall: ${format(options.stallPrice(line.itemId))})`,
+                    detail: line.wanted ? `${line.wanted} asked for this` : share < 1 ? `${format(priceOf(line.itemId))} each (stall: ${format(options.stallPrice(line.itemId))})` : `${format(priceOf(line.itemId))} each`,
                     meta: format(priceOf(line.itemId) * line.amount),
                     action: {
                         label: line.wanted ? 'Sell anyway' : 'Sell',
                         onPress: () => {
                             const made = send(line.itemId);
-                            game.toasts.push(`Barnaby's crate paid ${format(made)}`, { color: '#d8e8b0' });
+                            game.toasts.push(`${payer} paid ${format(made)}`, { color: '#d8e8b0' });
                         },
                     },
                 })),
@@ -117,11 +130,11 @@ export function setupCrate(game: Game, options: CrateOptions): CrateHandle {
     box.position.y = 0.4;
     box.castShadow = true;
     object.add(box);
-    modelled(game, 'postcrate', object);
+    modelled(game, options.model ?? 'postcrate', object);
     object.position.copy(options.position);
     object.rotation.y = options.yaw ?? 0;
     game.scene.add(object);
-    game.interactions.add(object, { prompt: "Open Barnaby's collection crate", range: 2.2, onInteract: () => panel.open() });
+    game.interactions.add(object, { prompt: options.prompt ?? "Open Barnaby's collection crate", range: 2.2, onInteract: () => panel.open() });
 
     return Object.assign(panel, { object, priceOf, send, sendSpare });
 }
