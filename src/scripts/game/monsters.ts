@@ -20,6 +20,10 @@ import type { PopulationPost } from '../kit';
  *  - the crawler, from day 3: low, quicker, short-sighted;
  *  - the watcher, from day 5: tall and pale, and it only moves while nobody is
  *    looking at it.
+ *
+ * They smell hot food. `setScent` says how strongly the farmer's basket
+ * smells, from 0 to 1: at 1 they notice from 70% further off, the roamers
+ * close in twice as fast, and more of them turn up, most of all after dark.
  */
 export type HollowKind = 'walker' | 'crawler' | 'watcher';
 
@@ -28,6 +32,8 @@ const watchers = new Set<Enemy>();
 /** What each one was made as, so its temper can follow the hour. */
 const made = new Map<Enemy, { kind: HollowKind; posted: boolean; hunting: boolean; daySpeed: number }>();
 let seed = 0;
+/** How strongly the farmer's basket smells, 0 to 1. */
+let scent = 0;
 /** Set once at boot: with it, each of them is dressed in its model as it appears. */
 let hub: Game | undefined;
 
@@ -55,7 +61,8 @@ export function hollowTarget(dayCycle: DayCycle, hunting: boolean): number {
     // Before the farmer has found their feet there are only a few, and they keep their distance.
     if (!hunting) return 3;
     const byDay = 3 + Math.min(5, dayCycle.day - 1);
-    return isNight(dayCycle) ? byDay * NIGHT_FACTOR : byDay;
+    // A basket of hot food brings more of them out of the fog: up to 2 by day, 5 at night.
+    return isNight(dayCycle) ? byDay * NIGHT_FACTOR + Math.round(scent * 5) : byDay + Math.round(scent * 2);
 }
 
 /** Which kind turns up, by day. The odd ones stay rare. */
@@ -148,11 +155,21 @@ function setTemper(enemy: Enemy, night: boolean): void {
     if (!origin || !origin.hunting) return;
     const { kind, posted, daySpeed } = origin;
     if (kind !== 'watcher') enemy.options.speed = daySpeed * (night ? 1.25 : 1);
-    enemy.options.aggroRange = (kind === 'crawler' ? 11 : kind === 'watcher' ? 26 : 14) * (night ? 1.5 : 1);
+    enemy.options.aggroRange = (kind === 'crawler' ? 11 : kind === 'watcher' ? 26 : 14) * (night ? 1.5 : 1) * (1 + scent * 0.7);
     enemy.options.meander = kind === 'watcher' ? 0 : night ? 0.55 : 0.85;
     enemy.options.wanderSpeed = night ? 0.7 : 0.5;
-    if (!posted) enemy.options.drift = night ? 1.1 : 0.55;
+    if (!posted) enemy.options.drift = (night ? 1.1 : 0.55) * (1 + scent);
 }
+
+/** How strongly the farmer smells of hot food right now, 0 to 1. Every one of them is told. */
+export function setScent(level: number, night: boolean): void {
+    const next = Math.max(0, Math.min(1, level));
+    if (Math.abs(next - scent) < 0.05) return;
+    scent = next;
+    for (const enemy of made.keys()) setTemper(enemy, night);
+}
+
+export const currentScent = (): number => scent;
 
 /** Switch every one of them to day or night manners. Call when the hour crosses over. */
 export function setNightTemper(night: boolean): void {

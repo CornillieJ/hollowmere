@@ -702,6 +702,25 @@
         warmth.collected('turnip-soup', 1);
         expect(warmth.heatOf('turnip-soup') === 'warm', `one fresh bowl and one cold one make a warm basket, got ${warmth.heatOf('turnip-soup')}`);
         expect(warmth.scent() === 2, `2 warm bowls smell of 2, got ${warmth.scent()}`);
+        // They smell it: hot food widens how far off they notice, and brings more of them.
+        {
+            await go(34, 62);
+            const sniffer = world.spawnKind(74, 62, 'walker');
+            await sleep(700);
+            const calm = sniffer.options.aggroRange;
+            const calmTarget = world.hollowTarget();
+            world.pockets.add('bread', 4);
+            warmth.collected('bread', 4);
+            await sleep(900);
+            expect(world.scentLevel() === 1, `4 hot loaves and 2 warm bowls smell as strong as it gets, ${world.scentLevel()} in ${world.safeZones.zoneAt(game.player.position)?.name}`);
+            expect(sniffer.options.aggroRange > calm * 1.3, `they notice from further off: ${calm} to ${sniffer.options.aggroRange}`);
+            expect(world.hollowTarget() > calmTarget, 'and more of them come');
+            expect(document.querySelector('.hv-basket')?.textContent.includes('smell'), 'the basket line says they smell it');
+            world.pockets.remove('bread', 4);
+            await sleep(900);
+            expect(sniffer.options.aggroRange < calm * 1.3, 'with the basket lighter they lose interest again');
+            await quiet();
+        }
         // Out of the hands, it has no heat left to keep.
         world.pockets.remove('turnip-soup', 2);
         await sleep(150);
