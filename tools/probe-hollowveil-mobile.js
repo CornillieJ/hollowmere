@@ -58,6 +58,21 @@
     expect(held?.textContent.includes('🪓'), 'and the button shows it');
     expect(!document.querySelector('.hv-quest').textContent.includes('J for'), 'no keyboard hints in the task');
 
+    // Every window can be closed without a keyboard.
+    world.shop.open();
+    await sleep(200);
+    const cross = document.querySelector('.inventory:not(.is-hidden) .inventory-close');
+    expect(Boolean(cross) && cross.getBoundingClientRect().width >= 40, 'the store has a cross big enough for a thumb');
+    cross?.click();
+    await sleep(200);
+    expect(!world.shop.isOpen, 'and it closes the store');
+    world.crate.open();
+    await sleep(200);
+    const wrap = document.querySelector('.list-panel-wrap:not(.is-hidden)');
+    wrap?.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 95, bubbles: true }));
+    await sleep(200);
+    expect(!world.crate.isOpen, 'a tap beside a window closes it');
+
     clearInterval(reader);
     return { ok: failures.length === 0, failures, boxes: boxes.length };
 })();

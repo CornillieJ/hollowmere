@@ -65,6 +65,10 @@ export class ListPanel {
         const head = div('list-panel-head', undefined, card);
         div('list-panel-title', options.title, head);
         button('✕', () => this.close(), { className: 'list-panel-close', parent: head });
+        // A tap beside the card closes it too, which is what a thumb expects.
+        this.root.addEventListener('pointerdown', (event) => {
+            if (event.target === this.root) this.close();
+        });
         this.tabBar = div('list-panel-tabs', undefined, card);
         this.list = div('list-panel-rows', undefined, card);
         this.footer = div('list-panel-footer', '', card);
