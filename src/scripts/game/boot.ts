@@ -43,10 +43,12 @@ import { REQUESTS, VILLAGERS } from '../content/villagers';
 import { FARM, HAUNTS, POOL_LEVEL, PELL_SPOT, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF, WRAP_AT, homeOf } from '../content/world';
 import { buildWorld, stump } from './world';
 import { setupMood } from './mood';
-import { setupFarming, shipEverything } from './farming';
+import { setupFarming } from './farming';
 import { useHollowModels, animateHollow, forgetHollow, hollowTarget, isNight, pickKind, setNightTemper, spawnHollow, updateWatchers, type HollowKind } from './monsters';
 import { buildFarmyard, buildInfirmary } from './farmyard';
 import { modelOnly, modelled } from './models';
+import { setupCrate } from './crate';
+import { HELD_PLACEHOLDER, setupPlates, type PlatesHandle } from './plates';
 import { OMEN_THOUGHTS, setupOmens } from './omens';
 import { setupDread } from './dread';
 import { INTRO, setupStory } from './story';
@@ -91,10 +93,13 @@ export async function boot(): Promise<void> {
                 { action: 'inventory', label: '🎒' },
                 { action: 'journal', label: '📖' },
             ],
+            // What is in the hand; it opens the pockets, which a phone otherwise keeps folded away.
+            actions: [{ label: HELD_PLACEHOLDER, onClick: () => plates?.togglePockets() }],
         },
         flow: { pointerLock: true, crosshairWhen: [] },
         game: { stats: false, exposeDebug: true },
     });
+    let plates: PlatesHandle | undefined;
     void dressFolk(game, cat, 'farmer');
     const body = new FolkAnimator(cat);
     // What is in the hand shows in the hand.
@@ -132,7 +137,7 @@ export async function boot(): Promise<void> {
 
     //#region Money and inventories
 
-    const coins = addResource(game, { id: 'coins', label: 'Coins', initial: 20, integer: true, format: coin });
+    const coins = addResource(game, { id: 'coins', label: 'Coins', initial: 20, integer: true, format: coin, showInHud: false });
     const pockets = addInventory(game, { items: ITEMS, capacity: 8, title: 'Pockets', persist: 'pockets', primary: true });
     /** Backpack slots by upgrade level. It starts small on purpose: what to carry is a choice. */
     const BAG_SLOTS = [3, 6, 10, 16];
@@ -581,17 +586,19 @@ export async function boot(): Promise<void> {
 
     //#region Home
 
-    const bin = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.9), new THREE.MeshStandardMaterial({ color: 0x5a4430, roughness: 1 }));
-    bin.position.copy(at(FARM.shipping, 0.4));
-    bin.castShadow = true;
-    game.scene.add(bin);
-    game.interactions.add(bin, {
-        prompt: 'Ship produce and cooked food',
-        range: 2.2,
-        onInteract: () => {
-            const made = shipEverything(carried, coins, (itemId) => shop.inventory.sellPrice(itemId));
-            game.toasts.push(made > 0 ? `Shipped for ${coin(made)}` : 'Nothing to ship', { color: made > 0 ? '#d8e8b0' : '#c0b0a0' });
+    // Beside the mailbox: what is too much goes in, and Barnaby pays for it, less than at his stall.
+    const crateSpot = at({ x: FARM.door.x + 3.2, z: FARM.door.z + 3.5 });
+    const crate = setupCrate(game, {
+        position: crateSpot,
+        yaw: Math.PI,
+        carried,
+        coins,
+        stallPrice: (itemId) => shop.inventory.sellPrice(itemId),
+        wantedBy: (itemId) => {
+            const request = villagers.requests?.open.find((open) => open.itemId === itemId);
+            return request ? VILLAGERS.find((villager) => villager.id === request.from)?.name : undefined;
         },
+        format: coin,
     });
 
     // A chest against the barn's yard wall, under the lamp: what is in it is safe from dying.
@@ -640,10 +647,10 @@ export async function boot(): Promise<void> {
         enemies: world.enemies,
         zones: SAFE_ZONES.map((zone) => ({ ...zone, position: { ...zone.position, y: ground(zone.position.x, zone.position.z) } })),
         onEnter: (zone) => {
-            game.hud.setStat('safe', zone.name ?? 'Safe', 'here');
+            plates?.setPlace(zone.name ?? 'Safe');
             think('safe', ['They stop at the light. Remember that.']);
         },
-        onLeave: () => game.hud.removeStat('safe'),
+        onLeave: () => plates?.setPlace(undefined),
     });
     /** A grave candle on the ground: a small ring of safety that burns down. */
     const CANDLE_SECONDS = 90;
@@ -1115,7 +1122,6 @@ export async function boot(): Promise<void> {
         if (delta <= 0) return;
         today.earned += delta;
         juice.chime('coin');
-        game.hud.bumpStat('coins');
     });
     const morning = addPanel(game, {
         title: 'Morning',
@@ -1177,17 +1183,26 @@ export async function boot(): Promise<void> {
         juice.banner(`Day ${day}`, escape.pledge.state === 'running' ? `${escape.pledge.daysLeft} days left to wake` : '');
     };
 
+    plates = setupPlates(game, {
+        dayCycle,
+        isNight: () => isNight(dayCycle),
+        coins,
+        format: coin,
+        hotbar,
+        note: () => (escape.pledge.state === 'running' ? `${coin(escape.pledge.remaining)} to wake · ${escape.pledge.daysLeft}d` : ''),
+    });
+    // A phone has no J: the notebook is a button there.
+    const notebookHint = game.device.touch ? '' : '. J for the notebook';
     game.systems.add({
         name: 'clock-hud',
         order: SYSTEM_ORDER.EFFECTS,
         always: true,
         update: () => {
-            game.hud.setStat('day', `${isNight(dayCycle) ? '☾ Night' : '☀ Day'} ${dayCycle.day}`, dayCycle.clock);
             if (!story.finished || dayCycle.stalled) return;
             // After the first day the best paid request is the thing to chase.
             const request = [...(villagers.requests?.open ?? [])].sort((a, b) => b.reward - a.reward)[0];
             const name = request ? pockets.inventory.registry.resolve(request.itemId).name.toLowerCase() : '';
-            game.hud.setObjective(request ? `${VILLAGERS.find((villager) => villager.id === request.from)?.name ?? '?'} wants ${request.amount} ${name} (${coin(request.reward)}). J for the notebook` : 'Tend the farm. J for the notebook');
+            game.hud.setObjective(request ? `${VILLAGERS.find((villager) => villager.id === request.from)?.name ?? '?'} wants ${request.amount} ${name} (${coin(request.reward)})${notebookHint}` : `Tend the farm${notebookHint}`);
         },
     });
 
@@ -1222,8 +1237,8 @@ export async function boot(): Promise<void> {
             { id: 'shake', label: 'Screen shake', kind: 'toggle', default: true, apply: (on) => (game.effects.shakeEnabled = on) },
         ],
     });
-    // Top left, clear of the objective. It can be clicked from any menu; in play the mouse is held by the game.
-    addFullscreenButton({ parent: game.uiRoot, corner: 'top-left', hideWhenActive: false, landscape: false });
+    // In the corner past the clock. It can be clicked from any menu; in play the mouse is held by the game.
+    addFullscreenButton({ parent: game.uiRoot, corner: 'top-right', hideWhenActive: false, landscape: false });
 
     const saves = addSaveMenu(game, {
         flow: world.flow,
@@ -1262,7 +1277,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting,
+    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         spawnKind: (x: number, z: number, kind: HollowKind) => spawnHollow(world.enemies, terrain.point(x, z, 0.4), { night: isNight(dayCycle), hunting: hunting(), kind }),

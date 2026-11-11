@@ -73,3 +73,421 @@ footer { display: none; }
 	opacity: 1;
 	transition: opacity 0.55s ease;
 }
+
+/* --------------------------------------------------------------------------
+   The plates: what to do (top left), the day, hour and purse (top right).
+   Soot with a stitched bone edge and a hard shadow, hung a little crooked.
+   Dark enough to read over the Veil at noon.
+   -------------------------------------------------------------------------- */
+
+.hv-plate {
+	box-sizing: border-box;
+	border: 1px solid rgba(201, 183, 138, 0.45);
+	border-radius: 2px;
+	outline: 1px dashed rgba(201, 183, 138, 0.24);
+	outline-offset: -5px;
+	background: rgba(13, 11, 9, 0.86);
+	box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.5);
+	color: #efe8d4;
+	font-family: var(--ui-font);
+}
+
+.hud-objective.hv-quest {
+	top: 12px;
+	right: auto;
+	left: 12px;
+	max-width: 300px;
+	padding: 11px 16px 12px;
+	font-size: 14px;
+	line-height: 1.4;
+	transform: rotate(-0.6deg);
+	transform-origin: top left;
+}
+
+.hv-quest::before {
+	content: "✦ Don't forget";
+	display: block;
+	margin-bottom: 4px;
+	color: var(--ui-accent);
+	font-size: 11px;
+	font-style: italic;
+	letter-spacing: 0.08em;
+}
+
+.hv-clock {
+	position: absolute;
+	top: 12px;
+	right: 60px;
+	min-width: 118px;
+	padding: 9px 15px 10px;
+	text-align: right;
+	transform: rotate(0.5deg);
+	transform-origin: top right;
+}
+
+.hv-clock-day {
+	color: var(--ui-accent);
+	font-size: 13px;
+	letter-spacing: 0.06em;
+}
+
+.hv-clock-time {
+	font-family: 'Courier New', Courier, monospace;
+	font-size: 24px;
+	font-weight: 700;
+	line-height: 1.15;
+	letter-spacing: 0.04em;
+}
+
+.hv-clock-coins {
+	margin-top: 5px;
+	padding-top: 5px;
+	border-top: 1px dashed rgba(201, 183, 138, 0.3);
+	font-size: 14px;
+}
+
+.hv-clock-coins::before {
+	content: '';
+	display: inline-block;
+	width: 9px;
+	height: 9px;
+	margin-right: 6px;
+	border: 1px solid #6e5a22;
+	border-radius: 50%;
+	background: #d6b24a;
+}
+
+.hv-clock-coins.is-bump {
+	animation: hv-bump 0.4s ease-out;
+}
+
+@keyframes hv-bump {
+	0% { color: #f4e3a0; transform: scale(1.25); }
+	100% { color: inherit; transform: none; }
+}
+
+.hv-clock-note {
+	margin-top: 3px;
+	color: #d0a8a0;
+	font-size: 12px;
+}
+
+/* By night the plate goes cold. */
+.hv-clock.is-night {
+	border-color: rgba(160, 170, 214, 0.5);
+	outline-color: rgba(160, 170, 214, 0.25);
+}
+
+.hv-clock.is-night .hv-clock-day {
+	color: #aab2dc;
+}
+
+/* 3 in the morning: the clock has stopped, and it knows. */
+.hv-clock.is-late .hv-clock-time {
+	color: #d98a80;
+	animation: hv-late 1.1s steps(2) infinite;
+}
+
+@keyframes hv-late {
+	0% { opacity: 1; transform: none; }
+	50% { opacity: 0.55; transform: translateX(-1px); }
+}
+
+/* The name of the light the farmer stands in, hung under the clock. */
+.hv-place {
+	position: absolute;
+	top: 100%;
+	right: 6px;
+	margin-top: 7px;
+	padding: 3px 9px;
+	border: 1px solid rgba(232, 200, 120, 0.4);
+	border-radius: 2px;
+	background: rgba(13, 11, 9, 0.8);
+	color: #ecd9a4;
+	font-size: 12px;
+	white-space: nowrap;
+}
+
+.fullscreen-button {
+	top: 12px;
+	right: 12px;
+	width: 38px;
+	height: 38px;
+	border: 1px solid rgba(201, 183, 138, 0.45);
+	border-radius: 2px;
+	background: rgba(13, 11, 9, 0.86);
+	box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.5);
+}
+
+.compass {
+	border: 1px solid rgba(201, 183, 138, 0.25);
+	border-radius: 2px;
+	background: rgba(13, 11, 9, 0.6);
+}
+
+.toast {
+	border: 1px solid rgba(201, 183, 138, 0.25);
+	border-radius: 2px;
+	text-align: center;
+}
+
+.prompt {
+	border: 1px solid rgba(201, 183, 138, 0.3);
+	border-radius: 2px;
+}
+
+.hotbar {
+	border: 1px solid rgba(201, 183, 138, 0.2);
+	border-radius: 2px;
+	background: rgba(13, 11, 9, 0.7);
+}
+
+.hotbar-slot.is-selected {
+	border-color: var(--ui-accent);
+}
+
+.touch-stick.is-active {
+	background: rgba(201, 183, 138, 0.12);
+}
+
+.touch-button.is-primary {
+	background: rgba(201, 183, 138, 0.2);
+}
+
+.hv-held {
+	position: relative;
+	border-style: dashed;
+	border-color: var(--ui-accent);
+}
+
+.hv-held-count {
+	position: absolute;
+	right: 6px;
+	bottom: 4px;
+	font-size: 13px;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+.list-panel,
+.pack {
+	border-color: rgba(201, 183, 138, 0.25);
+	border-radius: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   Fingers: the pockets fold away behind one button, the health bar moves off
+   the stick, and nothing sits under a thumb.
+   -------------------------------------------------------------------------- */
+
+@media (pointer: coarse) {
+	.hotbar {
+		display: none;
+	}
+
+	.hotbar.is-open {
+		top: 40%;
+		bottom: auto;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 6px;
+		width: max-content;
+		max-width: 94vw;
+		padding: 8px;
+		box-sizing: border-box;
+		z-index: 5;
+		background: rgba(13, 11, 9, 0.94);
+		box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35);
+	}
+
+	.hotbar.is-open .hotbar-slot {
+		width: 52px;
+		height: 52px;
+	}
+
+	.hotbar.is-open .hotbar-icon {
+		font-size: 26px;
+	}
+
+	.hud-bar {
+		left: 26px;
+		bottom: 170px;
+		width: 132px;
+		min-width: 0;
+	}
+
+	.hud-bar .hud-label {
+		display: none;
+	}
+
+	.hud-bar .hud-track {
+		height: 9px;
+		border: 1px solid rgba(201, 183, 138, 0.35);
+		border-radius: 2px;
+	}
+
+	.prompt {
+		top: 46%;
+		max-width: 72vw;
+		white-space: normal;
+		text-align: center;
+	}
+}
+
+/* A phone held upright: the compass takes the top, the plates the row under it. */
+@media (max-width: 700px) and (orientation: portrait) {
+	.fullscreen-button {
+		top: 6px;
+		right: 8px;
+		width: 34px;
+		height: 34px;
+	}
+
+	.compass {
+		top: 8px;
+		right: 52px;
+		left: 8px;
+		width: auto;
+		transform: none;
+	}
+
+	.hud-objective.hv-quest {
+		top: 48px;
+		left: 8px;
+		max-width: calc(100vw - 150px);
+		padding: 8px 12px 9px;
+		font-size: 12.5px;
+		line-height: 1.35;
+	}
+
+	.hv-quest::before {
+		margin-bottom: 2px;
+		font-size: 10px;
+	}
+
+	.hv-clock {
+		top: 48px;
+		right: 8px;
+		min-width: 0;
+		padding: 7px 11px 8px;
+	}
+
+	.hv-clock-day {
+		font-size: 11px;
+	}
+
+	.hv-clock-time {
+		font-size: 18px;
+	}
+
+	.hv-clock-coins {
+		margin-top: 3px;
+		padding-top: 3px;
+		font-size: 13px;
+	}
+
+	.toast-stack {
+		top: 182px;
+		width: 92vw;
+	}
+
+	.toast {
+		max-width: 92vw;
+		box-sizing: border-box;
+	}
+
+	.banner {
+		top: 264px;
+		width: 92vw;
+	}
+
+	.prompt {
+		z-index: 2;
+	}
+}
+
+/* A phone on its side: little height, so the plates shrink and the row stays one row. */
+@media (max-height: 500px) {
+	.hud-objective.hv-quest {
+		max-width: 27vw;
+		padding: 7px 11px 8px;
+		font-size: 12.5px;
+		line-height: 1.3;
+	}
+
+	.hv-quest::before {
+		margin-bottom: 1px;
+		font-size: 10px;
+	}
+
+	.compass {
+		width: 34vw;
+	}
+
+	.hv-clock {
+		padding: 6px 11px 7px;
+	}
+
+	.hv-clock-top {
+		display: flex;
+		align-items: baseline;
+		justify-content: flex-end;
+		gap: 8px;
+	}
+
+	.hv-clock-day {
+		font-size: 11px;
+	}
+
+	.hv-clock-time {
+		font-size: 17px;
+	}
+
+	.hv-clock-coins {
+		margin-top: 2px;
+		padding-top: 2px;
+		font-size: 13px;
+	}
+
+	.toast-stack {
+		top: 54px;
+		max-width: 38vw;
+	}
+
+	/* No room under the compass for both: the banner goes to the bottom, between the thumbs. */
+	.banner {
+		top: auto;
+		bottom: 10px;
+		width: calc(100vw - 360px);
+	}
+
+	.banner-title {
+		font-size: 20px;
+	}
+
+	.banner-sub {
+		font-size: 13px;
+	}
+
+	.hud-bar {
+		bottom: 166px;
+	}
+}
+
+/* No E key on glass: the prompt shows the hand that is on the button. */
+@media (pointer: coarse) {
+	.prompt-key {
+		border: 0;
+		font-size: 0;
+	}
+
+	.prompt-key::before {
+		content: '✋';
+		font-size: 15px;
+	}
+}
+
+/* A window is open: the fullscreen button would sit on its corner. */
+#ui-root:has(.list-panel-wrap:not(.is-hidden), .pack-wrap:not(.is-hidden)) .fullscreen-button {
+	display: none;
+}

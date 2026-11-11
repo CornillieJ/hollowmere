@@ -17,7 +17,8 @@
     "test": "node tools/unit.mjs",
     "smoke": "node tools/smoke.mjs http://localhost:5260/",
     "models": "blender -b -P tools/blender/build_folk.py && blender -b -P tools/blender/build_props.py",
-    "smoke:play": "node tools/smoke.mjs http://localhost:5260/ tools/probe-hollowveil.js"
+    "smoke:play": "node tools/smoke.mjs http://localhost:5260/ tools/probe-hollowveil.js",
+    "smoke:phone": "node tools/smoke.mjs http://localhost:5260/ tools/probe-hollowveil-mobile.js --mobile"
   },
   "devDependencies": {
     "@types/gsap": "^3.0.0",

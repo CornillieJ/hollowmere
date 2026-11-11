@@ -25,7 +25,6 @@ export const FARM = {
     barn: { x: -30, z: 38, yaw: -Math.PI / 2 },
     well: { x: -52, z: 50 },
     bike: { x: -50, z: 56, yaw: Math.PI / 2 },
-    shipping: { x: -47, z: 44 },
     hearth: { x: -59, z: 48.5 },
     workbench: { x: -60, z: 59.5 },
     /** Three old trees at the yard's edge, close enough to learn the axe on. */

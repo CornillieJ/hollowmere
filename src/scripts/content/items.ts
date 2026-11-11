@@ -11,8 +11,8 @@ import type { Recipe } from '../game/crafting';
  * tells them apart: every seed is a bean with its crop on it, every soup a bowl
  * with what went in.
  *
- * `price` is what the store charges; it buys at half, and the shipping bin at
- * the farm pays a little less than that.
+ * `price` is what the store charges; it buys at half, and the collection
+ * crate at the farm pays a little less than that.
  */
 const food = (heal: number): NonNullable<ItemDefinition['use']> => ({ onUse: ({ game }) => game?.player?.heal(heal), cooldown: 1 });
 
@@ -86,5 +86,5 @@ export const NEEDS_CROP: Record<string, string> = { 'corn-chowder': 'corn', pump
 /** What the bench in the yard makes. */
 export const WOODWORK: Recipe[] = [{ id: 'fence-kit', output: { itemId: 'fence-kit' }, ingredients: [{ itemId: 'wood', amount: 3 }], seconds: 8, description: 'Cheaper than the store.' }];
 
-/** What the shipping bin takes: produce and dishes, not tools or seeds. */
+/** What the collection crate takes: produce and dishes, not tools or seeds. */
 export const SHIPPABLE = new Set(ITEMS.filter((item) => item.category === 'treasure' || item.category === 'consumable' || item.id === 'wood').map((item) => item.id));

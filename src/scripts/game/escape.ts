@@ -39,7 +39,6 @@ export function setupEscape(game: Game, options: { coins: ResourceHandle; day: (
         target: ESCAPE.price,
         currency: coins,
         day: options.day,
-        hudLabel: 'to wake',
         format,
         onKept: () => void narration.speak(['That is all of it. Burned.', 'Pell says the rest is simple: go home, lie down in that bed, and mean it. (Sleep at the farmhouse door.)']),
         onMissed: () =>

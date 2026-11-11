@@ -21,6 +21,7 @@ npm run typecheck && npm test
 npm run dev                      # port 5260
 npm run smoke:play               # plays the first day and the whole loop
 node tools/smoke.mjs http://localhost:5260/ tools/probe-mobile.js --mobile
+npm run smoke:phone              # plates, overlaps and the folded pockets on a phone
 ```
 
 The probe drives the real game through `window.__game.world`; add a step there
@@ -112,6 +113,16 @@ time top right), mobile layout pass.
 Trap: Vite reloads the page when files under `static/` change, so do not run
 the Blender scripts while a probe is running.
 
+## Done in round 9 (November 2026): the crate, the plates, phones
+
+The shipping bin became Barnaby's collection crate by the mailbox (`crate.ts`):
+a window that explains it, lists each stack with its price, and keeps back what
+a villager asked for. The HUD is 2 plates (`plates.ts`, styles in
+`hollowveil.css`): the task top left, the day, hour, purse and what is owed top
+right, the name of the light under it. On a touch screen the pockets fold
+behind a button that shows what is in the hand; the layout has rules for
+upright and sideways phones. The template's HUD stat rows are not used here.
+
 ## Not verified by a person yet
 
 - Pointer lock handover when a panel or dialogue opens and closes: the probe
@@ -127,6 +138,9 @@ the Blender scripts while a probe is running.
 - A ribbon mesh for the road (crisper than vertex colours).
 - Villagers walk in straight lines between stops; they can clip a corner.
 - The store only buys out of the pockets, not the backpack.
+- Story and item texts still name keys (E, F, J) on a phone; only the prompt and the task line adapt.
+- On a 360x640 phone a banner can lie over the toasts and the prompt for a few seconds.
+- The collection crate has no collider.
 - What the shrine costs (Hollis's topic) as a late thread.
 - Dropped items are not saved; they are gone after a reload.
 - The barn is a solid model, so the chest stands outside against its wall.

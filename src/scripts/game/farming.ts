@@ -1,8 +1,8 @@
 import { SYSTEM_ORDER } from '../core/systems';
 import type { Farm, PlotState } from '../game/farm';
-import type { BarriersHandle, HotbarHandle, InventoryHandle, ResourceHandle, ResourceNodesHandle } from '../kit';
+import type { BarriersHandle, HotbarHandle, InventoryHandle, ResourceNodesHandle } from '../kit';
 import type { InventorySlot } from '../game/inventory';
-import { SEED_TO_CROP, SHIPPABLE } from '../content/items';
+import { SEED_TO_CROP } from '../content/items';
 
 /**
  * Working the field with whatever is in hand.
@@ -137,22 +137,4 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
             else if (SEED_TO_CROP[slot.itemId]) game.toasts.push('Stand at an empty plot to plant');
         },
     };
-}
-
-/**
- * Sell all produce and cooked food carried. The bin is always there and never
- * haggles, so it pays less than the store does.
- * @returns The money made.
- */
-export function shipEverything(inventories: InventoryHandle[], money: ResourceHandle, priceOf: (itemId: string) => number): number {
-    let total = 0;
-    for (const inventory of inventories) {
-        for (const slot of [...inventory.inventory.slots]) {
-            if (!SHIPPABLE.has(slot.itemId)) continue;
-            total += Math.floor(priceOf(slot.itemId) * 0.8) * slot.amount;
-            inventory.remove(slot.itemId, slot.amount);
-        }
-    }
-    if (total > 0) money.add(total);
-    return total;
 }

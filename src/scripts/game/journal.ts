@@ -33,7 +33,7 @@ const GUIDE: Array<[string, string, string]> = [
     ['🌅', 'Going home', 'From day 3 Pell waits on the lookout hill with an offer: burn 12000c at the old tree within 60 days and you wake up at home. Pay in parts, whenever you call on him. Dying costs 3 of those days. Miss the last day and you stay for good.'],
     ['🌫', 'The edge', 'The valley has no edge. The villagers call the fog the Veil: walk far enough into it in any direction and you come out on the far side.'],
     ['⚠', 'Bad days', 'Some days a crowd of them gathers: round the village wall, or all over the farmyard. They still cannot enter a lit place, and they are gone by the next dawn.'],
-    ['🛒', 'The store', 'Barnaby sells seeds and fence kits and buys anything at half price. His order book sells land, pots, hens and cows. The bin at the farm buys produce too, for a little less.'],
+    ['🛒', 'The store', 'Barnaby sells seeds and fence kits and buys anything at half price. His order book sells land, pots, hens and cows. His collection crate by your mailbox buys crops, food and wood too, for a little less.'],
     ['🥚', 'Animals', 'Hens lay and the cow gives milk every couple of minutes. Press E at an animal when it is ready.'],
     ['🚲', 'Getting about', 'Press E at the bicycle to ride: W pedals, A and D steer, E gets off. It is much faster than anything in the fog. The thin paths off the road lead to places worth a visit.'],
     ['🧭', 'Finding the way', 'The strip at the top of the screen is a compass. 🏠 is your farm, 🕯 is the village, and ➤ is where the current task is.'],

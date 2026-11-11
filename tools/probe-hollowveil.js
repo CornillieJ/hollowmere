@@ -347,7 +347,7 @@
     expect(world.controls.movement.speedScale > 0.9, 'and dry ground does not');
 
     // 13ff. Fullscreen: a button on screen and an entry in the settings.
-    expect(Boolean(document.querySelector('.fullscreen-button.is-top-left')), 'there is a fullscreen button');
+    expect(Boolean(document.querySelector('.fullscreen-button.is-top-right')), 'there is a fullscreen button');
     world.flow.pause();
     await sleep(200);
     world.settings.open();
@@ -622,6 +622,42 @@
     world.happenings.newDay();
     world.enemies.clear();
     expect(world.deeds.has('harvest') && world.deeds.has('died') && world.deeds.has('bargain'), 'deeds are kept');
+
+    // 14e. Barnaby's collection crate: a window that says what it is, sells the spare and keeps what was asked for.
+    {
+        const crate = world.crate;
+        const asked = world.villagers.requests.open.map((request) => request.itemId);
+        const spare = ['pumpkin', 'corn', 'wheat', 'turnip', 'wood'].find((id) => !asked.includes(id));
+        const wanted = asked.find((id) => crate.priceOf(id) > 0);
+        world.bag.add(spare, 3);
+        if (wanted) world.pockets.add(wanted, 1);
+        const wantedBefore = wanted ? have(wanted) : 0;
+        await go(world.crateSpot.x + 1.2, world.crateSpot.z);
+        await press('KeyE');
+        await until(() => crate.isOpen);
+        const text = document.querySelector('.list-panel-wrap:not(.is-hidden) .list-panel')?.textContent ?? '';
+        expect(crate.isOpen && text.includes('Sell from home'), 'E at the crate opens a window that explains it');
+        expect(!wanted || text.includes('asked for this'), 'what a villager asked for is marked');
+        const before = world.coins.value();
+        const made = crate.sendSpare();
+        expect(made >= crate.priceOf(spare) * 3 && world.coins.value() === before + made, `the crate pays for the spare, ${made}`);
+        expect(have(spare) === 0, 'and takes it out of the backpack too');
+        expect(!wanted || have(wanted) === wantedBefore, 'what was asked for stays in the pockets');
+        expect(crate.priceOf(spare) < world.shop.inventory.sellPrice(spare), 'it pays less than the stall');
+        crate.close();
+        await sleep(200);
+        log.crate = made;
+    }
+
+    // 14f. The plates: the task top left, the day, hour and purse top right.
+    {
+        const quest = document.querySelector('.hv-quest').getBoundingClientRect();
+        const clock = document.querySelector('.hv-clock').getBoundingClientRect();
+        expect(quest.left < 40 && quest.top < 80, 'the task is pinned top left');
+        expect(clock.right > innerWidth - 90 && clock.top < 80, 'the clock hangs top right');
+        const clockText = document.querySelector('.hv-clock').textContent;
+        expect(/Day|Night/.test(clockText) && /\d\d:\d\d/.test(clockText) && clockText.includes(`${world.coins.value()}c`), `the clock shows the day, the hour and the purse: ${clockText}`);
+    }
 
     // 15. Back at the title screen there is a save to continue.
     world.flow.quit();
