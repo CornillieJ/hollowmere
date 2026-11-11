@@ -50,6 +50,7 @@ import { modelOnly, modelled } from './models';
 import { setupCrate } from './crate';
 import { setupBarn } from './barn';
 import { HOT_HOURS, setupWarmth } from './warmth';
+import { LANTERN, setupLanterns } from './lanterns';
 import { HELD_PLACEHOLDER, setupPlates, type PlatesHandle } from './plates';
 import { OMEN_THOUGHTS, setupOmens } from './omens';
 import { setupDread } from './dread';
@@ -210,7 +211,7 @@ export async function boot(): Promise<void> {
         onDrop: dropInWorld,
     });
     const escape = setupEscape(game, { coins, day: () => dayCycle.day, narration, format: coin });
-    const hotbar = addHotbar(game, { inventory: pockets, slots: 8, useAction: 'use', onUse: (slot) => (dayCycle.stalled ? undefined : slot.itemId === 'candle' ? void lightCandle() : farming.useHeld(slot)) });
+    const hotbar = addHotbar(game, { inventory: pockets, slots: 8, useAction: 'use', onUse: (slot) => (dayCycle.stalled ? undefined : slot.itemId === 'candle' ? void lightCandle() : slot.itemId === 'lantern' ? void lanterns.place() : farming.useHeld(slot)) });
     game.systems.add({
         name: 'player-anim',
         order: SYSTEM_ORDER.GAMEPLAY + 7,
@@ -541,7 +542,7 @@ export async function boot(): Promise<void> {
         const seeds = upgrades.level('seeds');
         const bagLevel = upgrades.level('bag');
         stock.length = 0;
-        stock.push('turnip-seed', 'wheat-seed', ...(seeds >= 1 ? ['corn-seed'] : []), ...(seeds >= 2 ? ['pumpkin-seed'] : []), 'fence-kit', 'candle', ...(bagLevel < 3 ? [`backpack-${bagLevel + 1}`] : []));
+        stock.push('turnip-seed', 'wheat-seed', ...(seeds >= 1 ? ['corn-seed'] : []), ...(seeds >= 2 ? ['pumpkin-seed'] : []), 'fence-kit', 'candle', 'lantern', 'lamp-oil', ...(bagLevel < 3 ? [`backpack-${bagLevel + 1}`] : []));
         if (shop.isOpen) shop.screen.refresh();
     }
     // A backpack bought at the counter is put on there and then.
@@ -751,6 +752,42 @@ export async function boot(): Promise<void> {
         return true;
     };
 
+    // Lanterns: put up anywhere outdoors, kept in oil, each a small safe ring and a hole in the Veil.
+    const lanterns = setupLanterns(game, {
+        safeZones,
+        ground: (x, z) => terrain.point(x, z, 0),
+        now: () => dayCycle.day * 24 + dayCycle.hour,
+        have,
+        take: takeCarried,
+        give: (itemId, amount) => void give(itemId, amount),
+        refuse: (spot) => (barn.inside ? 'Not in here' : safeZones.zoneAt(spot) ? 'There is light here already' : ground(spot.x, spot.z) < POOL_LEVEL + 0.3 ? 'Not in the water' : undefined),
+        onPlaced: () => {
+            body.play('reach');
+            synth.tone({ frequency: 660, duration: 0.2, type: 'sine', gain: 0.07 });
+            juice.chime('success');
+            think('lantern', ['There. A ring of light they will not step into, and the Veil draws back from it a little.', `It has a day of oil in it. A flask buys another day. If I let it go dark it is only a post.`]);
+        },
+        onFilled: (lantern) => {
+            body.play('pour');
+            juice.reward(lantern.position.clone().setY(lantern.position.y + 2.2), `${Math.ceil(lanterns.hoursLeft(lantern))}h of oil`, { chime: false, color: 0xffd9a0 });
+        },
+    });
+    game.save.register('lanterns', { save: () => lanterns.toJSON(), load: (data) => lanterns.fromJSON(data) });
+
+    /**
+     * How much thicker than the hour makes it the Veil is where the farmer stands: 1 by any
+     * light, up to nearly double far from all of them late in the day.
+     */
+    let veilFactor = 1;
+    const veilAt = (position: THREE.Vector3): number => {
+        let toLight = lanterns.distanceToLight(position) - LANTERN.clearing * 0.5;
+        for (const zone of safeZones.zones) toLight = Math.min(toLight, Math.hypot(position.x - zone.position.x, position.z - zone.position.z) - zone.radius);
+        const far = THREE.MathUtils.smoothstep(toLight, 4, 55);
+        const hour = dayCycle.hour;
+        const late = hour < 5.5 ? 1 : THREE.MathUtils.smoothstep(hour, 12, 19.5);
+        return 1 + far * (0.2 + 0.8 * late) * 0.9;
+    };
+
     // The pool is knee deep: wading is slow, and the Hollow do not mind the water.
     addGroundDrag(game, {
         movement: world.controls.movement,
@@ -876,7 +913,10 @@ export async function boot(): Promise<void> {
             if (!player) return;
             const { x, z } = player.position;
             const out = Math.max(Math.abs(x), Math.abs(z));
-            atmosphere.setDensity(atmosphere.fog.density * (1 + (1 - THREE.MathUtils.smoothstep(WRAP_AT - out, 0, 24)) * 4));
+            // Thicker away from any light and late in the day, and thicker still at the edge of the valley.
+            veilFactor += (veilAt(player.position) - veilFactor) * Math.min(1, game.time.delta * 0.8);
+            if (veilFactor > 1.55) think('thick', ['I can hardly see my own hands. It was not like this at noon, or near the lamps.', 'The Veil is thickest late in the day and far from any light. A lantern on the way would make a hole in it.']);
+            atmosphere.setDensity(atmosphere.fog.density * veilFactor * (1 + (1 - THREE.MathUtils.smoothstep(WRAP_AT - out, 0, 24)) * 4));
 
             if (!crossing) {
                 if (out <= WRAP_AT) return;
@@ -1371,7 +1411,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, barn, scales, drops, dropInWorld,
+    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         spawnKind: (x: number, z: number, kind: HollowKind) => spawnHollow(world.enemies, terrain.point(x, z, 0.4), { night: isNight(dayCycle), hunting: hunting(), kind }),

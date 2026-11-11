@@ -49,11 +49,13 @@ export const ITEMS: ItemDefinition[] = [
     { id: 'backpack-2', name: 'Leather backpack', icon: '🎒', badge: '10', category: 'tool', maxStack: 1, keep: true, price: 400, description: '10 slots. Worn as soon as it is bought.' },
     { id: 'backpack-3', name: "Postman's satchel", icon: '🎒', badge: '16', category: 'tool', maxStack: 1, keep: true, price: 900, description: '16 slots. Fen will not say where the last postman went.' },
     { id: 'candle', name: 'Grave candle', icon: '🕯', category: 'tool', price: 18, description: 'Press F to set it down and light it. The walkers keep out of its light for a minute and a half.' },
+    { id: 'lantern', name: 'Lantern', icon: '🏮', category: 'tool', price: 45, description: 'Press F to put it up where you stand, with a day of oil in it. They keep out of its light and the Veil thins round it. Keep it in oil.' },
+    { id: 'lamp-oil', name: 'Lamp oil', icon: '🛢', category: 'material', price: 9, description: 'One flask burns for a day. Press E at a lantern to fill it: it holds 2.' },
     { id: 'name-slip', name: 'Folded slip', icon: '📜', category: 'quest', maxStack: 1, keep: true, description: 'Your name, in your own hand. You do not remember writing it. Read it every morning.' },
 ];
 
 /** What the general store stocks from the first day. Better seeds are added by upgrades. */
-export const STORE_STOCK = ['turnip-seed', 'wheat-seed', 'fence-kit', 'candle'];
+export const STORE_STOCK = ['turnip-seed', 'wheat-seed', 'fence-kit', 'candle', 'lantern', 'lamp-oil'];
 
 /** Real seconds per growth stage are short: a crop takes a few minutes of a ten minute day. */
 export const CROPS: CropDefinition[] = [
@@ -84,7 +86,10 @@ export const COOKING: Recipe[] = [
 export const NEEDS_CROP: Record<string, string> = { 'corn-chowder': 'corn', pumpkin: 'pumpkin', 'pumpkin-pie': 'pumpkin', 'hollow-stew': 'pumpkin' };
 
 /** What the bench in the yard makes. */
-export const WOODWORK: Recipe[] = [{ id: 'fence-kit', output: { itemId: 'fence-kit' }, ingredients: [{ itemId: 'wood', amount: 3 }], seconds: 8, description: 'Cheaper than the store.' }];
+export const WOODWORK: Recipe[] = [
+    { id: 'fence-kit', output: { itemId: 'fence-kit' }, ingredients: [{ itemId: 'wood', amount: 3 }], seconds: 8, description: 'Cheaper than the store.' },
+    { id: 'lantern', output: { itemId: 'lantern' }, ingredients: [{ itemId: 'wood', amount: 4 }, { itemId: 'lamp-oil', amount: 1 }], seconds: 12, description: 'A post and a lamp. Cheaper than the store.' },
+];
 
 /** What the collection crate takes: produce and dishes, not tools or seeds. */
 export const SHIPPABLE = new Set(ITEMS.filter((item) => item.category === 'treasure' || item.category === 'consumable' || item.id === 'wood').map((item) => item.id));

@@ -730,6 +730,47 @@
         dayCycle.setHour(10);
     }
 
+    // 14e4. The Veil thickens far from light and late; a lantern makes a hole in it and a ring they keep out of.
+    {
+        const { lanterns, dayCycle } = world;
+        dayCycle.setHour(12);
+        await go(40, 96);
+        const noonFar = world.veilAt(game.player.position);
+        dayCycle.setHour(22);
+        const nightFar = world.veilAt(game.player.position);
+        expect(nightFar > 1.7 && noonFar < 1.3, `far from any light the Veil is thick at night (${nightFar.toFixed(2)}) and thin at noon (${noonFar.toFixed(2)}) near ${world.safeZones.zones.map((zone) => `${zone.name}@${Math.round(Math.hypot(zone.position.x - game.player.position.x, zone.position.z - game.player.position.z))}`).join(',')}`);
+        expect(world.veilAt({ x: -58, y: 0, z: 54 }) === 1, 'on the porch it is as thin as it gets');
+        world.pockets.add('lantern', 1);
+        world.pockets.add('lamp-oil', 2);
+        hold('lantern');
+        await press('KeyF');
+        await sleep(400);
+        await quiet();
+        expect(lanterns.lanterns.length === 1 && have('lantern') === 0, 'F puts the lantern up');
+        const lantern = lanterns.lanterns[0];
+        expect(Math.abs(lanterns.hoursLeft(lantern) - 24) < 0.5, 'it comes with a day of oil');
+        await sleep(300);
+        expect(world.safeZones.zoneAt(lantern.position)?.name === 'Lantern', 'its light is a ring they keep out of');
+        expect(world.veilAt(lantern.position) < 1.05, `and the Veil is thin round it, ${world.veilAt(lantern.position).toFixed(2)}`);
+        await go(lantern.position.x + 0.8, lantern.position.z);
+        await press('KeyE');
+        expect(have('lamp-oil') === 1 && Math.abs(lanterns.hoursLeft(lantern) - 48) < 0.5, `a flask adds a day, ${lanterns.hoursLeft(lantern).toFixed(1)}h`);
+        // Out of oil it is only a post.
+        lantern.until = dayCycle.day * 24 + dayCycle.hour - 1;
+        await sleep(300);
+        expect(!world.safeZones.zoneAt(lantern.position) && world.veilAt(lantern.position) > 1.7, 'out of oil the ring and the clearing are gone');
+        // Saved and loaded, it stands where it stood. With no oil in the pocket, E takes it down.
+        const kept = lanterns.toJSON();
+        lanterns.fromJSON(kept);
+        expect(lanterns.lanterns.length === 1, 'a lantern comes back from a save');
+        world.pockets.remove('lamp-oil', 1);
+        await go(lanterns.lanterns[0].position.x + 0.8, lanterns.lanterns[0].position.z);
+        await press('KeyE');
+        expect(lanterns.lanterns.length === 0 && have('lantern') === 1, 'E without oil takes it down again');
+        world.pockets.remove('lantern', 1);
+        dayCycle.setHour(10);
+    }
+
     // 14f. The plates: the task top left, the day, hour and purse top right.
     {
         const quest = document.querySelector('.hv-quest').getBoundingClientRect();
