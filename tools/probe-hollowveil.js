@@ -264,7 +264,12 @@
     log.roaming = world.population.count;
 
     // 12. Save, spoil the state, load: everything comes back.
+    world.pockets.add('wheat', 2);
+    world.dropInWorld('wheat', 2);
+    world.pockets.remove('wheat', 2);
+    expect(world.drops.size === 1, 'a dropped stack lies on the ground');
     expect(world.saves.save(), 'the game saves');
+    for (const pickup of [...world.drops.keys()]) world.pickups.remove(pickup);
     const saved = { coins: world.coins.value(), wood: have('wood'), tier: world.cookpot.station.tier };
     world.coins.set(1);
     world.cookpot.station.tier = 1;
@@ -276,6 +281,9 @@
     expect(world.farm.activeFields === 2, 'bought land comes back from the save');
     expect(world.nodes.nodes[0].depleted, 'the felled tree is still felled after a load');
     expect(step() === 'sleep', 'the story resumes at the same step');
+    expect(world.drops.size === 1 && world.pickups.objects.length >= 1, 'what was dropped is still lying there after a load');
+    for (const pickup of [...world.drops.keys()]) world.pickups.remove(pickup);
+    world.drops.clear();
 
     // 13. Settings apply and stick.
     world.settings.set('vhs', false);
@@ -647,6 +655,27 @@
         crate.close();
         await sleep(200);
         log.crate = made;
+    }
+
+    // 14e2. The barn has an inside, and the stall buys out of the backpack.
+    {
+        await go(world.barn.floor.x - 12, world.barn.floor.z);
+        world.barn.enter();
+        await sleep(900);
+        await quiet();
+        expect(world.barn.inside && game.player.position.y > 60, 'the barn door leads to a room of its own');
+        expect(document.querySelector('.hv-place')?.textContent.includes('barn'), 'the plate names the barn');
+        const height = game.player.position.y;
+        await sleep(600);
+        expect(Math.abs(game.player.position.y - height) < 0.5, 'the floor holds');
+        world.barn.leave();
+        await sleep(900);
+        expect(!world.barn.inside && game.player.position.y < 20, 'and the door inside leads back to the yard');
+
+        world.bag.add('pumpkin', 2);
+        const before = world.coins.value();
+        const made = world.scales.send('pumpkin');
+        expect(made === world.shop.inventory.sellPrice('pumpkin') * 2 && world.coins.value() === before + made, `the stall pays its full price out of the backpack, ${made}`);
     }
 
     // 14f. The plates: the task top left, the day, hour and purse top right.
