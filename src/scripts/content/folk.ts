@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+import { modelled } from '../game/models';
+
 /**
  * The people of Hollowveil, built from primitives.
  *
@@ -409,8 +411,9 @@ export class FolkAnimator {
 }
 
 /** The things the farmer can be seen holding. Each hangs from the end of the arm. */
-export function createHeldTool(kind: 'axe' | 'watering-can' | 'candle'): THREE.Object3D {
+export function createHeldTool(kind: 'axe' | 'watering-can' | 'candle', game?: Game): THREE.Object3D {
     const group = new THREE.Group();
+    if (game) modelled(game, `tool-${kind}`, group);
     group.position.set(0, -0.5, 0.04);
     if (kind === 'axe') {
         const handle = part(new THREE.CylinderGeometry(0.018, 0.018, 0.6, 5), 0x5a4632, group, { x: 0, y: 0, z: 0.26 });

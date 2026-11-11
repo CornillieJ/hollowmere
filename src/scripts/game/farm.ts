@@ -79,6 +79,13 @@ export type FarmOptions = {
      * them, which is how a "buy more land" upgrade works.
      */
     extraFields?: FieldLayout[];
+    /**
+     * A model for a crop, in place of the plain cone. It stands on the soil at
+     * full size and is scaled as the crop grows. A child named `ripe` (the
+     * turnip, the ears, the pumpkin) is shown only once the crop can be picked.
+     * Return `undefined` to keep the cone.
+     */
+    createPlant?: (crop: CropDefinition) => THREE.Object3D | undefined;
     /** No toasts for planting, watering, ripening and picking: the game shows those itself. */
     quiet?: boolean;
     /** Ground colours: before tilling, tilled and dry, and watered. */
@@ -105,11 +112,14 @@ export class Farm {
     private readonly listeners = new Set<(plot: PlotState) => void>();
     private fieldsInUse = 1;
     private readonly quiet: boolean;
+    private readonly createPlant: FarmOptions['createPlant'];
+    private readonly hiddenMaterial = new THREE.MeshBasicMaterial({ visible: false });
 
     constructor(game: Game, options: FarmOptions = {}) {
         this.game = game;
         this.plotSize = options.plotSize ?? 1;
         this.quiet = options.quiet ?? false;
+        this.createPlant = options.createPlant;
         const columns = options.columns ?? 5;
         const rows = options.rows ?? 4;
         const origin = options.origin ?? { x: -((columns - 1) * this.plotSize) / 2, y: 0.05, z: -((rows - 1) * this.plotSize) / 2 };
@@ -230,6 +240,7 @@ export class Farm {
         plot.plant.position.y = plot.position.y;
         plot.plant.scale.set(0.25, 0.25, 0.25);
         plot.plant.material = this.plantMaterial(crop.colors?.[0] ?? 0x5da35d);
+        this.dress(plot);
         plot.soil.material = this.tilledMaterial;
         this.say(`Planted ${crop.name ?? cropId}`);
         this.notify(plot);
@@ -262,6 +273,7 @@ export class Farm {
         plot.ripe = false;
         plot.watered = false;
         plot.plant.visible = false;
+        plot.plant.children[0]?.removeFromParent();
         plot.soil.material = this.tilledMaterial;
 
         this.say(`Harvested ${amount} ${itemId}`, { color: '#b6f5b6' });
@@ -295,6 +307,7 @@ export class Farm {
                 plot.elapsed = 0;
                 plot.ripe = false;
                 plot.plant.visible = false;
+                plot.plant.children[0]?.removeFromParent();
                 plot.soil.material = this.tilledMaterial;
                 plot.watered = false;
                 continue;
@@ -311,6 +324,7 @@ export class Farm {
             plot.plant.position.y = plot.position.y + (crop.height ?? 0.9) * progress * 0.5;
             const ramp = crop.colors;
             if (ramp && ramp.length > 0) plot.plant.material = this.plantMaterial(ramp[Math.min(plot.stage, ramp.length - 1)] ?? 0x5da35d);
+            this.dress(plot);
             plot.soil.material = plot.watered ? this.soilMaterial : this.tilledMaterial;
         }
     }
@@ -371,6 +385,8 @@ export class Farm {
             plot.plant.position.y = plot.position.y + (crop.height ?? 0.9) * progress * 0.5;
             const ramp = crop.colors;
             if (ramp && ramp.length > 0) plot.plant.material = this.plantMaterial(ramp[Math.min(plot.stage, ramp.length - 1)] ?? 0x5da35d);
+            if (plot.stage >= stages - 1) plot.ripe = true;
+            this.dress(plot);
             if (plot.stage >= stages - 1) {
                 plot.ripe = true;
                 this.say(`${crop.name ?? crop.id} is ready`, { color: '#ffe08a' });
@@ -386,6 +402,29 @@ export class Farm {
         const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(colorValue), roughness: 0.8 });
         this.plantMaterials.set(key, material);
         return material;
+    }
+
+    /** Put the crop's model on the plot in place of the cone, and show its ripe part when it is time. */
+    private dress(plot: PlotState): void {
+        if (!this.createPlant) return;
+        const holder = plot.plant;
+        const current = holder.children[0];
+        const wanted = plot.crop?.id;
+        if (current && current.userData.cropId !== wanted) current.removeFromParent();
+        if (!plot.crop) return;
+        let visual = holder.children[0];
+        if (!visual) {
+            visual = this.createPlant(plot.crop);
+            if (!visual) return;
+            visual.userData.cropId = plot.crop.id;
+            holder.add(visual);
+        }
+        // The cone stays as the thing that is scaled and placed; it is just no longer drawn.
+        holder.material = this.hiddenMaterial;
+        holder.position.y = plot.position.y + 0.06;
+        visual.userData.ripe = plot.ripe;
+        const ripe = visual.getObjectByName('ripe');
+        if (ripe) ripe.visible = plot.ripe;
     }
 
     /** A toast, unless the game asked for quiet because it gives its own feedback. */

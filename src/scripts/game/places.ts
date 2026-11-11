@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import type { Terrain } from '../kit';
 import { POOL_LEVEL, PLACES } from '../content/world';
 import { MODELS, haystack, solid, type ModelEntry } from './world';
+import { modelled } from './models';
 
 /**
  * The places off the road: the pool, the lookout, the standing stones, the
@@ -24,10 +25,14 @@ type Builder = {
     random: () => number;
 };
 
+/** The game hub, for the builders below that only get handed the ground. */
+let hub: Game;
+
 const STONE = new THREE.MeshStandardMaterial({ color: 0x4e4b47, roughness: 1, flatShading: true });
 const OLD_WOOD = new THREE.MeshStandardMaterial({ color: 0x3e342a, roughness: 1, flatShading: true });
 
 export function buildPlaces(game: Game, builder: Builder): PlaceSpots {
+    hub = game;
     const mushrooms: THREE.Object3D[] = [];
     buildMere(builder, mushrooms);
     buildLookout(game, builder);
@@ -39,7 +44,7 @@ export function buildPlaces(game: Game, builder: Builder): PlaceSpots {
 
 /** A cluster of pale caps. Its origin is on the ground. */
 function mushroomPatch(random: () => number): THREE.Object3D {
-    const group = new THREE.Group();
+    const group = modelled(hub, 'mushrooms', new THREE.Group());
     const cap = new THREE.MeshStandardMaterial({ color: 0xcfc6b0, emissive: 0x6a7a66, emissiveIntensity: 0.5, roughness: 0.9, flatShading: true });
     const stalk = new THREE.MeshStandardMaterial({ color: 0x9a9484, roughness: 1 });
     for (let index = 0; index < 4; index += 1) {
@@ -137,10 +142,15 @@ function buildStones(game: Game, { root, terrain, solids, random }: Builder, mus
     for (let index = 0; index < 9; index += 1) {
         const angle = (index / 9) * Math.PI * 2;
         const height = 2.2 + random() * 1.6;
-        const stone = new THREE.Mesh(new THREE.BoxGeometry(0.9 + random() * 0.4, height, 0.5), STONE);
-        terrain.place(stone, x + Math.sin(angle) * radius, z + Math.cos(angle) * radius, height / 2 - 0.2);
+        // A holder at the foot of the stone; the model is 3 m tall and is scaled to this one's height.
+        const stone = modelled(hub, 'stone', new THREE.Group());
+        const block = new THREE.Mesh(new THREE.BoxGeometry(1, 3, 0.5), STONE);
+        block.position.y = 1.5;
+        block.castShadow = true;
+        stone.add(block);
+        stone.scale.setScalar(height / 3);
+        terrain.place(stone, x + Math.sin(angle) * radius, z + Math.cos(angle) * radius, -0.2);
         stone.rotation.set((random() - 0.5) * 0.25, angle, (random() - 0.5) * 0.25);
-        stone.castShadow = true;
         root.add(stone);
         solid(game, stone, { solids }, 0.9);
     }
@@ -185,7 +195,7 @@ function buildRuin(game: Game, { root, terrain, solids, add, random }: Builder):
     add(MODELS.cart, () => haystack(), { x: x - 6, z: z + 2, yaw: 2.2 });
 
     // A scarecrow that faces the house instead of the field.
-    const scarecrow = new THREE.Group();
+    const scarecrow = modelled(hub, 'scarecrow', new THREE.Group());
     const pole = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.2, 0.1), OLD_WOOD);
     pole.position.y = 1.1;
     const arms = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 0.1), OLD_WOOD);
@@ -199,8 +209,11 @@ function buildRuin(game: Game, { root, terrain, solids, add, random }: Builder):
     scarecrow.rotation.y = Math.atan2(x - scarecrow.position.x, z - scarecrow.position.z);
     root.add(scarecrow);
 
-    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.6), OLD_WOOD);
-    terrain.place(crate, x - 1, z - 1.6, 0.3);
+    const crate = modelled(hub, 'crate', new THREE.Group());
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.7, 0.8), OLD_WOOD);
+    box.position.y = 0.35;
+    crate.add(box);
+    terrain.place(crate, x - 1, z - 1.6);
     crate.rotation.y = 0.4;
     root.add(crate);
     return crate;

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { fitModel } from '../helpers/transform';
 import { Random } from '../helpers/random';
 import { buildPlaces, type PlaceSpots } from './places';
+import { modelled } from './models';
 import { addTerrain, type Terrain } from '../kit';
 import { CHAPEL, CLEARINGS, FARM, FLATS, POOL_LEVEL, PLACES, VILLAGE, WORLD_HALF, distanceToPath, distanceToRoad, naturalHeight } from '../content/world';
 import { createNoise2D } from '../helpers/noise';
@@ -120,8 +121,8 @@ export async function buildWorld(game: Game): Promise<WorldRefs> {
     add(MODELS.hay, () => haystack(), { x: -33, z: 44 }, false);
     add(MODELS.cart, () => haystack(), { x: -44, z: 58, yaw: 0.6 }, true);
     penFence(game, root);
-    const hearth = place(buildHearth(), FARM.hearth, root);
-    const workbench = place(buildWorkbench(), { ...FARM.workbench, yaw: Math.PI / 2 }, root);
+    const hearth = place(modelled(game, 'hearth', buildHearth()), FARM.hearth, root);
+    const workbench = place(modelled(game, 'workbench', buildWorkbench()), { ...FARM.workbench, yaw: Math.PI / 2 }, root);
     solid(game, workbench, { solids });
     const fire = new THREE.PointLight(0xff8a3a, 6, 9, 1.6);
     fire.position.set(FARM.hearth.x, 0.9, FARM.hearth.z);
@@ -150,9 +151,9 @@ export async function buildWorld(game: Game): Promise<WorldRefs> {
         lamp(spot);
     }
 
-    const chapelHut = place(chapel(), CHAPEL, root);
+    const chapelHut = place(modelled(game, 'chapel', chapel()), CHAPEL, root);
     solid(game, chapelHut, { solids }, 0.6);
-    place(shrine(), VILLAGE.center, root);
+    place(modelled(game, 'shrine', shrine()), VILLAGE.center, root);
 
     const trees = buildWoods(game, root);
     const spots = buildPlaces(game, { root, terrain, solids, add, random });

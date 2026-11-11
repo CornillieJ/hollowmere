@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import { SYSTEM_ORDER } from '../core/systems';
 import { createBillboardLabel, faceCamera } from '../helpers/text';
 import { DialogueBox } from '../ui/dialogue-box';
-import { createHollow, FolkAnimator } from '../content/folk';
+import { createHollow, dressFolk, FolkAnimator } from '../content/folk';
+import { modelled } from './models';
 import { LETTERS, PELL_SPEAKS } from '../content/letters';
 import type { NarrationHandle } from '../kit';
 
@@ -74,6 +75,7 @@ export function setupLetters(game: Game, options: LettersOptions): LettersHandle
     tin.position.y = 1.2;
     const flag = createBillboardLabel('✉', { x: 0, y: 1.8, z: 0 }, { fontSize: 0.4, color: 0xffe2a0 });
     mailbox.add(post, tin, flag);
+    modelled(game, 'mailbox', mailbox);
     mailbox.position.copy(options.mailbox);
     game.scene.add(mailbox);
 
@@ -107,6 +109,7 @@ export function setupLetters(game: Game, options: LettersOptions): LettersHandle
     rig.root.rotation.y = options.hillYaw;
     rig.root.name = 'pell';
     game.scene.add(rig.root);
+    void dressFolk(game, rig, 'pell');
     const animator = new FolkAnimator(rig, { stutter: 3, armSwing: 0.1 });
     const head = rig.head;
 

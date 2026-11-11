@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import type { Terrain } from '../kit';
 import { VILLAGE, homeOf } from '../content/world';
 import { boxHouse, haystack, railFence, solid } from './world';
+import { modelled } from './models';
 
 /**
  * The working clutter of a farm: a shed, a woodpile, bales, a trough, a
@@ -28,13 +29,14 @@ export function buildFarmyard(game: Game, root: THREE.Object3D, terrain: Terrain
     };
 
     // A tool shed north of the fields, and an outhouse nobody has opened in a while.
-    put(boxHouse(0x4a3e34, 0x2a2420, 3.2), -39, 27, 0.2);
-    const outhouse = boxHouse(0x54463a, 0x2a2420, 1.5);
-    outhouse.scale.set(1, 0.8, 1);
+    put(modelled(game, 'shed', boxHouse(0x4a3e34, 0x2a2420, 3.2)), -39, 27, 0.2);
+    // The outhouse is the same shed at half the size.
+    const outhouse = modelled(game, 'shed', boxHouse(0x54463a, 0x2a2420, 3));
+    outhouse.scale.set(0.5, 0.8, 0.55);
     put(outhouse, -67, 62.5, 0.4);
 
-    put(woodpile(), -63.5, 43.5, 0.3);
-    put(woodpile(), -41.5, 26.2, 1.7);
+    put(modelled(game, 'woodpile', woodpile()), -63.5, 43.5, 0.3);
+    put(modelled(game, 'woodpile', woodpile()), -41.5, 26.2, 1.7);
     for (const [x, z, yaw] of [
         [-33, 46.2, 0.2],
         [-31.4, 47.6, 1.1],
@@ -43,16 +45,16 @@ export function buildFarmyard(game: Game, root: THREE.Object3D, terrain: Terrain
     ] as Array<[number, number, number]>) {
         put(bale(), x, z, yaw);
     }
-    put(trough(), -43.6, 50, Math.PI / 2);
+    put(modelled(game, 'trough', trough()), -43.6, 50, Math.PI / 2);
     for (const [x, z] of [
         [-45, 60.2],
         [-46.1, 61],
         [-45.4, 61.4],
         [-36.5, 33],
     ] as Array<[number, number]>) {
-        put(crate(), x, z, x * 0.7);
+        put(modelled(game, 'crate', crate()), x, z, x * 0.7);
     }
-    put(scarecrow(), -48, 40.2, Math.PI, false);
+    put(modelled(game, 'scarecrow', scarecrow()), -48, 40.2, Math.PI, false);
     washingLine(context, { x: -57, z: 62 }, { x: -52.5, z: 63.2 });
 
     // A fence along the north of the fields, with a gap a cart, or anything else, can come through.

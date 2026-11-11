@@ -44,8 +44,9 @@ import { FARM, HAUNTS, POOL_LEVEL, PELL_SPOT, PLACES, SAFE_ZONES, VILLAGE, WORLD
 import { buildWorld, stump } from './world';
 import { setupMood } from './mood';
 import { setupFarming, shipEverything } from './farming';
-import { animateHollow, forgetHollow, hollowTarget, isNight, pickKind, setNightTemper, spawnHollow, updateWatchers, type HollowKind } from './monsters';
+import { useHollowModels, animateHollow, forgetHollow, hollowTarget, isNight, pickKind, setNightTemper, spawnHollow, updateWatchers, type HollowKind } from './monsters';
 import { buildFarmyard, buildInfirmary } from './farmyard';
+import { modelOnly, modelled } from './models';
 import { OMEN_THOUGHTS, setupOmens } from './omens';
 import { setupDread } from './dread';
 import { INTRO, setupStory } from './story';
@@ -97,7 +98,7 @@ export async function boot(): Promise<void> {
     void dressFolk(game, cat, 'farmer');
     const body = new FolkAnimator(cat);
     // What is in the hand shows in the hand.
-    const heldTools = new Map((['axe', 'watering-can', 'candle'] as const).map((kind) => [kind as string, createHeldTool(kind)]));
+    const heldTools = new Map((['axe', 'watering-can', 'candle'] as const).map((kind) => [kind as string, createHeldTool(kind, game)]));
     for (const tool of heldTools.values()) {
         tool.visible = false;
         body.hand?.add(tool);
@@ -118,6 +119,7 @@ export async function boot(): Promise<void> {
     // The ground arrived after the player did.
     world.player.body.teleport(at(FARM.door, 0.2));
 
+    useHollowModels(game);
     buildFarmyard(game, game.scene, terrain, refs.solids);
     buildInfirmary(game.scene, terrain);
     const omens = setupOmens(game, terrain);
@@ -231,6 +233,7 @@ export async function boot(): Promise<void> {
         soil: { dry: 0x3a2e24, wet: 0x1e1612 },
         // Planting, watering and picking each answer for themselves; no toasts on top.
         quiet: true,
+        createPlant: (crop) => modelOnly(game, `crop-${crop.id}`),
     });
     const barriers = addBarriers(game, { enemies: world.enemies, lifetime: 150, toughness: 7, onBroken: () => game.toasts.push('A fence gave way', { color: '#c8a0a0' }) });
     const farming = setupFarming(game, { farm, pockets, hotbar, barriers, give, nodes: () => nodes,
@@ -396,13 +399,14 @@ export async function boot(): Promise<void> {
     const bench = addCraftingStation(game, { id: 'bench', title: 'Workbench', object: refs.spots.workbench, recipes: WOODWORK, sources: carried, give: stow, prompt: 'Use the workbench', verb: 'Build' });
 
     // The fire and the pot: it flickers always, and steams while something is cooking.
-    const flame = refs.spots.hearth.getObjectByName('flame');
+    // Looked up each frame: the fire is a box until its model arrives.
+    const fireOf = (): THREE.Object3D | undefined => refs.spots.hearth.getObjectByName('glow-flame') ?? refs.spots.hearth.getObjectByName('flame');
     game.systems.add({
         name: 'hearth',
         order: SYSTEM_ORDER.EFFECTS,
         update: () => {
             const flicker = 0.85 + Math.sin(game.time.elapsed * 13) * 0.08 + Math.sin(game.time.elapsed * 31) * 0.07;
-            flame?.scale.set(flicker, flicker * (cookpot.station.busy ? 1.5 : 1), flicker);
+            fireOf()?.scale.set(flicker, flicker * (cookpot.station.busy ? 1.5 : 1), flicker);
         },
     });
 
@@ -501,10 +505,10 @@ export async function boot(): Promise<void> {
         juice.chime('fanfare');
     });
     const shop = addInventory(game, { items: ITEMS, mode: 'shop', title: "Barnaby's store", catalogue: stock, primary: false, customer: pockets, currency: { resource: coins, label: 'purse', format: coin }, filters: false });
-    const counter = storeFurniture(false);
+    const counter = modelled(game, 'stall', storeFurniture(false));
     counter.position.copy(at({ x: VILLAGE.store.x + 3, z: VILLAGE.store.z + 6 }));
     counter.rotation.y = VILLAGE.store.yaw;
-    const lectern = storeFurniture(true);
+    const lectern = modelled(game, 'lectern', storeFurniture(true));
     lectern.position.copy(at({ x: VILLAGE.store.x + 5.6, z: VILLAGE.store.z + 4.8 }));
     lectern.rotation.y = VILLAGE.store.yaw;
     game.scene.add(counter, lectern);
@@ -600,6 +604,7 @@ export async function boot(): Promise<void> {
     const chestLock = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, 0.06), new THREE.MeshStandardMaterial({ color: 0xb8a060, roughness: 0.5, metalness: 0.6 }));
     chestLock.position.set(0, 0.6, 0.42);
     chestMesh.add(chestBody, chestLid, chestLock);
+    modelled(game, 'chest', chestMesh);
     chestMesh.position.copy(at({ x: (barnWall?.min.x ?? FARM.barn.x - 5) - 0.6, z: FARM.barn.z + 3 }));
     chestMesh.rotation.y = -Math.PI / 2;
     game.scene.add(chestMesh);

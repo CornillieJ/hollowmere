@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 import { randomFloat } from '../helpers/random';
-import { createHollow, FolkAnimator } from '../content/folk';
+import { createHollow, dressFolk, FolkAnimator } from '../content/folk';
 import type { Enemy, EnemyManager } from '../game/enemies';
 import type { DayCycle } from '../game/daycycle';
 import type { PopulationPost } from '../kit';
@@ -28,6 +28,12 @@ const watchers = new Set<Enemy>();
 /** What each one was made as, so its temper can follow the hour. */
 const made = new Map<Enemy, { kind: HollowKind; posted: boolean; hunting: boolean; daySpeed: number }>();
 let seed = 0;
+/** Set once at boot: with it, each of them is dressed in its model as it appears. */
+let hub: Game | undefined;
+
+export function useHollowModels(game: Game): void {
+    hub = game;
+}
 
 /** The `animate` hook for the enemy manager: walk each Hollow with its own rig. */
 export function animateHollow(enemy: Enemy, speed: number, step: number): void {
@@ -89,6 +95,8 @@ export function spawnHollow(enemies: EnemyManager, position: THREE.Vector3, opti
             if (mesh.isMesh && (mesh.material as THREE.MeshStandardMaterial).color.getHex() !== 0x050404) mesh.material = pale;
         });
     }
+
+    if (hub) void dressFolk(hub, rig, `hollow-${kind}`);
 
     const speed = kind === 'crawler' ? randomFloat(1.9, 2.5) : kind === 'watcher' ? 3.1 : randomFloat(1.1, 1.6);
     const enemy = enemies.spawn({

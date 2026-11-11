@@ -88,8 +88,29 @@ template. Crossing the edge is hidden behind a full-screen Veil. Item badges.
 The farmer and the 5 villagers are Blender models (`npm run models`), hung on
 the existing rig by `dressFolk`; the primitives remain as the fallback.
 
-Still open: the GitHub and ark repos are still named hollowmere (creating or
-renaming a repo needs Jeffrey).
+GitHub repo: CornillieJ/hollowveil-farm, Pages at
+https://cornilliej.github.io/hollowveil-farm/. Ark: jeffrey/hollowveil-farm.
+
+## Done in round 8 (November 2026): more models
+
+`tools/blender/lowpoly.py` holds the shared atlas, part and export code.
+`build_folk.py` also builds the 3 Hollow and Pell; `build_props.py` builds 23
+props into `static/models/props/` (hearth, workbench, chest, mailbox,
+postcrate, stall, lectern, chapel, shrine, scarecrow, crate, woodpile, trough,
+stone, mushrooms, shed, 4 crops, 3 held tools). `game/models.ts` `modelled()`
+swaps a primitive holder for its model once loaded; the primitives stay as the
+fallback. Crops go through the template's `Farm.createPlant`.
+
+Not modelled, still primitive: the bicycle, village wall, ruin walls, jetty,
+bench, hay bales, infirmary sign and cot, fences put down by the player, omens,
+and the shipping bin (the `postcrate` model exists but is not wired in: the
+"ship items" rework has not been started).
+
+Queue, not started: ship items rework, HUD plates (quest top left, day and
+time top right), mobile layout pass.
+
+Trap: Vite reloads the page when files under `static/` change, so do not run
+the Blender scripts while a probe is running.
 
 ## Not verified by a person yet
 

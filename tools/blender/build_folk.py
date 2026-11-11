@@ -14,13 +14,12 @@ editing its entry in FOLK and running the script again.
 import math
 import os
 import random
+import sys
 
-import bmesh
-import bpy
-from mathutils import Matrix, Vector
+from mathutils import Vector
 
-OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "static", "models", "folk")
-SIZE = 128
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lowpoly import Atlas, Part, export_glb, material_for, mix, new_scene, rgb, shade  # noqa: E402
 
 # Atlas regions in pixels: (x0, y0, x1, y1), y down.
 FUR = (0, 0, 64, 64)
@@ -51,69 +50,9 @@ FOLK = {
 }
 
 
-def rgb(value):
-    return ((value >> 16) & 255, (value >> 8) & 255, value & 255)
-
-
-def shade(color, amount):
-    return tuple(max(0, min(255, int(c * amount))) for c in color)
-
-
-def mix(a, b, t):
-    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
-
-
 # ---------------------------------------------------------------------------
 # Texture
 # ---------------------------------------------------------------------------
-
-class Atlas:
-    """A 128 px image painted in pixel coordinates, y down."""
-
-    def __init__(self, seed):
-        self.pixels = [[(0, 0, 0)] * SIZE for _ in range(SIZE)]
-        self.random = random.Random(seed)
-
-    def put(self, x, y, color):
-        if 0 <= x < SIZE and 0 <= y < SIZE:
-            self.pixels[int(y)][int(x)] = color
-
-    def fill(self, region, color, speckle=0.0):
-        x0, y0, x1, y1 = region
-        for y in range(y0, y1):
-            for x in range(x0, x1):
-                roll = self.random.random()
-                tone = 1.0
-                if roll < speckle:
-                    tone = 0.86
-                elif roll > 1 - speckle * 0.6:
-                    tone = 1.1
-                self.put(x, y, shade(color, tone))
-
-    def oval(self, cx, cy, rx, ry, color, region=None):
-        for y in range(int(cy - ry), int(cy + ry) + 1):
-            for x in range(int(cx - rx), int(cx + rx) + 1):
-                if ((x - cx) / max(rx, 0.5)) ** 2 + ((y - cy) / max(ry, 0.5)) ** 2 <= 1.0:
-                    if region is None or (region[0] <= x < region[2] and region[1] <= y < region[3]):
-                        self.put(x, y, color)
-
-    def line(self, x0, y0, x1, y1, color):
-        steps = int(max(abs(x1 - x0), abs(y1 - y0))) + 1
-        for step in range(steps + 1):
-            t = step / steps
-            self.put(round(x0 + (x1 - x0) * t), round(y0 + (y1 - y0) * t), color)
-
-    def image(self, name):
-        image = bpy.data.images.new(name, SIZE, SIZE, alpha=False)
-        flat = []
-        # Blender stores rows bottom up.
-        for row in reversed(self.pixels):
-            for r, g, b in row:
-                flat.extend((r / 255, g / 255, b / 255, 1.0))
-        image.pixels = flat
-        image.pack()
-        return image
-
 
 def paint(name, spec):
     atlas = Atlas(sum(ord(c) for c in name))
@@ -289,66 +228,6 @@ def paint_face(atlas, spec, fur, accent, ink):
 # Geometry
 # ---------------------------------------------------------------------------
 
-class Part:
-    """One loose piece of a character, built in world space and exported with its origin at a joint."""
-
-    def __init__(self, name, joint):
-        self.name = name
-        self.joint = Vector(joint)
-        self.bm = bmesh.new()
-        self.uv = self.bm.loops.layers.uv.new("UVMap")
-
-    def _finish(self, verts, region, front=None):
-        faces = {face for vert in verts for face in vert.link_faces}
-        xs = [v.co.x for v in verts]
-        zs = [v.co.z for v in verts]
-        x0, x1, z0, z1 = min(xs), max(xs), min(zs), max(zs)
-        for face in faces:
-            face.normal_update()
-            target = front if front is not None and face.normal.y < -0.3 else region
-            px0, py0, px1, py1 = target
-            for loop in face.loops:
-                s = (loop.vert.co.x - x0) / max(x1 - x0, 1e-6)
-                t = (loop.vert.co.z - z0) / max(z1 - z0, 1e-6)
-                # Stay a pixel inside the region so neighbours never bleed in.
-                s = 0.04 + s * 0.92
-                t = 0.04 + t * 0.92
-                loop[self.uv].uv = ((px0 + s * (px1 - px0)) / SIZE, 1 - (py0 + (1 - t) * (py1 - py0)) / SIZE)
-
-    def ball(self, at, radii, region, front=None, detail=2, rotate=None):
-        made = bmesh.ops.create_icosphere(self.bm, subdivisions=detail, radius=1.0)["verts"]
-        self._place(made, at, radii, rotate)
-        self._finish(made, region, front)
-
-    def tube(self, at, radius_low, radius_high, height, region, sides=8, rotate=None, front=None):
-        made = bmesh.ops.create_cone(self.bm, cap_ends=True, segments=sides, radius1=radius_low, radius2=radius_high, depth=height)["verts"]
-        self._place(made, at, (1, 1, 1), rotate)
-        self._finish(made, region, front)
-
-    def box(self, at, size, region, rotate=None):
-        made = bmesh.ops.create_cube(self.bm, size=1.0)["verts"]
-        self._place(made, at, size, rotate)
-        self._finish(made, region)
-
-    def _place(self, verts, at, scale, rotate):
-        matrix = Matrix.Translation(Vector(at))
-        if rotate:
-            matrix = matrix @ Matrix.Rotation(rotate[0], 4, "X") @ Matrix.Rotation(rotate[1], 4, "Y") @ Matrix.Rotation(rotate[2], 4, "Z")
-        matrix = matrix @ Matrix.Diagonal((scale[0], scale[1], scale[2], 1.0))
-        bmesh.ops.transform(self.bm, matrix=matrix, verts=verts)
-
-    def build(self, material, collection):
-        bmesh.ops.translate(self.bm, vec=-self.joint, verts=self.bm.verts)
-        mesh = bpy.data.meshes.new(self.name)
-        self.bm.to_mesh(mesh)
-        self.bm.free()
-        mesh.materials.append(material)
-        obj = bpy.data.objects.new(self.name, mesh)
-        obj.location = self.joint
-        collection.objects.link(obj)
-        return obj
-
-
 def build_character(name, spec):
     """Facing -Y, feet on the ground, about 1.55 m to the ear tips before the game scales it."""
     species = spec["species"]
@@ -481,61 +360,137 @@ def build_tail(species):
 
 
 # ---------------------------------------------------------------------------
+# The Hollow
+# ---------------------------------------------------------------------------
+
+HOLLOW = {
+    # The walker: what most of them are. Grey, hunched, and wrapped in one of Mother Hollis's shawls.
+    "hollow-walker": dict(skin=0x8D8C86, wrap=0x5A4A52, ears="droop", shawl=True),
+    # The crawler: down on all fours, jaw hanging, in what is left of an apron.
+    "hollow-crawler": dict(skin=0x7A6F66, wrap=0xA89E88, ears="none", jaw=True, rags=True),
+    # The watcher: bone white and too tall, with two pinpricks of light a long way inside.
+    "hollow-watcher": dict(skin=0xD6D2C8, wrap=0x2A2624, ears="twigs", pupils=True, collar=True),
+    # Pell: the farmer before you. A walker, better dressed, and still wearing his hat.
+    "pell": dict(skin=0x9A968C, wrap=0x5A4A52, ears="droop", shawl=True, hat=True, pupils=True),
+}
+
+SKIN, WRAP, PIT, NAIL, HOLLOW_FACE = (0, 0, 64, 64), (64, 0, 128, 64), (0, 64, 32, 96), (32, 64, 64, 96), (64, 64, 128, 128)
+
+
+def paint_hollow(name, spec):
+    atlas = Atlas(sum(ord(c) for c in name))
+    skin, wrap = rgb(spec["skin"]), rgb(spec["wrap"])
+    atlas.fill(SKIN, skin, 0.2)
+    # Ribs and old bruises: thin dark bars across the skin.
+    for y in range(8, 60, 7):
+        atlas.line(14, y, 50, y, shade(skin, 0.74))
+    for _ in range(5):
+        atlas.oval(atlas.random.randrange(4, 60), atlas.random.randrange(4, 60), 3, 2, mix(skin, (70, 50, 70), 0.35), SKIN)
+    # The wrap is knitted: rows of stitches, a few of them dropped.
+    atlas.fill(WRAP, wrap, 0.14)
+    for y in range(2, 64, 5):
+        atlas.line(64, y, 127, y, shade(wrap, 0.72))
+        for x in range(66 + (y % 2) * 3, 127, 6):
+            atlas.put(x, y + 2, shade(wrap, 1.3))
+    for _ in range(4):
+        atlas.oval(atlas.random.randrange(70, 122), atlas.random.randrange(6, 58), 2.5, 3.5, (12, 10, 10), WRAP)
+    atlas.fill(PIT, (5, 4, 4), 0.0)
+    atlas.fill(NAIL, shade(skin, 0.5), 0.2)
+
+    # The face: skin, and where a face should be, a hole.
+    atlas.fill(HOLLOW_FACE, skin, 0.16)
+    cx, cy = 96, 94
+    atlas.oval(cx, cy, 17, 21, shade(skin, 0.62), HOLLOW_FACE)
+    atlas.oval(cx, cy, 14.5, 18.5, (5, 4, 4), HOLLOW_FACE)
+    # The rim has started to fray.
+    for step in range(14):
+        angle = step / 14 * math.tau
+        atlas.line(cx + math.cos(angle) * 14, cy + math.sin(angle) * 18, cx + math.cos(angle) * 18.5, cy + math.sin(angle) * 23, (5, 4, 4))
+    if spec.get("pupils"):
+        for ex in (cx - 5, cx + 5):
+            atlas.put(ex, cy - 3, (236, 230, 214))
+            atlas.put(ex, cy - 2, (160, 156, 146))
+    # Somebody sewed a smile under it. The stitches are neat. They did not hold.
+    for stitch in range(-9, 10, 3):
+        atlas.line(cx + stitch, cy + 25 + abs(stitch) * -0.25, cx + stitch + 1, cy + 28 + abs(stitch) * -0.25, (40, 22, 18))
+    return atlas.image(f"{name}-atlas")
+
+
+def build_hollow(name, spec):
+    """Tall, thin and hunched, with arms that hang to the knee. The game's rig does the hunch."""
+    hip, shoulder = 0.95, 1.6
+    parts = []
+    for side, label in ((-1, "leg-left"), (1, "leg-right")):
+        leg = Part(label, (side * 0.1, 0, hip))
+        leg.tube((side * 0.1, 0, 0.52), 0.045, 0.06, 0.86, SKIN, sides=5)
+        leg.ball((side * 0.1, 0, 0.5), (0.065, 0.065, 0.06), SKIN, detail=1)
+        leg.ball((side * 0.1, -0.05, 0.045), (0.07, 0.14, 0.045), SKIN, detail=1)
+        parts.append(leg)
+
+    torso = Part("torso", (0, 0, hip))
+    torso.tube((0, 0, 1.3), 0.1, 0.17, 0.72, SKIN, sides=7)
+    torso.ball((0, 0, 0.98), (0.14, 0.11, 0.1), SKIN, detail=1)
+    torso.tube((0, 0, 1.72), 0.05, 0.045, 0.16, SKIN, sides=5)
+    if spec.get("shawl"):
+        torso.tube((0, 0, 1.5), 0.33, 0.13, 0.36, WRAP, sides=9)
+        torso.box((0.1, -0.2, 1.3), (0.1, 0.03, 0.3), WRAP, rotate=(0.1, 0, 0.1))
+    if spec.get("rags"):
+        torso.tube((0, 0, 1.08), 0.2, 0.13, 0.3, WRAP, sides=7)
+        torso.box((0, -0.13, 1.36), (0.2, 0.02, 0.34), WRAP)
+    if spec.get("collar"):
+        torso.tube((0, 0, 1.64), 0.2, 0.09, 0.1, WRAP, sides=8)
+    parts.append(torso)
+
+    for side, label in ((-1, "arm-left"), (1, "arm-right")):
+        arm = Part(label, (side * 0.21, 0, shoulder))
+        arm.tube((side * 0.21, 0, 1.1), 0.028, 0.04, 1.0, SKIN, sides=5)
+        arm.ball((side * 0.21, 0, 1.12), (0.045, 0.045, 0.045), SKIN, detail=1)
+        arm.ball((side * 0.21, 0, 0.58), (0.05, 0.04, 0.07), SKIN, detail=1)
+        # Fingers a joint too long.
+        for finger in (-1, 0, 1):
+            arm.box((side * 0.21 + finger * 0.03, -0.01, 0.46), (0.014, 0.014, 0.17), NAIL, rotate=(0.1, finger * 0.12, 0))
+        parts.append(arm)
+
+    head_joint = (0, -0.03, 1.78)
+    head = Part("head", head_joint)
+    c = Vector(head_joint) + Vector((0, 0, 0.2))
+    head.ball(c, (0.2, 0.19, 0.24), SKIN, front=HOLLOW_FACE, detail=2)
+    ears = spec.get("ears")
+    if ears == "droop":
+        # They were somebody's neighbours. The ears are still there; one is torn.
+        head.tube((c.x - 0.2, c.y, c.z + 0.02), 0.055, 0.015, 0.3, SKIN, sides=4, rotate=(0, 2.6, 0))
+        head.tube((c.x + 0.19, c.y, c.z + 0.08), 0.055, 0.03, 0.15, SKIN, sides=4, rotate=(0, -2.5, 0))
+    elif ears == "twigs":
+        for side in (-1, 1):
+            head.tube((c.x + side * 0.1, c.y, c.z + 0.34), 0.018, 0.006, 0.34, NAIL, sides=4, rotate=(0, side * 0.35, 0))
+            head.tube((c.x + side * 0.2, c.y, c.z + 0.4), 0.012, 0.004, 0.2, NAIL, sides=4, rotate=(0, side * 1.2, 0))
+    if spec.get("jaw"):
+        head.box((c.x, c.y - 0.1, c.z - 0.27), (0.17, 0.14, 0.06), SKIN, rotate=(-0.5, 0, 0.1))
+    if spec.get("hat"):
+        head.tube((c.x, c.y, c.z + 0.2), 0.34, 0.34, 0.025, WRAP, sides=10)
+        head.tube((c.x, c.y, c.z + 0.31), 0.18, 0.15, 0.2, WRAP, sides=8)
+    parts.append(head)
+    return parts
+
+
+# ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------
 
-def material_for(name, image):
-    material = bpy.data.materials.new(f"{name}-material")
-    material.use_nodes = True
-    nodes = material.node_tree.nodes
-    shader = nodes["Principled BSDF"]
-    shader.inputs["Roughness"].default_value = 1.0
-    shader.inputs["Metallic"].default_value = 0.0
-    texture = nodes.new("ShaderNodeTexImage")
-    texture.image = image
-    # Hard pixels: this is the PS1 look, and at 128 px any filtering turns faces to mush.
-    texture.interpolation = "Closest"
-    material.node_tree.links.new(texture.outputs["Color"], shader.inputs["Base Color"])
-    return material
-
-
 def export(name, spec):
-    bpy.ops.wm.read_factory_settings(use_empty=True)
-    collection = bpy.context.scene.collection
-    image = paint(name, spec)
-    material = material_for(name, image)
+    collection = new_scene()
+    material = material_for(name, paint(name, spec))
     for part in build_character(name, spec):
         part.build(material, collection)
-    os.makedirs(OUT, exist_ok=True)
-    path = os.path.join(OUT, f"{name}.glb")
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", export_yup=True, export_apply=True, export_image_format="AUTO", export_animations=False)
-    print(f"wrote {path}")
-    preview = os.environ.get("FOLK_PREVIEW")
-    if preview:
-        render_preview(os.path.join(preview, f"{name}.png"))
-
-
-def render_preview(path):
-    """A quick look without starting the game: `FOLK_PREVIEW=/some/dir blender -b -P ...`."""
-    scene = bpy.context.scene
-    camera = bpy.data.objects.new("camera", bpy.data.cameras.new("camera"))
-    scene.collection.objects.link(camera)
-    camera.location = (1.5, -3.1, 1.25)
-    direction = Vector((0, 0, 0.8)) - camera.location
-    camera.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
-    camera.data.lens = 60
-    scene.camera = camera
-    scene.render.engine = "BLENDER_WORKBENCH"
-    scene.display.shading.light = "FLAT"
-    scene.display.shading.color_type = "TEXTURE"
-    scene.render.resolution_x = 420
-    scene.render.resolution_y = 520
-    scene.render.filepath = path
-    scene.view_settings.view_transform = "Standard"
-    scene.world = bpy.data.worlds.new("world")
-    scene.world.color = (0.32, 0.36, 0.33)
-    bpy.ops.render.render(write_still=True)
+    export_glb("folk", name)
 
 
 for folk_name, folk_spec in FOLK.items():
     export(folk_name, folk_spec)
+
+for hollow_name, hollow_spec in HOLLOW.items():
+    collection = new_scene()
+    hollow_material = material_for(hollow_name, paint_hollow(hollow_name, hollow_spec))
+    for hollow_part in build_hollow(hollow_name, hollow_spec):
+        hollow_part.build(hollow_material, collection)
+    export_glb("folk", hollow_name)
