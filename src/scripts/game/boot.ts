@@ -40,7 +40,7 @@ import { createFolk, createHeldTool, FolkAnimator, type FolkRig } from '../conte
 import { createBike, spinWheels } from '../content/bike';
 import { COOKING, CROPS, ITEMS, NEEDS_CROP, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
 import { REQUESTS, VILLAGERS } from '../content/villagers';
-import { FARM, HAUNTS, MERE_LEVEL, PELL_SPOT, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF, WRAP_AT, homeOf } from '../content/world';
+import { FARM, HAUNTS, POOL_LEVEL, PELL_SPOT, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF, WRAP_AT, homeOf } from '../content/world';
 import { buildWorld, stump } from './world';
 import { setupMood } from './mood';
 import { setupFarming, shipEverything } from './farming';
@@ -55,12 +55,12 @@ import { ESCAPE, setupEscape } from './escape';
 import { setupHappenings } from './happenings';
 
 /**
- * Hollowmere: farm, cook, deliver, and keep moving.
+ * Hollowveil: farm, cook, deliver, and keep moving.
  *
  * Everything below is a kit call or a template feature; the game's own code is
  * the content (people, items, places) and the few rules that make it this game.
  */
-const SAVE_SLOT = 'hollowmere';
+const SAVE_SLOT = 'hollowveil-farm';
 /** Real seconds per in-game day. */
 const DAY_LENGTH = 600;
 const LOOK_BASE = 0.0012;
@@ -70,7 +70,7 @@ export async function boot(): Promise<void> {
     const cat = createFolk({ species: 'cat', fur: 0x2b2522, accent: 0xd9b8a0, clothes: 0x6b4f3a });
 
     const { game, world } = await createThirdPersonGame({
-        title: 'Hollowmere',
+        title: 'Hollowveil Farm',
         autoStart: false,
         saveSlot: SAVE_SLOT,
         arena: false,
@@ -535,7 +535,7 @@ export async function boot(): Promise<void> {
                 icon: '🍲',
                 levels: [
                     { cost: 180, name: 'Iron pot', description: 'Cooks chowder, omelettes and pale broth.' },
-                    { cost: 450, name: 'Cauldron', description: 'Cooks pumpkin pie and Hollowmere stew.' },
+                    { cost: 450, name: 'Cauldron', description: 'Cooks pumpkin pie and Hollowveil stew.' },
                 ],
                 apply: (level) => (cookpot.station.tier = 1 + level),
             },
@@ -668,10 +668,10 @@ export async function boot(): Promise<void> {
         return true;
     };
 
-    // The mere is knee deep: wading is slow, and the Hollow do not mind the water.
+    // The pool is knee deep: wading is slow, and the Hollow do not mind the water.
     addGroundDrag(game, {
         movement: world.controls.movement,
-        dragAt: (position) => (MERE_LEVEL - position.y) / 0.6,
+        dragAt: (position) => (POOL_LEVEL - position.y) / 0.6,
         onEnter: () => {
             synth.noise({ duration: 0.4, gain: 0.1, filter: 1200 });
             think('wade', ['Cold. And it pulls at the legs. I will not get anywhere fast in this.']);
@@ -685,7 +685,7 @@ export async function boot(): Promise<void> {
         // Night fills up fast; day thins out slowly.
         interval: () => (isNight(dayCycle) ? [1, 2.5] : [4, 8]),
         // Not in a lit place, not on a cliff, and not standing in the water.
-        canSpawnAt: (position) => !safeZones.zoneAt(position) && terrain.slopeAt(position.x, position.z) < 0.15 && ground(position.x, position.z) > MERE_LEVEL + 0.3,
+        canSpawnAt: (position) => !safeZones.zoneAt(position) && terrain.slopeAt(position.x, position.z) < 0.15 && ground(position.x, position.z) > POOL_LEVEL + 0.3,
         heightAt: ground,
         bounds: WORLD_HALF - 16,
         posts: HAUNTS,
@@ -736,7 +736,7 @@ export async function boot(): Promise<void> {
     });
     game.menus.register(DEATH_MENU, {
         title: 'You died',
-        subtitle: `They found you in the fog and carried you to the infirmary. ${DAYS_LOST} days are gone, and so is everything you carried. Your tools were kept for you.`,
+        subtitle: `They found you out in the Veil and carried you to the infirmary. ${DAYS_LOST} days are gone, and so is everything you carried. Your tools were kept for you.`,
         buttons: [{ label: 'Wake up', primary: true, action: () => world.flow.restart() }],
     });
     game.events.on('state:changed', ({ from, to }) => {
@@ -762,7 +762,13 @@ export async function boot(): Promise<void> {
 
     //#region The edge, bad days and deeds
 
-    // The valley loops. Near the edge the fog closes in, and whoever keeps walking comes out on the far side.
+    // The valley loops. Near the edge the Veil closes in; whoever keeps walking is covered
+    // by it completely, moved while nothing can be seen, and let out on the far side.
+    const veil = document.createElement('div');
+    veil.className = 'veil';
+    game.screens.layer('overlay').appendChild(veil);
+    game.screens.show('overlay', veil);
+    let crossing: { phase: 'in' | 'hold' | 'out'; left: number; x: number; z: number } | undefined;
     game.systems.add({
         name: 'world-wrap',
         order: SYSTEM_ORDER.EFFECTS,
@@ -772,14 +778,32 @@ export async function boot(): Promise<void> {
             const { x, z } = player.position;
             const out = Math.max(Math.abs(x), Math.abs(z));
             atmosphere.setDensity(atmosphere.fog.density * (1 + (1 - THREE.MathUtils.smoothstep(WRAP_AT - out, 0, 24)) * 4));
-            if (out <= WRAP_AT) return;
-            const back = WRAP_AT - 4;
-            const nextX = Math.abs(x) > WRAP_AT ? -Math.sign(x) * back : x;
-            const nextZ = Math.abs(z) > WRAP_AT ? -Math.sign(z) * back : z;
-            game.effects.flash(1.4, atmosphere.fog.color.getHex(), 1);
-            player.body.teleport(terrain.point(nextX, nextZ, 0.3));
-            tally.wrapped += 1;
-            think('wrap', ['The fog went solid white, and then thinned again.', 'I am on the far side of the valley. I walked out of it one way and came in by the other. There is no out.']);
+
+            if (!crossing) {
+                if (out <= WRAP_AT) return;
+                const back = WRAP_AT - 6;
+                crossing = { phase: 'in', left: 0.6, x: Math.abs(x) > WRAP_AT ? -Math.sign(x) * back : x, z: Math.abs(z) > WRAP_AT ? -Math.sign(z) * back : z };
+                veil.style.background = `#${atmosphere.fog.color.getHexString()}`;
+                veil.classList.add('is-closed');
+                return;
+            }
+            crossing.left -= game.time.delta;
+            if (crossing.left > 0) return;
+            if (crossing.phase === 'in') {
+                // Fully covered: now the move, and a moment for the camera to catch up unseen.
+                player.body.teleport(terrain.point(crossing.x, crossing.z, 0.3));
+                crossing.phase = 'hold';
+                crossing.left = 0.9;
+            } else if (crossing.phase === 'hold') {
+                veil.classList.remove('is-closed');
+                crossing.phase = 'out';
+                crossing.left = 1.1;
+            } else {
+                crossing = undefined;
+                tally.wrapped += 1;
+                // Only once the far side can be seen does the farmer remark on it.
+                think('wrap', ['The Veil went solid white, and then thinned again.', 'I am on the far side of the valley. I walked out of it one way and came in by the other. There is no out.']);
+            }
         },
     });
 
@@ -1029,7 +1053,7 @@ export async function boot(): Promise<void> {
         void narration.speak(lines);
     }
     const SIGHTS: Array<{ id: string; spot: { x: number; z: number }; within: number; lines: string[] }> = [
-        { id: 'mere', spot: PLACES.mere, within: 26, lines: ['Still water. No wind on it at all.', 'So this is the mere. I do not think I will drink from it.'] },
+        { id: 'pool', spot: PLACES.pool, within: 26, lines: ['Still water. No wind on it at all.', 'Black, and it does not show the sky. I do not think I will drink from it.'] },
         { id: 'lookout', spot: PLACES.lookout, within: 8, lines: ['Above the mist, at last.', 'From up here it almost looks like home. Almost.'] },
         { id: 'stones', spot: PLACES.stones, within: 11, lines: ['Somebody stood these up. Somebody still keeps the candle lit.'] },
         { id: 'ruin', spot: PLACES.ruin, within: 12, lines: ['Another farm. Another farmer.', 'The scarecrow is facing the house.'] },
@@ -1066,7 +1090,7 @@ export async function boot(): Promise<void> {
             endQuiet();
             const sign = omens.near(player);
             if (sign) think(`omen-${sign}`, OMEN_THOUGHTS[sign]);
-            if (Math.max(Math.abs(player.x), Math.abs(player.z)) > WRAP_AT - 26) think('edge', ['The fog is getting thicker out here. I cannot see the ground ahead.']);
+            if (Math.max(Math.abs(player.x), Math.abs(player.z)) > WRAP_AT - 26) think('edge', ['The fog is getting thicker out here. I cannot see the ground ahead. This must be what they mean by the Veil.']);
             for (const sight of SIGHTS) if (Math.hypot(player.x - sight.spot.x, player.z - sight.spot.z) < sight.within) think(sight.id, sight.lines);
             if (dayCycle.hour >= 18 && dayCycle.hour < 21) think('dusk', ['The light is going. There will be more of them soon.', 'A lamp, a door, or the bicycle. Not the open road.']);
             const nearest = world.enemies.nearest(player);
@@ -1161,7 +1185,7 @@ export async function boot(): Promise<void> {
     });
 
     type Saved = { day?: number; hour?: number; field?: ReturnType<Farm['toJSON']>; tally?: typeof tally; thoughts?: string[]; can?: number };
-    game.save.register('hollowmere', {
+    game.save.register('hollowveil', {
         save: (): Saved => ({ day: dayCycle.day, hour: dayCycle.hour, field: farm.toJSON(), tally: { ...tally }, thoughts: [...thoughts], can: can.left }),
         load: (data) => {
             const saved = data as Saved | undefined;
@@ -1179,7 +1203,7 @@ export async function boot(): Promise<void> {
     game.save.register('coins', { save: () => coins.value(), load: (value) => coins.set(Number(value ?? 20)) });
 
     const settings = addSettings(game, {
-        namespace: 'hollowmere',
+        namespace: 'hollowveil-farm',
         fullscreen: true,
         volume: ['master', 'music', 'ambient', 'sfx'],
         settings: [
@@ -1197,10 +1221,10 @@ export async function boot(): Promise<void> {
     const saves = addSaveMenu(game, {
         flow: world.flow,
         slot: SAVE_SLOT,
-        title: 'Hollowmere',
-        subtitle: 'Grow. Cook. Deliver. Keep moving.',
+        title: 'Hollowveil Farm',
+        subtitle: 'A farm for the hollow, behind the veil.',
         hint: 'WASD to walk, E to interact, F to use what you hold, 1 to 8 to pick it, Tab for the bag, J for the notebook',
-        describe: (save) => `day ${(save.data.hollowmere as Saved | undefined)?.day ?? 1}`,
+        describe: (save) => `day ${(save.data.hollowveil as Saved | undefined)?.day ?? 1}`,
         onNewGame: () => void narration.speak(INTRO),
         onContinue: () => villagers.snapToSchedule(),
         buttons: [settings.button],

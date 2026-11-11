@@ -1,5 +1,5 @@
-// Hollowmere probe: plays the first day with real key presses, then the rest of the loop.
-//   node tools/smoke.mjs http://localhost:5260/ tools/probe-hollowmere.js
+// Hollowveil probe: plays the first day with real key presses, then the rest of the loop.
+//   node tools/smoke.mjs http://localhost:5260/ tools/probe-hollowveil.js
 (async () => {
     const game = window.__game;
     const world = game.world;
@@ -270,7 +270,7 @@
     world.cookpot.station.tier = 1;
     world.farm.setActiveFields(1);
     world.nodes.restore();
-    game.save.load('hollowmere');
+    game.save.load('hollowveil-farm');
     expect(world.coins.value() === saved.coins, 'coins come back from the save');
     expect(world.cookpot.station.tier === saved.tier, 'the pot comes back from the save');
     expect(world.farm.activeFields === 2, 'bought land comes back from the save');
@@ -282,7 +282,7 @@
     world.settings.set('look', 0.5);
     expect(world.settings.get('vhs') === false, 'the VHS filter can be turned off');
     expect(Math.abs(world.controls.look.sensitivity - 0.0006) < 1e-9, 'sensitivity follows the setting');
-    expect(JSON.parse(localStorage.getItem('hollowmere:settings')).vhs === false, 'settings are remembered');
+    expect(JSON.parse(localStorage.getItem('hollowveil-farm:settings')).vhs === false, 'settings are remembered');
     world.settings.set('vhs', true);
 
     // 13b. A grave candle makes a small safe ring that burns down.
@@ -338,7 +338,7 @@
     await sleep(800);
     expect(game.player.health.current === healthBefore && !world.letters.metPell, 'Pell does not hurt, and does not speak before the last letter');
 
-    // 13f. The mere is slow going.
+    // 13f. The pool is slow going.
     await go(72, 44);
     await sleep(900);
     expect(world.controls.movement.speedScale < 0.7, `wading slows the farmer, scale ${world.controls.movement.speedScale.toFixed(2)}`);
@@ -578,9 +578,9 @@
         await go(pellNow.position.x + 1.4, pellNow.position.z + 0.6);
         await press('KeyE');
         await sleep(300);
-        for (let index = 0; index < 12 && choices().length === 0; index += 1) {
+        for (let index = 0; index < 30 && choices().length === 0; index += 1) {
             await press('Space');
-            await sleep(250);
+            await sleep(200);
         }
         return choices();
     };
@@ -604,8 +604,13 @@
     expect(world.escape.pledge.remaining === 11500 && world.coins.value() === 200, `500 burned: ${world.escape.pledge.remaining} left, purse ${world.coins.value()}`);
 
     // 14c. The valley loops.
-    await go(118, 10);
+    await quiet();
+    game.player.body.teleport({ x: 118, y: world.terrain.heightAt(118, 10) + 0.2, z: 10 });
+    await sleep(350);
+    expect(document.querySelector('.veil').classList.contains('is-closed') && game.player.position.x > 100, 'the Veil covers the screen before the farmer is moved');
     await until(() => game.player.position.x < 0, 3000);
+    expect(!world.narration.speaking, 'nothing is said until the far side can be seen');
+    await until(() => world.narration.speaking || world.tally.wrapped > 0, 4000);
     expect(game.player.position.x < -100, `walking out east comes in from the west, x ${game.player.position.x.toFixed(0)}`);
 
     // 14d. A bad day: they ring the village, and are gone by morning.

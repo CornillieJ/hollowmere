@@ -7,20 +7,24 @@ import type { Recipe } from '../game/crafting';
  * hotbar hands them to the game, which decides what an axe or a watering can
  * does where the player stands. Food has one, so it can be eaten directly.
  *
+ * Icons are emoji. Where two things would share one, a `badge` in the corner
+ * tells them apart: every seed is a bean with its crop on it, every soup a bowl
+ * with what went in.
+ *
  * `price` is what the store charges; it buys at half, and the shipping bin at
  * the farm pays a little less than that.
  */
 const food = (heal: number): NonNullable<ItemDefinition['use']> => ({ onUse: ({ game }) => game?.player?.heal(heal), cooldown: 1 });
 
 export const ITEMS: ItemDefinition[] = [
-    { id: 'watering-can', name: 'Watering can', icon: '🚿', category: 'tool', maxStack: 1, keep: true, description: 'Water a planted plot. Watered crops grow twice as fast that day. Holds 5 waterings; fill it at the well.' },
+    { id: 'watering-can', name: 'Watering can', icon: '💧', category: 'tool', maxStack: 1, keep: true, description: 'Water a planted plot. Watered crops grow twice as fast that day. Holds 5 waterings; fill it at the well.' },
     { id: 'axe', name: 'Axe', icon: '🪓', category: 'tool', maxStack: 1, keep: true, description: 'Hold it and press E at a dead tree. Four swings bring one down.' },
     { id: 'fence-kit', name: 'Fence kit', icon: '🚧', category: 'tool', price: 14, description: 'Press F to put a length of fence down. Holds the walkers back for a while. Nothing holds them for long.' },
 
-    { id: 'turnip-seed', name: 'Turnip seeds', icon: '🌱', category: 'material', price: 4, description: 'Quick to grow. Pale inside.' },
-    { id: 'wheat-seed', name: 'Wheat seeds', icon: '🌰', category: 'material', price: 5, description: 'For bread. It leans away from the road as it grows.' },
-    { id: 'corn-seed', name: 'Corn seeds', icon: '🫘', category: 'material', price: 9, description: 'Tall. Two ears a stalk.' },
-    { id: 'pumpkin-seed', name: 'Pumpkin seeds', icon: '🥜', category: 'material', price: 15, description: 'Slow. The pumpkins here grow faces on their own.' },
+    { id: 'turnip-seed', name: 'Turnip seeds', icon: '🫘', badge: '🥬', category: 'material', price: 4, description: 'Quick to grow. Pale inside.' },
+    { id: 'wheat-seed', name: 'Wheat seeds', icon: '🫘', badge: '🌾', category: 'material', price: 5, description: 'For bread. It leans away from the road as it grows.' },
+    { id: 'corn-seed', name: 'Corn seeds', icon: '🫘', badge: '🌽', category: 'material', price: 9, description: 'Tall. Two ears a stalk.' },
+    { id: 'pumpkin-seed', name: 'Pumpkin seeds', icon: '🫘', badge: '🎃', category: 'material', price: 15, description: 'Slow. The pumpkins here grow faces on their own.' },
 
     { id: 'turnip', name: 'Turnip', icon: '🥬', category: 'treasure', price: 16 },
     { id: 'wheat', name: 'Wheat', icon: '🌾', category: 'treasure', price: 14 },
@@ -29,21 +33,21 @@ export const ITEMS: ItemDefinition[] = [
     { id: 'egg', name: 'Egg', icon: '🥚', category: 'treasure', price: 22, description: 'Still warm. Do not shake it.' },
     { id: 'milk', name: 'Milk', icon: '🥛', category: 'treasure', price: 40, description: 'Slightly grey.' },
     { id: 'wood', name: 'Wood', icon: '🪵', category: 'material', price: 6, description: 'Dead wood burns well. Every dish needs one piece for the fire.' },
-    { id: 'mushroom', name: 'Pale cap', icon: '🍄', category: 'treasure', price: 24, description: 'Grows by the mere and among the standing stones. Faintly warm.' },
+    { id: 'mushroom', name: 'Pale cap', icon: '🍄', category: 'treasure', price: 24, description: 'Grows by the black pool and among the standing stones. Faintly warm.' },
 
-    { id: 'turnip-soup', name: 'Turnip soup', icon: '🍲', category: 'consumable', price: 70, description: 'Restores 35 health.', use: food(35) },
-    { id: 'boiled-egg', name: 'Boiled egg', icon: '🍙', category: 'consumable', price: 54, description: 'Restores 25 health.', use: food(25) },
+    { id: 'turnip-soup', name: 'Turnip soup', icon: '🍲', badge: '🥬', category: 'consumable', price: 70, description: 'Restores 35 health.', use: food(35) },
+    { id: 'boiled-egg', name: 'Boiled egg', icon: '🥚', badge: '♨', category: 'consumable', price: 54, description: 'Restores 25 health.', use: food(25) },
     { id: 'bread', name: 'Bread', icon: '🍞', category: 'consumable', price: 64, description: 'Restores 30 health.', use: food(30) },
-    { id: 'corn-chowder', name: 'Corn chowder', icon: '🥣', category: 'consumable', price: 180, description: 'Restores 60 health.', use: food(60) },
+    { id: 'corn-chowder', name: 'Corn chowder', icon: '🥣', badge: '🌽', category: 'consumable', price: 180, description: 'Restores 60 health.', use: food(60) },
     { id: 'omelette', name: 'Omelette', icon: '🍳', category: 'consumable', price: 160, description: 'Restores 55 health.', use: food(55) },
-    { id: 'pale-broth', name: 'Pale broth', icon: '🫕', category: 'consumable', price: 150, description: 'Restores 50 health. Glows a little.', use: food(50) },
+    { id: 'pale-broth', name: 'Pale broth', icon: '🥣', badge: '🍄', category: 'consumable', price: 150, description: 'Restores 50 health. Glows a little.', use: food(50) },
     { id: 'pumpkin-pie', name: 'Pumpkin pie', icon: '🥧', category: 'consumable', price: 300, description: 'Restores 80 health.', use: food(80) },
-    { id: 'hollow-stew', name: 'Hollowmere stew', icon: '🍛', category: 'consumable', price: 420, description: 'Restores all health. The village eats it at funerals and at weddings.', use: food(100) },
+    { id: 'hollow-stew', name: 'Hollowveil stew', icon: '🍲', badge: '🎃', category: 'consumable', price: 420, description: 'Restores all health. The village eats it at funerals and at weddings.', use: food(100) },
 
     // Bought at the store and put on at once: each is the next size up.
-    { id: 'backpack-1', name: 'Stitched backpack', icon: '🎒', category: 'tool', maxStack: 1, keep: true, price: 150, description: '6 slots instead of 3. Worn as soon as it is bought.' },
-    { id: 'backpack-2', name: 'Leather backpack', icon: '🎒', category: 'tool', maxStack: 1, keep: true, price: 400, description: '10 slots. Worn as soon as it is bought.' },
-    { id: 'backpack-3', name: "Postman's satchel", icon: '🎒', category: 'tool', maxStack: 1, keep: true, price: 900, description: '16 slots. Fen will not say where the last postman went.' },
+    { id: 'backpack-1', name: 'Stitched backpack', icon: '🎒', badge: '6', category: 'tool', maxStack: 1, keep: true, price: 150, description: '6 slots instead of 3. Worn as soon as it is bought.' },
+    { id: 'backpack-2', name: 'Leather backpack', icon: '🎒', badge: '10', category: 'tool', maxStack: 1, keep: true, price: 400, description: '10 slots. Worn as soon as it is bought.' },
+    { id: 'backpack-3', name: "Postman's satchel", icon: '🎒', badge: '16', category: 'tool', maxStack: 1, keep: true, price: 900, description: '16 slots. Fen will not say where the last postman went.' },
     { id: 'candle', name: 'Grave candle', icon: '🕯', category: 'tool', price: 18, description: 'Press F to set it down and light it. The walkers keep out of its light for a minute and a half.' },
     { id: 'name-slip', name: 'Folded slip', icon: '📜', category: 'quest', maxStack: 1, keep: true, description: 'Your name, in your own hand. You do not remember writing it. Read it every morning.' },
 ];

@@ -45,7 +45,7 @@ export function setupEscape(game: Game, options: { coins: ResourceHandle; day: (
         onMissed: () =>
             void narration.speak([
                 'The last day came and went.',
-                'I tried to say the name of my own street this morning. I said "Hollowmere". It felt true.',
+                'I tried to say the name of my own street this morning. I said "Hollowveil". It felt true.',
                 'So I am not going home. There are worse places. There are worse neighbours. The field wants planting.',
             ]),
     });
@@ -54,10 +54,12 @@ export function setupEscape(game: Game, options: { coins: ResourceHandle; day: (
     async function offer(dialogue: DialogueBox): Promise<void> {
         const yes = await dialogue.say<boolean>(
             [
-                line('You came. Good. Up here, above the fog, I can still put words in a row.'),
+                line('You came. Good. Up here, above the Veil, I can still put words in a row.'),
+                line('You have heard them say it by now. The Veil, for the fog: it is what hangs between sleeping and waking. The Hollow, for us out in it: what is left of a dreamer who never woke.'),
+                line('Hollow, behind the Veil. That is all the name of the village ever meant. And you keep a farm in it.'),
                 line('There is a way to wake. Your own bed. Your real life. I found it too late to use it. You are not too late.'),
                 line(`It costs. Everything that crosses costs. ${format(ESCAPE.price)}, burned here at the old tree. A little at a time, or all at once.`),
-                line(`And there is a clock on it. ${ESCAPE.days} days from the day you say yes. After that the valley has your name by heart, and you never wake.`),
+                line(`And there is a clock on it. ${ESCAPE.days} days from the day you say yes. After that the Veil closes over your name, and you never wake. You would be Hollow, as I am.`),
                 {
                     text: `${format(ESCAPE.price)} within ${ESCAPE.days} days, or you stay, as I stayed. The days start the moment you say yes. Do you say yes?`,
                     portrait: PELL,
@@ -77,7 +79,8 @@ export function setupEscape(game: Game, options: { coins: ResourceHandle; day: (
         await dialogue.say([line('Then it has begun. I will be here. Call on me when you have coins to burn.'), line('And do not die out there. Each time you do, 3 of your days go with you.')], 'Pell');
         void narration.speak([
             `${format(ESCAPE.price)} in ${ESCAPE.days} days. That is a great deal of soup.`,
-            'But it is a way home. (Bring coins to Pell on the hill whenever there are some to spare. What is left, and the days, show at the bottom right.)',
+            'Hollowveil Farm. So that is what I have been calling home: a farm for the hollow, on the wrong side of the veil.',
+            'But there is a way back through. (Bring coins to Pell on the hill whenever there are some to spare. What is left, and the days, show at the bottom right.)',
         ]);
     }
 

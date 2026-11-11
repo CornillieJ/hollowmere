@@ -173,6 +173,7 @@ export class InventoryScreen {
             if (definition.color) slot.style.setProperty('--slot-accent', `#${String(definition.color).replace('#', '')}`);
 
             div('inventory-slot-icon', definition.icon ?? definition.name.slice(0, 2), slot);
+            if (definition.badge) div('item-badge', definition.badge, slot);
             const count = div('inventory-slot-count', '', slot);
             const price = div('inventory-slot-price', '', slot);
 

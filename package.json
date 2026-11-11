@@ -1,5 +1,5 @@
 {
-  "name": "hollowmere",
+  "name": "hollowveil-farm",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node tools/unit.mjs",
     "smoke": "node tools/smoke.mjs http://localhost:5260/",
-    "smoke:play": "node tools/smoke.mjs http://localhost:5260/ tools/probe-hollowmere.js"
+    "smoke:play": "node tools/smoke.mjs http://localhost:5260/ tools/probe-hollowveil.js"
   },
   "devDependencies": {
     "@types/gsap": "^3.0.0",

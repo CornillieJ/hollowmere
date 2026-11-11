@@ -1,4 +1,4 @@
-/* Hollowmere's skin over the template UI: bone and soot instead of neon. */
+/* Hollowveil's skin over the template UI: bone and soot instead of neon. */
 
 :root {
 	--ui-font: Georgia, 'Times New Roman', serif;
@@ -58,4 +58,18 @@ footer { display: none; }
 		font-size: 30px;
 		letter-spacing: 0.18em;
 	}
+}
+
+/* The Veil closing over the screen while the farmer is carried across the valley. */
+.veil {
+	position: absolute;
+	inset: 0;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.9s ease;
+}
+
+.veil.is-closed {
+	opacity: 1;
+	transition: opacity 0.55s ease;
 }

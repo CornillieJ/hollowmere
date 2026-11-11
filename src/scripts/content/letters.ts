@@ -13,7 +13,7 @@ export const LETTERS: Letter[] = [
         day: 2,
         lines: [
             'To whoever wakes in my bed.',
-            'You will have tried the road out by now. It bends back. Do not take it to heart, it does that to everyone.',
+            'You will have tried the road out by now. The fog takes you and puts you down on the far side. They call it the Veil here. Do not take it to heart, it does that to everyone.',
             'The seeds grow fast here. Eat. Feed the village. They are good people, in the way that weather is good.',
             'I will write again. I have the time. P.',
         ],
@@ -24,7 +24,7 @@ export const LETTERS: Letter[] = [
             'You are settling in. I can tell by the smoke from the pot.',
             'I woke here too, you know. I had a kitchen somewhere, and a dog that was only a dog. I kept the names in my head as long as I could.',
             'Write yours down tonight. Put it under the bed. You will want it later, and it will not be where you left it.',
-            'And come up the hill, west of the chapel, to the old tree. Above the fog I can still think. I have something to tell you about going home.',
+            'And come up the hill, west of the chapel, to the old tree. Above the Veil I can still think. I have something to tell you about going home.',
             'P.',
         ],
     },

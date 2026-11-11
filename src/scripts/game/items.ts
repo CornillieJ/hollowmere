@@ -45,6 +45,11 @@ export type ItemDefinition = {
     name: string;
     /** Emoji or a couple of letters, drawn in the slot. */
     icon?: string;
+    /**
+     * A small second glyph in the corner of the icon, to tell apart things that
+     * share one: seeds by their crop, soups by what is in them.
+     */
+    badge?: string;
     description?: string;
     /** Long text for a detail pane, defaults to `description`. */
     lore?: string;

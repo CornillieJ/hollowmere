@@ -1,7 +1,7 @@
-# Hollowmere
+# Hollowveil Farm
 
 A PS1-era horror farming game. You are a farmer, a cat, who went to sleep at
-home and woke on the old Pell farm outside Hollowmere, under a sky that is not
+home and woke on the old Pell farm outside Hollowveil, under a sky that is not
 quite right. There is nothing to do about that, so you do what a farmer does:
 grow turnips, wheat, corn and pumpkins, keep hens and a cow, cook over the fire,
 and bring the village what it asks for. The villagers are kind, and mean it. They
@@ -19,7 +19,7 @@ forty gaps in that template, which is the point of it.
 
 ## Play
 
-In the browser: https://cornilliej.github.io/hollowmere/ (deployed from `main` by `.github/workflows/pages.yml`).
+In the browser: https://cornilliej.github.io/hollowveil-farm/ (deployed from `main` by `.github/workflows/pages.yml`).
 
 Or locally:
 
@@ -53,7 +53,7 @@ On a phone the on-screen stick and buttons appear at the first touch.
   a request takes 3 hours. At 3 in the morning the clock stops and the only
   thing left to do is go home to bed.
 - **Gather.** The axe fells dead trees for wood; they grow back. Pale caps grow
-  by the mere and among the standing stones.
+  by the black pool and among the standing stones.
 - **Cook.** The pot by the farmhouse turns crops into dishes: pick a recipe,
   wait, take it off the fire. Every dish burns 1 wood. The bench turns 3 wood
   into a fence kit.
@@ -112,7 +112,7 @@ On a phone the on-screen stick and buttons appear at the first touch.
 
 The farm lies low in the south west, the village on a rise in the north east
 behind a low wall, with pale cobbles underfoot so it is plain where it ends.
-The brown road joins them past the chapel. Thin paths lead off it to the mere,
+The brown road joins them past the chapel. Thin paths lead off it to the black pool,
 the lookout hill above the mist, the standing stones, a ruined farm and the
 graveyard. The valley has no edge: walk far enough into the fog and you come
 out on the far side.
@@ -123,7 +123,7 @@ out on the far side.
 | --- | --- |
 | `src/scripts/game/boot.ts` | composes the game from kit calls |
 | `src/scripts/game/world.ts` | terrain, ground colours, woods, buildings, lamps, the wall |
-| `src/scripts/game/places.ts` | the mere, lookout, stones, ruin and graveyard |
+| `src/scripts/game/places.ts` | the black pool, lookout, stones, ruin and graveyard |
 | `src/scripts/game/farmyard.ts` | the clutter on the farm, and the infirmary |
 | `src/scripts/game/omens.ts` | what lies about on the plains, by day |
 | `src/scripts/game/letters.ts` | the mailbox and Pell |
@@ -136,7 +136,7 @@ out on the far side.
 | `src/scripts/game/farming.ts` | what the held item does at a plot |
 | `src/scripts/game/mood.ts` | light and fog through the day |
 | `src/scripts/content/` | people and what they say, items, recipes, the map, the folk rig |
-| `tools/probe-hollowmere.js` | plays the first day and the rest of the loop |
+| `tools/probe-hollowveil.js` | plays the first day and the rest of the loop |
 
 ```bash
 npm run smoke:play    # with the dev server running

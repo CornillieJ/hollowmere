@@ -13,7 +13,7 @@ import type { MenuButton } from '../ui/menus';
  *
  * ```ts
  * const settings = addSettings(game, {
- *     namespace: 'hollowmere',
+ *     namespace: 'my-game',
  *     volume: ['master', 'ambient'],
  *     settings: [
  *         { id: 'look', label: 'Mouse sensitivity', kind: 'slider', min: 0.2, max: 2, step: 0.05, default: 1, percent: true, apply: (value) => (controls.look.sensitivity = 0.0012 * value) },

@@ -57,7 +57,7 @@ export const CHAPEL = { x: 6, z: 4, yaw: -0.6 };
 /** Places off the road. Each has a path to it and a reason to go. */
 export const PLACES = {
     /** The dark water the village is named for, down in a hollow. */
-    mere: { x: 72, z: 44, radius: 17 },
+    pool: { x: 72, z: 44, radius: 17 },
     /** The highest ground on the map, above the mist, with the old tree. */
     lookout: { x: -70, z: -56 },
     /** Standing stones in the southern woods. Mushrooms like it there. */
@@ -81,15 +81,15 @@ export const ROAD: Array<{ x: number; z: number }> = [
 
 /** Footpaths that branch off the road or the village. */
 export const PATHS: Array<Array<{ x: number; z: number }>> = [
-    [{ x: 22, z: -16 }, { x: 44, z: 6 }, { x: 60, z: 28 }, { x: PLACES.mere.x - 8, z: PLACES.mere.z - 12 }],
+    [{ x: 22, z: -16 }, { x: 44, z: 6 }, { x: 60, z: 28 }, { x: PLACES.pool.x - 8, z: PLACES.pool.z - 12 }],
     [{ x: -8, z: 16 }, { x: -34, z: -10 }, { x: -56, z: -36 }, { x: PLACES.lookout.x, z: PLACES.lookout.z }],
     [{ x: -26, z: 30 }, { x: -14, z: 54 }, { x: PLACES.stones.x, z: PLACES.stones.z - 8 }],
     [{ x: 8, z: 0 }, { x: -2, z: -30 }, { x: PLACES.ruin.x, z: PLACES.ruin.z + 8 }],
     [{ x: 52, z: -40 }, { x: 56, z: -66 }, { x: PLACES.graveyard.x, z: PLACES.graveyard.z + 6 }],
 ];
 
-/** Water level of the mere. */
-export const MERE_LEVEL = -3.2;
+/** Water level of the pool. */
+export const POOL_LEVEL = -3.2;
 
 /** Level ground for building on. The farm sits at 0 so plots and pens need no maths. */
 export const FLATS: TerrainFlat[] = [
@@ -100,8 +100,8 @@ export const FLATS: TerrainFlat[] = [
     { x: PLACES.ruin.x, z: PLACES.ruin.z, radius: 10, blend: 8 },
     { x: PLACES.graveyard.x, z: PLACES.graveyard.z, radius: 9, height: 9, blend: 14 },
     { x: PLACES.lookout.x, z: PLACES.lookout.z, radius: 6, height: 17, blend: 5 },
-    // The bed of the mere: knee deep, so wading in is unpleasant, not fatal.
-    { x: PLACES.mere.x, z: PLACES.mere.z, radius: 12, height: MERE_LEVEL - 0.7, blend: 16 },
+    // The bed of the pool: knee deep, so wading in is unpleasant, not fatal.
+    { x: PLACES.pool.x, z: PLACES.pool.z, radius: 12, height: POOL_LEVEL - 0.7, blend: 16 },
 ];
 
 const noise = createNoise2D(11);
@@ -147,11 +147,11 @@ export const SAFE_ZONES = [
  */
 export const HAUNTS = [
     { name: 'graveyard', x: PLACES.graveyard.x - 3, y: 0, z: PLACES.graveyard.z + 1, count: 3, radius: 8 },
-    { name: 'mere', x: PLACES.mere.x - 15, y: 0, z: PLACES.mere.z - 6, count: 2, radius: 9 },
+    { name: 'pool', x: PLACES.pool.x - 15, y: 0, z: PLACES.pool.z - 6, count: 2, radius: 9 },
     { name: 'stones', x: PLACES.stones.x, y: 0, z: PLACES.stones.z, count: 2, radius: 6 },
     { name: 'ruin', x: PLACES.ruin.x + 3, y: 0, z: PLACES.ruin.z - 2, count: 2, radius: 7 },
     { name: 'road', x: 30, y: 0, z: -20, count: 1, radius: 4 },
-    // The open ground between the road and the mere, and the deep woods either side of the valley.
+    // The open ground between the road and the pool, and the deep woods either side of the valley.
     { name: 'plains', x: 34, y: 0, z: 26, count: 3, radius: 15 },
     { name: 'north woods', x: -44, y: 0, z: -22, count: 3, radius: 15 },
     { name: 'south woods', x: -22, y: 0, z: 78, count: 2, radius: 12 },
@@ -163,7 +163,7 @@ export const CLEARINGS = [
     { x: FARM.centre.x, z: FARM.centre.z, radius: 27 },
     { x: VILLAGE.center.x, z: VILLAGE.center.z, radius: 33 },
     { x: CHAPEL.x, z: CHAPEL.z, radius: 9 },
-    { x: PLACES.mere.x, z: PLACES.mere.z, radius: PLACES.mere.radius + 4 },
+    { x: PLACES.pool.x, z: PLACES.pool.z, radius: PLACES.pool.radius + 4 },
     { x: PLACES.stones.x, z: PLACES.stones.z, radius: 10 },
     { x: PLACES.ruin.x, z: PLACES.ruin.z, radius: 10 },
     { x: PLACES.graveyard.x, z: PLACES.graveyard.z, radius: 10 },

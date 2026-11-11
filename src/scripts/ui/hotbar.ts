@@ -21,7 +21,7 @@ export class Hotbar {
     selectedIndex = 0;
 
     private readonly inventory: Inventory;
-    private readonly slots: Array<{ element: HTMLElement; icon: HTMLElement; count: HTMLElement }> = [];
+    private readonly slots: Array<{ element: HTMLElement; icon: HTMLElement; badge: HTMLElement; count: HTMLElement }> = [];
     private readonly listeners = new Set<(slot: InventorySlot | undefined, index: number) => void>();
 
     constructor(parent: HTMLElement, inventory: Inventory, options: HotbarOptions = {}) {
@@ -32,13 +32,14 @@ export class Hotbar {
             const element = div('hotbar-slot', undefined, this.root);
             if (options.showKeys ?? true) div('hotbar-key', String((index + 1) % 10), element);
             const icon = div('hotbar-icon', '', element);
+            const badge = div('item-badge', '', element);
             const amount = div('hotbar-count', '', element);
             // A tap selects, which is how a touch screen picks a tool.
             element.addEventListener('pointerdown', (event) => {
                 event.stopPropagation();
                 this.select(index);
             });
-            this.slots.push({ element, icon, count: amount });
+            this.slots.push({ element, icon, badge, count: amount });
         }
         this.refresh();
     }
@@ -89,6 +90,7 @@ export class Hotbar {
                 slot.element.classList.add('is-bump');
             }
             setText(slot.icon, stack?.definition.icon ?? '');
+            setText(slot.badge, stack?.definition.badge ?? '');
             setText(slot.count, stack && stack.amount > 1 ? String(stack.amount) : '');
             slot.element.title = stack?.definition.name ?? '';
             slot.element.classList.toggle('is-selected', index === this.selectedIndex);

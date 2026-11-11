@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 
 import type { Terrain } from '../kit';
-import { MERE_LEVEL, PLACES } from '../content/world';
+import { POOL_LEVEL, PLACES } from '../content/world';
 import { MODELS, haystack, solid, type ModelEntry } from './world';
 
 /**
- * The places off the road: the mere, the lookout, the standing stones, the
+ * The places off the road: the pool, the lookout, the standing stones, the
  * ruined farm and the graveyard. Each is a short walk down a footpath, each has
  * one of the Hollow who never leaves it, and most have something to bring home.
  */
@@ -57,13 +57,13 @@ function mushroomPatch(random: () => number): THREE.Object3D {
 
 /** Dark still water in a hollow, a rotten jetty, reeds, and mushrooms on the shore. */
 function buildMere({ root, terrain, random }: Builder, mushrooms: THREE.Object3D[]): void {
-    const { x, z, radius } = PLACES.mere;
+    const { x, z, radius } = PLACES.pool;
     const water = new THREE.Mesh(
         new THREE.CircleGeometry(radius + 12, 24),
         new THREE.MeshStandardMaterial({ color: 0x0c1210, roughness: 0.15, metalness: 0.6, transparent: true, opacity: 0.88 }),
     );
     water.rotation.x = -Math.PI / 2;
-    water.position.set(x, MERE_LEVEL, z);
+    water.position.set(x, POOL_LEVEL, z);
     root.add(water);
 
     // The jetty runs out from the path side and stops short, one plank hanging.
@@ -74,7 +74,7 @@ function buildMere({ root, terrain, random }: Builder, mushrooms: THREE.Object3D
         plank.rotation.z = index === 6 ? 0.5 : (random() - 0.5) * 0.06;
         jetty.add(plank);
     }
-    jetty.position.set(x - 9, MERE_LEVEL + 0.35, z - 13);
+    jetty.position.set(x - 9, POOL_LEVEL + 0.35, z - 13);
     jetty.rotation.y = Math.atan2(x - jetty.position.x, z - jetty.position.z);
     root.add(jetty);
 
@@ -86,7 +86,7 @@ function buildMere({ root, terrain, random }: Builder, mushrooms: THREE.Object3D
         const pz = z + Math.cos(angle) * distance;
         const ground = terrain.heightAt(px, pz);
         // Reeds only where the water is shallow or the bank is wet.
-        if (ground > MERE_LEVEL + 0.8) continue;
+        if (ground > POOL_LEVEL + 0.8) continue;
         const height = 0.9 + random() * 0.9;
         const blade = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.03, height, 3), reed);
         blade.position.set(px, ground + height / 2, pz);

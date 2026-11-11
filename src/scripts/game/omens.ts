@@ -12,7 +12,7 @@ export type OmenKind = 'blood' | 'trail' | 'boot' | 'basket' | 'lantern' | 'shaw
 
 type Omen = { kind: OmenKind; x: number; z: number; fromDay: number; yaw?: number };
 
-/** Mostly along the road and across the open ground between it and the mere. */
+/** Mostly along the road and across the open ground between it and the pool. */
 const OMENS: Omen[] = [
     { kind: 'blood', x: -30, z: 33, fromDay: 2 },
     { kind: 'boot', x: -29, z: 34.5, fromDay: 2, yaw: 0.8 },

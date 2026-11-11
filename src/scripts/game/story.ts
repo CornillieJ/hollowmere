@@ -164,7 +164,7 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
         {
             id: 'wander',
             objective: 'Follow the thin paths: find 3 places',
-            detail: 'Footpaths leave the road for the mere (east), the lookout (west), the standing stones (south of the farm), a ruined farm (north of the chapel) and the graveyard (behind the village).',
+            detail: 'Footpaths leave the road for the black pool (east), the lookout (west), the standing stones (south of the farm), a ruined farm (north of the chapel) and the graveyard (behind the village).',
             say: ['Fen says the thin paths off the road all go somewhere. I should know what is in this valley with me. (Find 3 of the places they lead to.)'],
             done: () => facts.placesFound() >= 3,
             progress: () => `${Math.min(3, facts.placesFound())}/3`,

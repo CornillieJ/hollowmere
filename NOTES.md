@@ -12,7 +12,7 @@ Where the project stands and how to carry on. Keep this short and current.
 - Never edit synced paths here (`src/scripts/{kit,game/*.ts from the template,ui,core,...}`,
   `src/css/style.css`): the next sync overwrites them. The game owns
   `src/scripts/game/{boot,world,places,story,journal,monsters,dread,farming,mood}.ts`,
-  `src/scripts/content/`, `src/css/hollowmere.css`, `tools/probe-hollowmere.js`.
+  `src/scripts/content/`, `src/css/hollowveil.css`, `tools/probe-hollowveil.js`.
 
 ## Checks before a commit
 
@@ -44,7 +44,7 @@ everything but kept items; weaving, uneven pace, drift towards the player,
 territories with leashes (`HAUNTS`), crawlers and watchers, one more every day;
 a quiet first day (the farm is safe until the `sleep` step is done); omens by
 day and villagers talking about the missing; farmyard clutter; letters and
-Pell; grave candles; wading in the mere; villager day schedules; morning
+Pell; grave candles; wading in the pool; villager day schedules; morning
 summary; cooking finishes overnight; compass; settings for every picture
 effect; softlock guards (`keep` items, request availability, seed rescue);
 store buys what you carry; hotbar owns the wheel.
@@ -72,7 +72,7 @@ Numbers to tune after play: `ESCAPE.price` and `.days`, deposit share (0.33 in
 
 ## Done in round 6 (November 2026): feel
 
-GitHub Pages at https://cornilliej.github.io/hollowmere/ (repo is public).
+GitHub Pages at https://cornilliej.github.io/hollowveil-farm/ (repo is public).
 `addJuice` everywhere: chimes, pops, reward text, banners, hit-stop on the
 axe, slow motion on a dodged blow. Smart E (right action, right tool) and hold
 E along a row. Ripe crops glint, crops hop on growth. Delivery streak bonus

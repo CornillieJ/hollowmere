@@ -4,11 +4,11 @@ import { fitModel } from '../helpers/transform';
 import { Random } from '../helpers/random';
 import { buildPlaces, type PlaceSpots } from './places';
 import { addTerrain, type Terrain } from '../kit';
-import { CHAPEL, CLEARINGS, FARM, FLATS, MERE_LEVEL, PLACES, VILLAGE, WORLD_HALF, distanceToPath, distanceToRoad, naturalHeight } from '../content/world';
+import { CHAPEL, CLEARINGS, FARM, FLATS, POOL_LEVEL, PLACES, VILLAGE, WORLD_HALF, distanceToPath, distanceToRoad, naturalHeight } from '../content/world';
 import { createNoise2D } from '../helpers/noise';
 
 /**
- * Builds Hollowmere: the valley, the road, buildings, woods, lamps, the village
+ * Builds Hollowveil: the valley, the road, buildings, woods, lamps, the village
  * wall and the places off the road.
  *
  * Models come from `static/models` through a manifest of target sizes. Each one
@@ -90,7 +90,7 @@ export async function buildWorld(game: Game): Promise<WorldRefs> {
         textureRepeat: 64,
     });
     const root = new THREE.Group();
-    root.name = 'hollowmere';
+    root.name = 'hollowveil';
     game.scene.add(root);
     const solids: THREE.Box3[] = [];
     const lamps: THREE.PointLight[] = [];
@@ -184,7 +184,7 @@ function paint(x: number, z: number, height: number, slope: number): THREE.Color
     scratch.copy(GRASS).lerp(DRY, THREE.MathUtils.clamp(height / 14 + patch * 0.25, 0, 1));
     if (patch < -0.35) scratch.lerp(MUD, 0.6);
     scratch.lerp(ROCK, THREE.MathUtils.smoothstep(slope, 0.1, 0.3));
-    scratch.lerp(SHORE, 1 - THREE.MathUtils.smoothstep(height, MERE_LEVEL - 0.2, MERE_LEVEL + 1.6));
+    scratch.lerp(SHORE, 1 - THREE.MathUtils.smoothstep(height, POOL_LEVEL - 0.2, POOL_LEVEL + 1.6));
 
     const yard = Math.hypot(x - FARM.centre.x, z - FARM.centre.z);
     scratch.lerp(YARD, (1 - THREE.MathUtils.smoothstep(yard, 21, 26)) * 0.8);

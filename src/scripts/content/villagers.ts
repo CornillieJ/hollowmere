@@ -42,7 +42,7 @@ export const VILLAGERS: VillagerContent[] = [
             `Day ${day} for you here. I wrote it down. I write everyone's days down, it is only polite.`,
             'If they lean on your fence, they are only curious. Mostly curious.',
             hearts >= 2 ? 'You came back again. I set a cup out for you this morning before I knew you would. That is how I knew you would.' : 'You are the new one at the old Pell place. Nice house. Good strong door. You will want the door.',
-            'Fog is thick today. It is thick every day. I find it cosy, like a blanket somebody else is also under.',
+            'The Veil is thick today. That is what we call the fog here; you will pick it up. I find it cosy, like a blanket somebody else is also under.',
             hearts >= 3 ? 'I worry when you are late. Then I check the ledger, and your name is still in the right book, and I can breathe.' : 'Eat something warm before the walk home. A full stomach walks faster. I have noticed that about people.',
             'I have been short one customer since the spring. I keep their order on the shelf. It would be rude not to.',
         ],
@@ -167,11 +167,11 @@ export const VILLAGERS: VillagerContent[] = [
                 ],
             },
             {
-                id: 'mere',
-                label: 'Ask about the mere',
+                id: 'pool',
+                label: 'Ask about the black pool',
                 minHearts: 3,
                 lines: [
-                    'The water down the east path? We do not swim there. It is not deep. It is just that it remembers you.',
+                    'The black pool, down the east path? We do not swim there. It is not deep. It is just that it remembers you.',
                     'I looked in once and there were two of me. The other one was not waving.',
                     'The mushrooms on the shore are fine, though! They make the best broth. They hum if you hold them to your ear.',
                 ],
@@ -213,7 +213,7 @@ export const VILLAGERS: VillagerContent[] = [
                 label: 'Ask about his neck',
                 lines: [
                     'My neck? It was always like this. Was it not always like this?',
-                    'It is useful, for letterboxes. And for seeing over the fog. On a clear day I can see myself coming back.',
+                    'It is useful, for letterboxes. And for seeing over the Veil. On a clear day I can see myself coming back.',
                     'Mother Hollis says it is still growing. She says it kindly. She says everything kindly, that is how you know to worry.',
                 ],
             },
@@ -221,7 +221,7 @@ export const VILLAGERS: VillagerContent[] = [
                 id: 'paths',
                 label: 'Ask where the paths lead',
                 lines: [
-                    'The thin paths off the road. East goes down to the mere. West climbs to the old tree, and there is a lamp up there, above the mist.',
+                    'The thin paths off the road. East goes down to the black pool. West climbs to the old tree, and there is a lamp up there, above the Veil.',
                     'South of your farm there are standing stones, and mushrooms if you want them. North of the chapel is the Aldous farm. Was the Aldous farm.',
                     'Behind the village, the graves. I deliver there too. Less than I used to. They have mostly stopped writing back.',
                 ],
@@ -284,7 +284,7 @@ export const VILLAGERS: VillagerContent[] = [
                 minDay: 4,
                 lines: ({ day }) => [
                     day >= 8 ? 'I have finished six shawls this week, dear. My hands ache. I have never had to knit so fast.' : 'I finished two shawls this week, dear. That is two more than I like to finish.',
-                    'They are not lost. Do not think of them as lost. They are only on the other side of the wall now, and facing the wrong way.',
+                    'They are not lost. Do not think of them as lost. They are only out in the Veil now, on the other side of the wall, and facing the wrong way. We call them the Hollow. It is not unkind. It is only accurate.',
                     'More of them come every day, yes. The valley has been hungry lately. It will pass. It has always passed. Eat your supper and keep your candle lit.',
                 ],
             },
@@ -334,7 +334,7 @@ export const VILLAGERS: VillagerContent[] = [
                 lines: [
                     'Somewhere before this? You do, do you not. I can hear it in how you say "home" and mean two places.',
                     'We all came from somewhere, dear. We all woke up here one morning with dirt under our nails and a job to do.',
-                    'It fades. I am sorry. One day you will try to say the name of it and you will say "Hollowmere", and it will feel true. That is not a sad thing. I will be right here when it happens.',
+                    'It fades. I am sorry. One day you will try to say the name of it and you will say "Hollowveil", and it will feel true. That is not a sad thing. I will be right here when it happens.',
                 ],
             },
         ],
@@ -404,7 +404,7 @@ export const VILLAGERS: VillagerContent[] = [
                 minHearts: 3,
                 lines: [
                     'Somewhere else. A kitchen. A different kind of rain. It is on you like a coat, but it is getting thin at the elbows.',
-                    'Everyone has it when they come. Fen had it. Barnaby had it for ages. One day I go to smell it and it is just fog, same as the rest of us.',
+                    'Everyone has it when they come. Fen had it. Barnaby had it for ages. One day I go to smell it and it is just the Veil, same as the rest of us.',
                     'I have been smelling yours extra hard so I remember it for you. When you forget, ask me. I will tell you what your home was like. I promise I will get it right.',
                 ],
             },
@@ -435,7 +435,7 @@ export const REQUESTS: RequestTemplate[] = [
     // From here on they want money down first: a third of the pay, back on delivery, kept if the day passes.
     { tier: 2, deposit: 0.33, itemId: 'corn-chowder', amount: 1, pricePerItem: 150, days: 4, from: ['barnaby', 'fen'], text: 'A pot of {item}. I have a guest at the window most nights and nothing to offer him.' },
     { tier: 2, deposit: 0.33, itemId: 'omelette', amount: [1, 2], pricePerItem: 125, days: 3, from: ['wren', 'pike'], text: '{amount} {item}, please! Mum used to make them. She has stopped. She has stopped most things.' },
-    { tier: 2, deposit: 0.33, itemId: 'pale-broth', amount: 1, pricePerItem: 135, days: 4, from: ['hollis', 'pike'], text: 'One {item}. The caps grow by the mere and at the stones. It helps me see, dear.' },
+    { tier: 2, deposit: 0.33, itemId: 'pale-broth', amount: 1, pricePerItem: 135, days: 4, from: ['hollis', 'pike'], text: 'One {item}. The caps grow by the black pool and at the stones. It helps me see, dear.' },
     { tier: 2, deposit: 0.33, itemId: 'pumpkin', amount: 1, pricePerItem: 80, days: 4, from: ['pike'], text: 'One pumpkin. A big one. With a kind face, if it has grown one.' },
 
     // Tier 3: the cauldron.

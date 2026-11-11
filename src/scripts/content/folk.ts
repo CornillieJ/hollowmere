@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 /**
- * The people of Hollowmere, built from primitives.
+ * The people of Hollowveil, built from primitives.
  *
  * Every character is the same small rig: torso, head, two arms, two legs, and
  * whatever the species adds (ears, snout, horns, tail). Low poly with flat

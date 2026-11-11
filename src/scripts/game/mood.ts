@@ -6,7 +6,7 @@ import type { Atmosphere } from '../fx/atmosphere';
 import type { LightingRefs } from '../setup/setup-scene';
 
 /**
- * The light of Hollowmere. Never bright: a sick green-grey overcast by day,
+ * The light of Hollowveil. Never bright: a sick green-grey overcast by day,
  * bruise-violet at dusk, near black at night with the lamps the only warmth.
  * Fog, sky and lights all follow the clock together, so the mist is always the
  * same colour as the light it is lit by.

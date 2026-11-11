@@ -1915,3 +1915,19 @@ canvas.webgl {
 		opacity: 1;
 	}
 }
+
+/* A small second glyph in the corner of an item icon */
+
+.item-badge {
+	position: absolute;
+	bottom: 2px;
+	left: 3px;
+	font-size: 13px;
+	line-height: 1;
+	pointer-events: none;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.item-badge:empty {
+	display: none;
+}

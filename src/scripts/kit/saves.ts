@@ -16,7 +16,7 @@ import type { MenuButton } from '../ui/menus';
  * the title screen by itself. Call this last, after every `game.save.register`.
  *
  * ```ts
- * const saves = addSaveMenu(game, { flow: world.flow, slot: 'farm', title: 'Hollowmere', describe: (save) => `day ${save.data.days}` });
+ * const saves = addSaveMenu(game, { flow: world.flow, slot: 'farm', title: 'My farm', describe: (save) => `day ${save.data.days}` });
  * saves.save('Saved');            // e.g. when the player sleeps
  * ```
  */

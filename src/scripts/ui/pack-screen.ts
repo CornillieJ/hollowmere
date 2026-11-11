@@ -130,6 +130,7 @@ export class PackScreen {
                 element.dataset.item = slot.itemId;
                 element.title = slot.definition.name;
                 div('pack-slot-icon', slot.definition.icon ?? '?', element);
+                if (slot.definition.badge) div('item-badge', slot.definition.badge, element);
                 if (slot.amount > 1) div('pack-slot-count', String(slot.amount), element);
             }
         }
