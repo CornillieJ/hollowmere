@@ -26,6 +26,8 @@ export function modelled<T extends THREE.Object3D>(game: Game, id: string, holde
                 if (part.name === 'ripe') part.visible = holder.userData.ripe === true;
                 holder.add(part);
             }
+            // Whoever measured the stand-in can measure again.
+            holder.dispatchEvent({ type: 'modelled' } as never);
         })
         .catch(() => undefined);
     return holder;

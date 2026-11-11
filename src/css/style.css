@@ -673,6 +673,19 @@ footer {
 	gap: 12px;
 }
 
+.inventory-header .inventory-resources {
+	margin-left: auto;
+}
+
+.inventory-close {
+	align-self: center;
+	border: 0;
+	background: none;
+	color: var(--ui-muted);
+	font-size: 16px;
+	cursor: pointer;
+}
+
 .inventory-title {
 	font-size: 22px;
 	font-weight: 700;
@@ -1930,4 +1943,16 @@ canvas.webgl {
 
 .item-badge:empty {
 	display: none;
+}
+
+/* Close buttons a thumb can hit: a cross in 16px type is a target of 16px. */
+@media (pointer: coarse) {
+	.list-panel-close,
+	.pack-close,
+	.inventory-close {
+		min-width: 44px;
+		min-height: 44px;
+		margin: -10px -12px -10px 0;
+		font-size: 22px;
+	}
 }
