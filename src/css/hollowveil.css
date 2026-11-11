@@ -488,6 +488,6 @@ footer { display: none; }
 }
 
 /* A window is open: the fullscreen button would sit on its corner. */
-#ui-root:has(.list-panel-wrap:not(.is-hidden), .pack-wrap:not(.is-hidden)) .fullscreen-button {
+#ui-root:has(.list-panel-wrap:not(.is-hidden), .pack-wrap:not(.is-hidden), .inventory:not(.is-hidden)) .fullscreen-button {
 	display: none;
 }
