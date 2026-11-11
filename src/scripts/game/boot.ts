@@ -44,7 +44,7 @@ import { FARM, HAUNTS, POOL_LEVEL, PELL_SPOT, PLACES, SAFE_ZONES, VILLAGE, WORLD
 import { buildWorld, stump } from './world';
 import { setupMood } from './mood';
 import { setupFarming } from './farming';
-import { useHollowModels, animateHollow, forgetHollow, hollowTarget, isNight, pickKind, setNightTemper, spawnHollow, updateWatchers, type HollowKind } from './monsters';
+import { useHollowModels, animateHollow, forgetHollow, hollowTarget, isNight, pickKind, setNightTemper, setScent, spawnHollow, updateWatchers, type HollowKind } from './monsters';
 import { buildFarmyard, buildInfirmary } from './farmyard';
 import { modelOnly, modelled } from './models';
 import { setupCrate } from './crate';
@@ -793,6 +793,22 @@ export async function boot(): Promise<void> {
         },
     });
 
+    // Hot food carries on the air. 4 hot dishes is as strong as it gets; a lit place or the barn hides it.
+    let scentTimer = 0;
+    const scentLevel = (): number => (!hunting() || barn.inside || safeZones.playerSafe ? 0 : Math.min(1, warmth.scent() / 8));
+    game.systems.add({
+        name: 'scent',
+        order: SYSTEM_ORDER.GAMEPLAY - 2,
+        update: (delta) => {
+            scentTimer -= delta;
+            if (scentTimer > 0) return;
+            scentTimer = 0.5;
+            const level = scentLevel();
+            setScent(level, isNight(dayCycle));
+            if (level >= 0.25) think('scent', ['They turned their heads. All of them, the same way, as I came past with the basket.', 'It is the food. They can smell it while it is hot. The more I carry, the further off they notice, and the more of them come.']);
+        },
+    });
+
     /**
      * Until the first night is behind the farmer, the Hollow keep their distance:
      * a few wander the valley and can be met, but none come looking, and the
@@ -1260,11 +1276,14 @@ export async function boot(): Promise<void> {
         hotbar,
         note: () => (escape.pledge.state === 'running' ? `${coin(escape.pledge.remaining)} to wake · ${escape.pledge.daysLeft}d` : ''),
         basket: () =>
-            warmth.carried().slice(0, 4).map((dish) => {
-                const name = pockets.inventory.registry.resolve(dish.itemId).name;
-                const left = dish.hoursLeft >= 1 ? `${Math.floor(dish.hoursLeft)}h` : `${Math.max(1, Math.round(dish.hoursLeft * 60))}m`;
-                return { text: `${dish.heat === 'cold' ? '❄' : '♨'} ${name}${dish.amount > 1 ? ` ×${dish.amount}` : ''} · ${dish.heat}${dish.heat === 'cold' ? '' : ` ${left}`}`, tone: dish.heat };
-            }),
+            [
+                ...warmth.carried().slice(0, 4).map((dish) => {
+                    const name = pockets.inventory.registry.resolve(dish.itemId).name;
+                    const left = dish.hoursLeft >= 1 ? `${Math.floor(dish.hoursLeft)}h` : `${Math.max(1, Math.round(dish.hoursLeft * 60))}m`;
+                    return { text: `${dish.heat === 'cold' ? '❄' : '♨'} ${name}${dish.amount > 1 ? ` ×${dish.amount}` : ''} · ${dish.heat}${dish.heat === 'cold' ? '' : ` ${left}`}`, tone: dish.heat };
+                }),
+                ...(scentLevel() >= 0.5 ? [{ text: '☁ They smell this from far off', tone: 'bad' as const }] : scentLevel() >= 0.25 ? [{ text: '☁ The smell carries', tone: 'bad' as const }] : []),
+            ],
     });
     // A phone has no J: the notebook is a button there.
     const notebookHint = game.device.touch ? '' : '. J for the notebook';
@@ -1352,7 +1371,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, barn, scales, drops, dropInWorld,
+    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         spawnKind: (x: number, z: number, kind: HollowKind) => spawnHollow(world.enemies, terrain.point(x, z, 0.4), { night: isNight(dayCycle), hunting: hunting(), kind }),
