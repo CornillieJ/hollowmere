@@ -145,6 +145,12 @@
     await until(() => have('turnip-soup') === 1);
     log.soup = have('turnip-soup');
     expect(log.soup === 1, `took the soup off the fire, got ${log.soup}`);
+    // 4b. It is hot out of the pot, and the plate says so.
+    await quiet();
+    expect(world.warmth.heatOf('turnip-soup') === 'hot' && world.warmth.heatOf('turnip') === undefined, 'a dish is hot when it leaves the pot; a turnip has no temperature');
+    await sleep(200);
+    expect(document.querySelector('.hv-basket')?.textContent.includes('Turnip soup') && document.querySelector('.hv-basket-line.is-hot'), 'the basket line under the task shows it hot');
+    expect(world.warmth.bonus('turnip-soup') === 0.3, 'hot food pays 30% more');
     await sleep(300);
     expect(step() === 'ride', `the story moved on to the ride, got ${step()}`);
 
@@ -676,6 +682,33 @@
         const before = world.coins.value();
         const made = world.scales.send('pumpkin');
         expect(made === world.shop.inventory.sellPrice('pumpkin') * 2 && world.coins.value() === before + made, `the stall pays its full price out of the backpack, ${made}`);
+    }
+
+    // 14e3. Food cools by the hour, and a hot delivery pays more.
+    {
+        const { warmth, dayCycle } = world;
+        world.pockets.remove('turnip-soup', have('turnip-soup'));
+        await sleep(100);
+        dayCycle.setHour(8);
+        world.pockets.add('turnip-soup', 1);
+        warmth.collected('turnip-soup', 1);
+        expect(warmth.heatOf('turnip-soup') === 'hot' && Math.abs(warmth.hoursLeft('turnip-soup') - 4) < 0.2, 'fresh soup is hot for 4 hours');
+        dayCycle.setHour(13);
+        expect(warmth.heatOf('turnip-soup') === 'warm' && warmth.bonus('turnip-soup') === 0.12, 'after 5 hours it is warm');
+        dayCycle.setHour(19);
+        expect(warmth.heatOf('turnip-soup') === 'cold' && warmth.bonus('turnip-soup') === 0, 'after 11 hours it is cold');
+        // A fresh bowl in with a cold one: the two together are warm.
+        world.pockets.add('turnip-soup', 1);
+        warmth.collected('turnip-soup', 1);
+        expect(warmth.heatOf('turnip-soup') === 'warm', `one fresh bowl and one cold one make a warm basket, got ${warmth.heatOf('turnip-soup')}`);
+        expect(warmth.scent() === 2, `2 warm bowls smell of 2, got ${warmth.scent()}`);
+        // Out of the hands, it has no heat left to keep.
+        world.pockets.remove('turnip-soup', 2);
+        await sleep(150);
+        world.pockets.add('turnip-soup', 1);
+        expect(warmth.heatOf('turnip-soup') === 'cold', 'a dish that left the hands is cold when it comes back');
+        world.pockets.remove('turnip-soup', 1);
+        dayCycle.setHour(10);
     }
 
     // 14f. The plates: the task top left, the day, hour and purse top right.

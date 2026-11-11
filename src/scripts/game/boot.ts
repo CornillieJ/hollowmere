@@ -49,6 +49,7 @@ import { buildFarmyard, buildInfirmary } from './farmyard';
 import { modelOnly, modelled } from './models';
 import { setupCrate } from './crate';
 import { setupBarn } from './barn';
+import { HOT_HOURS, setupWarmth } from './warmth';
 import { HELD_PLACEHOLDER, setupPlates, type PlatesHandle } from './plates';
 import { OMEN_THOUGHTS, setupOmens } from './omens';
 import { setupDread } from './dread';
@@ -404,6 +405,10 @@ export async function boot(): Promise<void> {
         persist: 'nodes',
     });
 
+    // Dishes are hot out of the pot and cool by the hour; hot ones pay more.
+    const warmth = setupWarmth(game, { dishes: new Set(COOKING.map((recipe) => recipe.output.itemId)), have, now: () => dayCycle.day * 24 + dayCycle.hour });
+    game.save.register('warmth', { save: () => warmth.toJSON(), load: (data) => warmth.fromJSON(data) });
+
     const cookpot = addCraftingStation(game, {
         id: 'cookpot',
         title: 'Cooking',
@@ -422,9 +427,11 @@ export async function boot(): Promise<void> {
             juice.chime('success');
             juice.sparkle(refs.spots.hearth.position.clone().setY(refs.spots.hearth.position.y + 1.3), 0xffd9a0, 16);
         },
-        onCollected: () => {
+        onCollected: (itemId, amount) => {
             tally.cooked += 1;
             today.cooked += 1;
+            warmth.collected(itemId, amount);
+            think('hot', [`Hot from the pot. It will not stay that way: ${HOT_HOURS} hours, perhaps, and then it is only warm, and then it is cold.`, 'They pay more for hot food. And every visit takes hours of the day. So who gets theirs first is worth a thought.']);
         },
     });
     const bench = addCraftingStation(game, { id: 'bench', title: 'Workbench', object: refs.spots.workbench, recipes: WOODWORK, sources: carried, give: stow, prompt: 'Use the workbench', verb: 'Build' });
@@ -484,17 +491,22 @@ export async function boot(): Promise<void> {
         },
         onPaid: (amount, request) => {
             today.delivered += 1;
+            // Read before the visit takes its hours: it is as hot as it was when it was handed over.
+            const heat = warmth.heatOf(request.itemId);
+            const heatBonus = Math.round(request.reward * warmth.bonus(request.itemId));
             // A delivery is a visit: 3 hours go by.
             dayCycle.advance(3);
             game.toasts.push(`3 hours pass. It is ${dayCycle.clock}.`, { color: '#c8c0b0' });
             // Each further delivery on the same day pays a little more, up to half as much again.
             const streak = Math.min(5, today.delivered - 1);
             const bonus = Math.round(request.reward * 0.1 * streak);
-            coins.add(amount + bonus);
+            coins.add(amount + bonus + heatBonus);
+            if (heat === 'hot') villagers.relationships.add(request.from, 10);
             if (request.deposit > 0) tally.bigJobs += 1;
             tally.bestStreak = Math.max(tally.bestStreak, today.delivered);
             const name = VILLAGERS.find((villager) => villager.id === request.from)?.name ?? '';
-            juice.banner('Request filled', `${name}  +${coin(request.reward)}${bonus > 0 ? `  ·  ${today.delivered} today: +${coin(bonus)} bonus` : ''}`, { color: '#ffe9a8' });
+            const heatLine = heat === 'hot' ? `  ·  still hot: +${coin(heatBonus)}` : heat === 'warm' ? `  ·  still warm: +${coin(heatBonus)}` : heat === 'cold' ? '  ·  gone cold' : '';
+            juice.banner('Request filled', `${name}  +${coin(request.reward)}${heatLine}${bonus > 0 ? `  ·  ${today.delivered} today: +${coin(bonus)} bonus` : ''}`, { color: '#ffe9a8' });
             juice.chime(streak > 0 ? 'fanfare' : 'success');
         },
         formatReward: coin,
@@ -1247,6 +1259,12 @@ export async function boot(): Promise<void> {
         format: coin,
         hotbar,
         note: () => (escape.pledge.state === 'running' ? `${coin(escape.pledge.remaining)} to wake · ${escape.pledge.daysLeft}d` : ''),
+        basket: () =>
+            warmth.carried().slice(0, 4).map((dish) => {
+                const name = pockets.inventory.registry.resolve(dish.itemId).name;
+                const left = dish.hoursLeft >= 1 ? `${Math.floor(dish.hoursLeft)}h` : `${Math.max(1, Math.round(dish.hoursLeft * 60))}m`;
+                return { text: `${dish.heat === 'cold' ? '❄' : '♨'} ${name}${dish.amount > 1 ? ` ×${dish.amount}` : ''} · ${dish.heat}${dish.heat === 'cold' ? '' : ` ${left}`}`, tone: dish.heat };
+            }),
     });
     // A phone has no J: the notebook is a button there.
     const notebookHint = game.device.touch ? '' : '. J for the notebook';
@@ -1334,7 +1352,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, barn, scales, drops, dropInWorld,
+    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         spawnKind: (x: number, z: number, kind: HollowKind) => spawnHollow(world.enemies, terrain.point(x, z, 0.4), { night: isNight(dayCycle), hunting: hunting(), kind }),
