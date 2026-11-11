@@ -52,6 +52,11 @@ const SCRATCH = new THREE.Vector3();
 export class InteractionRegistry {
     /** Enable or disable the whole registry, e.g. while a menu is open. */
     enabled = true;
+    /**
+     * Narrow what can be interacted with for a while: return false for anything
+     * that is off limits, e.g. everything but the bed when the day is over.
+     */
+    filter: ((object: THREE.Object3D) => boolean) | undefined;
 
     private readonly game: Game;
     private readonly entries = new Map<THREE.Object3D, Entry>();
@@ -175,13 +180,13 @@ export class InteractionRegistry {
             const entry = this.findEntryUpwards(hit.object);
             const range = entry?.options.range ?? CONSTANTS.GAMEPLAY.INTERACT_RANGE;
             const reach = hit.point ? hit.point.distanceTo(reachFrom) : hit.distance;
-            if (entry && entry.enabled && reach <= range) return this.describe(entry, reach);
+            if (entry && entry.enabled && reach <= range && this.filter?.(entry.object) !== false) return this.describe(entry, reach);
         }
 
         // Nothing under the crosshair: take the closest usable object within reach.
         let best: { entry: Entry; distance: number } | undefined;
         for (const entry of this.entries.values()) {
-            if (!entry.enabled || (entry.options.once && entry.used)) continue;
+            if (!entry.enabled || (entry.options.once && entry.used) || this.filter?.(entry.object) === false) continue;
             const range = entry.options.range ?? CONSTANTS.GAMEPLAY.INTERACT_RANGE;
             const position = entry.object.getWorldPosition(SCRATCH);
             // Horizontal distance: a tall object's origin at its feet is still "right there".

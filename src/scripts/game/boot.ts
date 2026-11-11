@@ -121,7 +121,7 @@ export async function boot(): Promise<void> {
     buildInfirmary(game.scene, terrain);
     const omens = setupOmens(game, terrain);
 
-    const dayCycle = new DayCycle(game, { dayLength: DAY_LENGTH, startHour: 7 });
+    const dayCycle = new DayCycle(game, { dayLength: DAY_LENGTH, startHour: 7, stopAtHour: 3 });
     setupMood(game, { dayCycle, atmosphere, lighting: world.scene.lighting, lamps: refs.lamps });
     const narration = addNarration(game, { speaker: 'You', portrait: '🐱' });
 
@@ -175,7 +175,7 @@ export async function boot(): Promise<void> {
         onDrop: dropInWorld,
     });
     const escape = setupEscape(game, { coins, day: () => dayCycle.day, narration, format: coin });
-    const hotbar = addHotbar(game, { inventory: pockets, slots: 8, useAction: 'use', onUse: (slot) => (slot.itemId === 'candle' ? void lightCandle() : farming.useHeld(slot)) });
+    const hotbar = addHotbar(game, { inventory: pockets, slots: 8, useAction: 'use', onUse: (slot) => (dayCycle.stalled ? undefined : slot.itemId === 'candle' ? void lightCandle() : farming.useHeld(slot)) });
     game.systems.add({
         name: 'player-anim',
         order: SYSTEM_ORDER.GAMEPLAY + 7,
@@ -217,6 +217,9 @@ export async function boot(): Promise<void> {
     const tally = { harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0, bestStreak: 0, bestDay: 0, dodged: 0 };
     const thoughts = new Set<string>();
 
+    /** The watering can holds this many waterings, and is filled at the well. */
+    const CAN_SIZE = 5;
+    const can = { left: CAN_SIZE };
     const farm = new Farm(game, {
         columns: FARM.field.columns,
         rows: FARM.field.rows,
@@ -229,7 +232,10 @@ export async function boot(): Promise<void> {
         quiet: true,
     });
     const barriers = addBarriers(game, { enemies: world.enemies, lifetime: 150, toughness: 7, onBroken: () => game.toasts.push('A fence gave way', { color: '#c8a0a0' }) });
-    const farming = setupFarming(game, { farm, pockets, hotbar, barriers, give, nodes: () => nodes, onHarvest: (itemId, amount, seeds, plot) => {
+    const farming = setupFarming(game, { farm, pockets, hotbar, barriers, give, nodes: () => nodes,
+        water: { left: () => can.left, use: () => (can.left -= 1) },
+        enabled: () => !dayCycle.stalled,
+        onHarvest: (itemId, amount, seeds, plot) => {
             tally.harvested += amount;
             today.picked += amount;
             const name = pockets.inventory.registry.resolve(itemId).name.toLowerCase();
@@ -441,6 +447,9 @@ export async function boot(): Promise<void> {
         },
         onPaid: (amount, request) => {
             today.delivered += 1;
+            // A delivery is a visit: 3 hours go by.
+            dayCycle.advance(3);
+            game.toasts.push(`3 hours pass. It is ${dayCycle.clock}.`, { color: '#c8c0b0' });
             // Each further delivery on the same day pays a little more, up to half as much again.
             const streak = Math.min(5, today.delivered - 1);
             const bonus = Math.round(request.reward * 0.1 * streak);
@@ -472,6 +481,23 @@ export async function boot(): Promise<void> {
     };
 
     const stock = [...STORE_STOCK];
+    /** What is on the shelf: seeds by what has been ordered in, and the next backpack up. */
+    function restock(): void {
+        const seeds = upgrades.level('seeds');
+        const bagLevel = upgrades.level('bag');
+        stock.length = 0;
+        stock.push('turnip-seed', 'wheat-seed', ...(seeds >= 1 ? ['corn-seed'] : []), ...(seeds >= 2 ? ['pumpkin-seed'] : []), 'fence-kit', 'candle', ...(bagLevel < 3 ? [`backpack-${bagLevel + 1}`] : []));
+        if (shop.isOpen) shop.screen.refresh();
+    }
+    // A backpack bought at the counter is put on there and then.
+    pockets.onChange(() => {
+        const bought = [1, 2, 3].find((level) => pockets.count(`backpack-${level}`) > 0);
+        if (bought === undefined) return;
+        pockets.remove(`backpack-${bought}`, 1);
+        upgrades.upgrades.set('bag', Math.max(bought, upgrades.level('bag')));
+        juice.banner(pockets.inventory.registry.resolve(`backpack-${bought}`).name, `${bag.inventory.capacity} slots`, { color: '#b8f0a0' });
+        juice.chime('fanfare');
+    });
     const shop = addInventory(game, { items: ITEMS, mode: 'shop', title: "Barnaby's store", catalogue: stock, primary: false, customer: pockets, currency: { resource: coins, label: 'purse', format: coin }, filters: false });
     const counter = storeFurniture(false);
     counter.position.copy(at({ x: VILLAGE.store.x + 3, z: VILLAGE.store.z + 6 }));
@@ -521,21 +547,21 @@ export async function boot(): Promise<void> {
                     { cost: 80, name: 'Corn seeds', description: 'The store starts stocking corn.' },
                     { cost: 170, name: 'Pumpkin seeds', description: 'The store starts stocking pumpkins.' },
                 ],
-                apply: (level) => {
-                    stock.length = 0;
-                    stock.push('turnip-seed', 'wheat-seed', ...(level >= 1 ? ['corn-seed'] : []), ...(level >= 2 ? ['pumpkin-seed'] : []), 'fence-kit', 'candle');
-                },
+                apply: () => restock(),
             },
             {
                 id: 'bag',
                 name: 'A bigger backpack',
                 icon: '🎒',
                 levels: [
-                    { cost: 60, name: 'Stitched backpack', description: '6 slots instead of 3.' },
-                    { cost: 160, name: 'Leather backpack', description: '10 slots.' },
-                    { cost: 380, name: "Postman's satchel", description: '16 slots. Fen will not say where the last postman went.' },
+                    { cost: 150, name: 'Stitched backpack', description: '6 slots instead of 3. Also on the store shelf.' },
+                    { cost: 400, name: 'Leather backpack', description: '10 slots.' },
+                    { cost: 900, name: "Postman's satchel", description: '16 slots. Fen will not say where the last postman went.' },
                 ],
-                apply: (level) => (bag.inventory.capacity = BAG_SLOTS[level] ?? 16),
+                apply: (level) => {
+                    bag.inventory.capacity = BAG_SLOTS[level] ?? 16;
+                    restock();
+                },
             },
             { id: 'hen', name: 'Another hen', icon: '🐔', description: 'One more hen in the pen, laying eggs.', levels: [{ cost: 90 }, { cost: 120 }, { cost: 160 }], apply: (level) => setHerd('hen', 2 + level) },
             { id: 'cow', name: 'Another cow', icon: '🐄', description: 'One more cow in the pen, giving milk.', levels: [{ cost: 260 }, { cost: 360 }], apply: (level) => setHerd('cow', 1 + level) },
@@ -543,6 +569,7 @@ export async function boot(): Promise<void> {
     });
     setHerd('hen', 2);
     setHerd('cow', 1);
+    restock();
 
     //#endregion The village
 
@@ -575,6 +602,23 @@ export async function boot(): Promise<void> {
     chestMesh.rotation.y = -Math.PI / 2;
     game.scene.add(chestMesh);
     game.interactions.add(chestMesh, { prompt: 'Open the chest', range: 2.4, onInteract: () => chestPack.open() });
+
+    const well = new THREE.Object3D();
+    well.position.copy(at(FARM.well));
+    game.scene.add(well);
+    game.interactions.add(well, {
+        prompt: () => `Fill the watering can (${can.left}/${CAN_SIZE})`,
+        blockedPrompt: () => (have('watering-can') === 0 ? 'A well. You have no can to fill' : 'The watering can is full'),
+        range: 2.8,
+        canInteract: () => can.left < CAN_SIZE && have('watering-can') > 0,
+        onInteract: () => {
+            can.left = CAN_SIZE;
+            body.play('reach');
+            juice.chime('water');
+            synth.noise({ duration: 0.9, gain: 0.08, filter: 2600 });
+            juice.reward(well.position.clone().setY(well.position.y + 1.6), 'Can filled', { chime: false, color: 0x8fb8c8 });
+        },
+    });
 
     const door = new THREE.Object3D();
     door.position.copy(at({ x: FARM.door.x - 1.5, z: FARM.door.z }));
@@ -703,7 +747,8 @@ export async function boot(): Promise<void> {
             for (const slot of [...inventory.inventory.slots]) if (!slot.definition.keep) inventory.remove(slot.itemId, slot.amount);
         }
         // The last of the lost days ends with a morning, like any other.
-        dayCycle.day += DAYS_LOST - 1;
+        // Dying after midnight is already on the new day, so the morning does not add one.
+        dayCycle.day += dayCycle.hour >= 6 ? DAYS_LOST - 1 : DAYS_LOST;
         sleep();
         deeds.award('died');
         const bed = homeOf(VILLAGE.infirmary);
@@ -811,6 +856,26 @@ export async function boot(): Promise<void> {
                 }
             }
             healthBefore = player.health.current;
+        },
+    });
+
+    // Three in the morning: the clock stops, and nothing can be done but go to bed.
+    let nagTimer = 0;
+    game.systems.add({
+        name: 'exhaustion',
+        order: SYSTEM_ORDER.GAMEPLAY - 3,
+        update: (delta) => {
+            const spent = dayCycle.stalled;
+            game.interactions.filter = spent ? (object) => object === door : undefined;
+            if (!spent) {
+                nagTimer = 0;
+                return;
+            }
+            game.hud.setObjective('You need to sleep. Go home to bed.');
+            nagTimer -= delta;
+            if (nagTimer > 0) return;
+            nagTimer = 7;
+            juice.banner('You need to sleep', 'It is 3 in the morning. Nothing more can be done today: go home to bed.', { color: '#c8b8e8', seconds: 4.5 });
         },
     });
 
@@ -945,7 +1010,7 @@ export async function boot(): Promise<void> {
     };
     addCompass(game, {
         markers: () => {
-            const step = story.story.current?.id;
+            const step = dayCycle.stalled ? 'sleep' : story.story.current?.id;
             const target = step === 'deliver' ? villagerSpot(villagers.requests?.open[0]?.from) : step ? TARGETS[step] : undefined;
             return [
                 { glyph: '🏠', position: { x: FARM.door.x, y: 0, z: FARM.door.z }, hideWithin: 14 },
@@ -1087,7 +1152,7 @@ export async function boot(): Promise<void> {
         always: true,
         update: () => {
             game.hud.setStat('day', `${isNight(dayCycle) ? '☾ Night' : '☀ Day'} ${dayCycle.day}`, dayCycle.clock);
-            if (!story.finished) return;
+            if (!story.finished || dayCycle.stalled) return;
             // After the first day the best paid request is the thing to chase.
             const request = [...(villagers.requests?.open ?? [])].sort((a, b) => b.reward - a.reward)[0];
             const name = request ? pockets.inventory.registry.resolve(request.itemId).name.toLowerCase() : '';
@@ -1095,9 +1160,9 @@ export async function boot(): Promise<void> {
         },
     });
 
-    type Saved = { day?: number; hour?: number; field?: ReturnType<Farm['toJSON']>; tally?: typeof tally; thoughts?: string[] };
+    type Saved = { day?: number; hour?: number; field?: ReturnType<Farm['toJSON']>; tally?: typeof tally; thoughts?: string[]; can?: number };
     game.save.register('hollowmere', {
-        save: (): Saved => ({ day: dayCycle.day, hour: dayCycle.hour, field: farm.toJSON(), tally: { ...tally }, thoughts: [...thoughts] }),
+        save: (): Saved => ({ day: dayCycle.day, hour: dayCycle.hour, field: farm.toJSON(), tally: { ...tally }, thoughts: [...thoughts], can: can.left }),
         load: (data) => {
             const saved = data as Saved | undefined;
             if (!saved) return;
@@ -1106,6 +1171,7 @@ export async function boot(): Promise<void> {
             omens.setDay(dayCycle.day);
             if (saved.field) farm.fromJSON(saved.field);
             Object.assign(tally, saved.tally);
+            can.left = saved.can ?? CAN_SIZE;
             thoughts.clear();
             for (const id of saved.thoughts ?? []) thoughts.add(id);
         },
@@ -1165,7 +1231,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, letters, morning, lightCandle, goToBed, omens, wake, hunting,
+    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         spawnKind: (x: number, z: number, kind: HollowKind) => spawnHollow(world.enemies, terrain.point(x, z, 0.4), { night: isNight(dayCycle), hunting: hunting(), kind }),

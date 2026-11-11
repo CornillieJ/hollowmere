@@ -336,9 +336,10 @@ export class InventoryScreen {
     private handleKey(event: KeyboardEvent): void {
         if (!this.isOpen) return;
 
-        if (event.key === 'Escape' || this.options.closeCodes?.().includes(event.code)) {
+        // Tab closes as Escape does: in fullscreen a browser may keep Escape for itself.
+        if (event.key === 'Escape' || event.code === 'Tab' || this.options.closeCodes?.().includes(event.code)) {
             event.preventDefault();
-            event.stopPropagation();
+            event.stopImmediatePropagation();
             this.close();
             return;
         }

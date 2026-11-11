@@ -56,7 +56,7 @@ export class PackScreen {
         button('✕', () => this.close(), { className: 'pack-close', parent: head });
         this.stats = div('pack-stats', undefined, this.card);
         this.grids = div('pack-grids', undefined, this.card);
-        div('pack-hint', 'Drag to move. Drag out of the window to drop. Click for more.', this.card);
+        div('pack-hint', 'Drag to move, onto another item to swap. Drag out of the window to drop. Click for more.', this.card);
         this.menu = div('pack-menu is-hidden', undefined, this.root);
         this.ghost = div('pack-ghost is-hidden', undefined, this.root);
 
@@ -68,7 +68,7 @@ export class PackScreen {
         // Capture phase: the keys that close the screen must not also pause or reopen it.
         this.onKey = (event) => {
             if (!this.isOpen) return;
-            if (event.key !== 'Escape' && event.code !== 'Escape' && !this.options.closeCodes?.().includes(event.code)) return;
+            if (event.key !== 'Escape' && event.code !== 'Escape' && event.code !== 'Tab' && !this.options.closeCodes?.().includes(event.code)) return;
             event.preventDefault();
             // Immediate: the game's own key listener must not see the press and open the screen again.
             event.stopImmediatePropagation();
@@ -198,10 +198,15 @@ export class PackScreen {
     }
 
     private move(drag: Drag, target: PackSection, index: number): void {
+        const occupied = target.inventory.slots[index] !== undefined;
         if (target === drag.section) {
-            drag.section.inventory.reorder(drag.index, index);
+            // Onto another stack: the two trade places. Onto an empty slot: to the end of the row.
+            if (occupied) drag.section.inventory.swap(drag.index, index);
+            else drag.section.inventory.reorder(drag.index, index);
             return;
         }
+        // Onto a stack in another grid: trade the two, which also works when both grids are full.
+        if (occupied && drag.section.inventory.swapWith(drag.index, target.inventory, index)) return;
         if (drag.section.inventory.moveTo(target.inventory, drag.itemId) === 0) this.options.onRefused?.('No room there');
     }
 

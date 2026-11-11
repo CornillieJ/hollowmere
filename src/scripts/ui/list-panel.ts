@@ -74,11 +74,12 @@ export class ListPanel {
             element.dataset.tab = tab.id;
         }
 
-        // Capture phase: Escape closes the panel and must not also pause the game.
+        // Capture phase: Escape closes the panel and must not also pause the game. Tab closes
+        // it too, because in fullscreen a browser may keep Escape for itself.
         this.onKey = (event) => {
-            if (!this.isOpen || (event.key !== 'Escape' && event.code !== 'Escape')) return;
+            if (!this.isOpen || (event.key !== 'Escape' && event.code !== 'Escape' && event.code !== 'Tab')) return;
             event.preventDefault();
-            event.stopPropagation();
+            event.stopImmediatePropagation();
             this.close();
         };
         window.addEventListener('keydown', this.onKey, true);

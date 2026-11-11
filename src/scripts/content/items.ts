@@ -13,7 +13,7 @@ import type { Recipe } from '../game/crafting';
 const food = (heal: number): NonNullable<ItemDefinition['use']> => ({ onUse: ({ game }) => game?.player?.heal(heal), cooldown: 1 });
 
 export const ITEMS: ItemDefinition[] = [
-    { id: 'watering-can', name: 'Watering can', icon: '🚿', category: 'tool', maxStack: 1, keep: true, description: 'Water a planted plot. Watered crops grow twice as fast that day.' },
+    { id: 'watering-can', name: 'Watering can', icon: '🚿', category: 'tool', maxStack: 1, keep: true, description: 'Water a planted plot. Watered crops grow twice as fast that day. Holds 5 waterings; fill it at the well.' },
     { id: 'axe', name: 'Axe', icon: '🪓', category: 'tool', maxStack: 1, keep: true, description: 'Hold it and press E at a dead tree. Four swings bring one down.' },
     { id: 'fence-kit', name: 'Fence kit', icon: '🚧', category: 'tool', price: 14, description: 'Press F to put a length of fence down. Holds the walkers back for a while. Nothing holds them for long.' },
 
@@ -40,6 +40,10 @@ export const ITEMS: ItemDefinition[] = [
     { id: 'pumpkin-pie', name: 'Pumpkin pie', icon: '🥧', category: 'consumable', price: 300, description: 'Restores 80 health.', use: food(80) },
     { id: 'hollow-stew', name: 'Hollowmere stew', icon: '🍛', category: 'consumable', price: 420, description: 'Restores all health. The village eats it at funerals and at weddings.', use: food(100) },
 
+    // Bought at the store and put on at once: each is the next size up.
+    { id: 'backpack-1', name: 'Stitched backpack', icon: '🎒', category: 'tool', maxStack: 1, keep: true, price: 150, description: '6 slots instead of 3. Worn as soon as it is bought.' },
+    { id: 'backpack-2', name: 'Leather backpack', icon: '🎒', category: 'tool', maxStack: 1, keep: true, price: 400, description: '10 slots. Worn as soon as it is bought.' },
+    { id: 'backpack-3', name: "Postman's satchel", icon: '🎒', category: 'tool', maxStack: 1, keep: true, price: 900, description: '16 slots. Fen will not say where the last postman went.' },
     { id: 'candle', name: 'Grave candle', icon: '🕯', category: 'tool', price: 18, description: 'Press F to set it down and light it. The walkers keep out of its light for a minute and a half.' },
     { id: 'name-slip', name: 'Folded slip', icon: '📜', category: 'quest', maxStack: 1, keep: true, description: 'Your name, in your own hand. You do not remember writing it. Read it every morning.' },
 ];

@@ -20,6 +20,8 @@ export type DayCycleOptions = {
     startDay?: number;
     /** Freeze time, e.g. while a menu is open. */
     paused?: boolean;
+    /** An hour after midnight at which the clock stops until `sleep` is called, e.g. 3 for "you must sleep". */
+    stopAtHour?: number;
     /** Update the scene lighting from the time of day. */
     lighting?: LightingRefs;
     /** Sun colour at noon and at dusk; the cycle interpolates between them. */
@@ -42,6 +44,8 @@ export class DayCycle {
     day: number;
     /** Freeze time without unregistering the system. */
     paused: boolean;
+    /** An hour after midnight at which the clock stops until `sleep` is called, e.g. 3. */
+    stopAtHour: number | undefined;
 
     /** Optional callbacks for the moments a game cares about. */
     readonly hooks: {
@@ -75,6 +79,7 @@ export class DayCycle {
         this.hour = options.startHour ?? 8;
         this.day = options.startDay ?? 1;
         this.paused = options.paused ?? false;
+        this.stopAtHour = options.stopAtHour;
         this.lastHour = Math.floor(this.hour);
 
         this.lighting = options.lighting;
@@ -118,14 +123,31 @@ export class DayCycle {
         this.apply();
     }
 
-    /** Skip to the next morning, e.g. when the player sleeps. */
+    /**
+     * Skip to the next morning, e.g. when the player sleeps. Going to bed after
+     * midnight wakes on the day that has already begun.
+     */
     sleep(): void {
+        const newDay = this.hour >= 6;
         this.hour = 6;
-        this.day += 1;
         this.lastHour = 6;
+        if (newDay) this.day += 1;
         this.apply();
-        this.hooks.onDayStart?.(this.day);
+        if (newDay) this.hooks.onDayStart?.(this.day);
         this.hooks.onMorning?.(this.day);
+    }
+
+    /** Let hours pass at once, e.g. for a long job. Midnight and `stopAtHour` are respected. */
+    advance(hours: number): void {
+        const wasPaused = this.paused;
+        this.paused = false;
+        this.update((hours / 24) * this.dayLength);
+        this.paused = wasPaused;
+    }
+
+    /** True while the clock is held at `stopAtHour`, waiting for `sleep`. */
+    get stalled(): boolean {
+        return this.stopAtHour !== undefined && this.hour >= this.stopAtHour && this.hour < 6;
     }
 
     private update(delta: number): void {
@@ -137,6 +159,8 @@ export class DayCycle {
             this.day += 1;
             this.hooks.onDayStart?.(this.day);
         }
+        // The small hours end the day: the clock waits there until someone sleeps.
+        if (this.stopAtHour !== undefined && this.hour >= this.stopAtHour && this.hour < 6) this.hour = this.stopAtHour;
 
         const hour = Math.floor(this.hour);
         if (hour !== this.lastHour) {

@@ -66,7 +66,7 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
             id: 'water',
             objective: 'Water what you planted',
             detail: 'Press E at a planted plot, or hold E and walk along the row. A watered crop grows twice as fast that day.',
-            say: ['Planted. Now they need water, or they will take all day.', '(Press E at each planted plot, or hold it and walk. The watering can comes to hand by itself.)'],
+            say: ['Planted. Now they need water, or they will take all day.', '(Press E at each planted plot, or hold it and walk. The watering can comes to hand by itself. It holds 5 waterings: fill it at the well by the house.)'],
             done: () => facts.watered() >= 3,
             progress: () => `${Math.min(3, facts.watered())}/3`,
         },
@@ -130,7 +130,7 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
             objective: 'Go home and sleep before dark',
             detail: 'Press E at the farmhouse door. Sleeping ends the day and saves. More of them walk at night.',
             say: [
-                'Paid. So that is the work: grow it, cook it, bring it to whoever asks.',
+                'Paid. So that is the work: grow it, cook it, bring it to whoever asks. And a visit takes 3 hours out of the day.',
                 'The light is going, and there are more of them at night. Home, and the door shut behind me. (Press E at the farmhouse door to sleep. Sleeping saves the game.)',
             ],
             done: () => facts.day() > startDay,

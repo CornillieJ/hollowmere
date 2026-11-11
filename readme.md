@@ -37,7 +37,7 @@ npm run dev          # http://localhost:5260
 | Tab or I | the backpack: stats, drag to move, drag out to drop, click for more. Tab closes it again |
 | J | the notebook: tasks, requests, recipes, how everything works |
 | Shift | run |
-| Escape | closes whatever window is open; with none open, pause: save, settings (fullscreen, sensitivity, picture effects, volumes) |
+| Escape or Tab | closes whatever window is open. With none open, Escape pauses: save, settings (fullscreen, sensitivity, picture effects, volumes) |
 
 On a phone the on-screen stick and buttons appear at the first touch.
 
@@ -49,6 +49,9 @@ On a phone the on-screen stick and buttons appear at the first touch.
   as fast that day) or pick. Hold E and walk to work down a row; the right
   tool comes to hand by itself. Every harvest hands a seed back, sometimes two. Collect eggs and
   milk from the pen.
+- **Water and time.** The can holds 5 waterings; fill it at the well. Filling
+  a request takes 3 hours. At 3 in the morning the clock stops and the only
+  thing left to do is go home to bed.
 - **Gather.** The axe fells dead trees for wood; they grow back. Pale caps grow
   by the mere and among the standing stones.
 - **Cook.** The pot by the farmhouse turns crops into dishes: pick a recipe,
@@ -65,7 +68,8 @@ On a phone the on-screen stick and buttons appear at the first touch.
   at some hour: ringing the village wall, or all over the farmyard. They cannot
   enter the lit places and are gone by dawn.
 - **Carrying.** 8 pockets on the hotbar and a backpack that starts with 3
-  slots; the order book sells 6, 10 and 16. The chest by the barn holds 16
+  slots; the store and the order book sell 6, 10 and 16 (150c, 400c, 900c).
+  Drag one item onto another to swap them. The chest by the barn holds 16
   stacks, and what is in it survives dying.
 - **Deeds.** 17 achievements, listed in the notebook.
 - **Deliver.** Villagers ask for specific things, marked with a `!`. They take

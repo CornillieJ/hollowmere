@@ -23,6 +23,8 @@ export type JournalOptions = {
 
 const GUIDE: Array<[string, string, string]> = [
     ['🌱', 'Farming', 'Press E at a plot and the right thing happens: an empty plot is planted, a dry one watered, a ripe one picked. Hold E and walk to work down a row. The seeds in your hand are planted, or else the first in your pockets. Watered crops grow twice as fast that day, ripe ones glint, and every harvest gives a seed back, sometimes two.'],
+    ['💧', 'Water', 'The watering can holds 5 waterings. Press E at the well by the farmhouse to fill it.'],
+    ['🕒', 'Time', 'A day is 10 minutes. Filling a request takes 3 hours. At 3 in the morning the clock stops and nothing can be done but go home to bed.'],
     ['🪓', 'Wood', 'Press E at a dead tree, four times; the axe comes to hand by itself. Trees grow back after 2 or 3 days. Every cooked dish burns 1 wood, and 3 wood make a fence kit at the bench.'],
     ['🍲', 'Cooking', 'Press E at the pot by the farmhouse, choose a recipe, wait, then take the dish. Cooked food pays far better than raw crops. Better pots cook better dishes.'],
     ['🔔', 'Good days', 'Each further request filled on the same day pays 10% more than the last, up to half as much again. The morning tells you your best day so far.'],
@@ -38,7 +40,7 @@ const GUIDE: Array<[string, string, string]> = [
     ['🕯', 'The Hollow', 'They are slow and they do not stop. Keep moving, put a fence down with F, light a grave candle with F for a minute and a half of safety, or step into a lit place: your porch, the barn lamp, the chapel, the shrine, the lookout. Night runs from 19:30 to 05:30: 3 times as many walk then, they see farther and they head for you instead of wandering. One more turns up with every day. Pale ones only move while you are not looking at them. If they kill you, you wake in the village infirmary 3 days later with nothing but your tools, and anyone who was waiting on you has stopped waiting.'],
     ['✉', 'Letters', 'From the second day a letter waits in the mailbox by the porch each morning, marked with a ✉. Read them all.'],
     ['🛏', 'Sleeping', 'Press E at the farmhouse door to sleep until morning. Sleeping saves the game. You can also save from the pause menu.'],
-    ['🎒', 'Carrying', 'Pockets are the 8 slots on the hotbar: pick one with 1 to 8 or the wheel, press F to use it. Tab opens the backpack: drag things between it and the pockets, drag them out of the window to drop them, click one for more. It starts with 3 slots; the order book sells bigger ones. The chest by the barn stores what you do not want to carry.'],
+    ['🎒', 'Carrying', 'Pockets are the 8 slots on the hotbar: pick one with 1 to 8 or the wheel, press F to use it. Tab opens the backpack: drag things between it and the pockets, drag them out of the window to drop them, click one for more. It starts with 3 slots; the store and the order book sell bigger ones (150c, 400c, 900c). Drag one item onto another to swap them. The chest by the barn stores what you do not want to carry.'],
 ];
 
 export function setupJournal(game: Game, options: JournalOptions): PanelHandle {

@@ -23,6 +23,10 @@ export type FarmingOptions = {
     give: (itemId: string, amount: number) => boolean;
     /** Trees and other things to gather from, for the axe. */
     nodes: () => ResourceNodesHandle | undefined;
+    /** The watering can: how many waterings are left in it, and taking one out. */
+    water: { left: () => number; use: () => void };
+    /** False when the farmer is too tired to work. */
+    enabled?: () => boolean;
     onHarvest?: (itemId: string, amount: number, seeds: number, plot: PlotState) => void;
     /** Called when the farmer does something at a plot, for the motion and the splash. */
     onWork?: (kind: 'plant' | 'water' | 'pick', plot: PlotState) => void;
@@ -63,12 +67,14 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
                 },
             };
         }
-        if (plot.crop && !plot.watered && pockets.count('watering-can') > 0) {
+        if (plot.crop && !plot.watered && pockets.count('watering-can') > 0 && options.water.left() > 0) {
             return {
-                label: 'Water',
+                label: `Water (${options.water.left()} left in the can)`,
                 run: () => {
                     take('watering-can');
-                    if (farm.water(plot)) options.onWork?.('water', plot);
+                    if (!farm.water(plot)) return;
+                    options.water.use();
+                    options.onWork?.('water', plot);
                 },
             };
         }
@@ -77,7 +83,7 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
 
     function plotHint(plot: PlotState): string {
         if (!plot.crop) return 'Empty plot (no seeds in your pockets)';
-        if (!plot.watered) return 'Dry (the watering can is not in your pockets)';
+        if (!plot.watered) return pockets.count('watering-can') > 0 ? 'Dry. The can is empty: fill it at the well' : 'Dry (the watering can is not in your pockets)';
         return `${plot.crop.name}, growing`;
     }
 
@@ -89,7 +95,7 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
         // After the interaction registry, which owns the prompt whenever it has a target.
         order: SYSTEM_ORDER.GAMEPLAY + 3,
         update: () => {
-            if (game.interactions.focused || !game.state.is('playing')) return;
+            if (game.interactions.focused || !game.state.is('playing') || options.enabled?.() === false) return;
             const plot = nearestPlot();
             if (!plot) return;
             const action = plotAction(plot);
@@ -112,6 +118,7 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
 
     return {
         useHeld: (slot) => {
+            if (options.enabled?.() === false) return;
             const plot = nearestPlot();
             const action = plot ? plotAction(plot) : undefined;
             if (action) {

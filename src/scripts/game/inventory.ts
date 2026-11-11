@@ -399,6 +399,32 @@ export class Inventory implements InventoryApi {
         this.options.onChanged?.(this.slots, this);
     }
 
+    /** Trade the places of two stacks. */
+    swap(a: number, b: number): void {
+        const first = this.slots[a];
+        const second = this.slots[b];
+        if (!first || !second || a === b) return;
+        this.slots[a] = second;
+        this.slots[b] = first;
+        this.options.onChanged?.(this.slots, this);
+    }
+
+    /**
+     * Trade a stack here for a stack in another inventory, slot for slot.
+     * @returns False when either side already holds the incoming item elsewhere; move the stack instead, so it merges.
+     */
+    swapWith(index: number, other: Inventory, otherIndex: number): boolean {
+        const mine = this.slots[index];
+        const theirs = other.slots[otherIndex];
+        if (!mine || !theirs || other === this) return false;
+        if (mine.itemId === theirs.itemId || other.slotOf(mine.itemId) || this.slotOf(theirs.itemId)) return false;
+        this.slots[index] = theirs;
+        other.slots[otherIndex] = mine;
+        this.options.onChanged?.(this.slots, this);
+        other.options.onChanged?.(other.slots, other);
+        return true;
+    }
+
     /** True when this inventory trades in a currency. */
     get hasCurrency(): boolean {
         return this.options.currency !== undefined;

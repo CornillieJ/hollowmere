@@ -74,6 +74,12 @@
     }
     expect(world.farm.plantedCount === 3, `planted 3, got ${world.farm.plantedCount}`);
     expect(plots[0].watered, 'watered the plot');
+    expect(world.can.left === 2, `3 waterings out of a can of 5 leave 2, got ${world.can.left}`);
+    world.can.left = 0;
+    await go(-52, 51.6);
+    await press('KeyE');
+    await until(() => world.can.left === 5);
+    expect(world.can.left === 5, `the well fills the can, got ${world.can.left}`);
     await sleep(300);
     expect(step() === 'chop', `the story moved on to chopping, got ${step()}`);
 
@@ -214,6 +220,7 @@
         log.paid = world.coins.value() - coinsBefore;
         expect(log.paid >= request.reward, `paid at least ${request.reward}, got ${log.paid}`);
         expect(world.villagers.requests.completed === 1, 'the delivery was counted');
+        expect(Math.abs(world.dayCycle.hour - 15) < 0.5, `a delivery takes 3 hours: it is ${world.dayCycle.clock}`);
         expect(!world.villagers.dialogue.isOpen, 'the conversation closed');
         await sleep(200);
         await quiet();
@@ -412,6 +419,34 @@
     await press('Escape');
     await sleep(200);
     expect(!packOpen() && game.state.current === 'playing', 'Escape closes the backpack and does not pause');
+    // Dragging one item onto another swaps them.
+    await press('Tab');
+    await sleep(200);
+    const slotsNow = [...packOpen().querySelectorAll('.pack-section:nth-child(2) [data-item]')];
+    const [firstId, secondId] = [slotsNow[0].dataset.item, slotsNow[1].dataset.item];
+    const [ax, ay] = centre(slotsNow[0]);
+    const [bx, by] = centre(slotsNow[1]);
+    point(slotsNow[0], 'pointerdown', ax, ay);
+    point(slotsNow[0], 'pointermove', ax + 20, ay);
+    point(packOpen(), 'pointermove', bx, by);
+    point(packOpen(), 'pointerup', bx, by);
+    await sleep(200);
+    const swapped = world.pockets.inventory.slots.slice(0, 2).map((slot) => slot.itemId);
+    expect(swapped[0] === secondId && swapped[1] === firstId, `dragging onto another item swaps them: ${firstId},${secondId} became ${swapped}`);
+    await press('Tab');
+    await sleep(200);
+    // The store sells the next backpack up, and it is worn at once.
+    world.upgrades.upgrades.set('bag', 0);
+    world.coins.add(200);
+    const coinsBeforeBag = world.coins.value();
+    expect(world.shop.buy('backpack-1'), 'the store sells a bigger backpack');
+    expect(world.bag.inventory.capacity === 6 && world.coins.value() === coinsBeforeBag - 150 && have('backpack-1') === 0, `it costs 150 and is worn at once, capacity ${world.bag.inventory.capacity}`);
+    world.upgrades.upgrades.set('bag', 3);
+    // Tab closes any window, the notebook included.
+    await press('KeyJ');
+    await press('Tab');
+    await sleep(200);
+    expect(!world.journal.isOpen && !packOpen(), 'Tab closes the notebook without opening the backpack');
     world.chestPack.open();
     await sleep(150);
     expect(packOpen()?.querySelectorAll('.pack-section').length === 3, 'the barn chest shows chest, backpack and pockets');
@@ -463,6 +498,28 @@
     world.dayCycle.setHour(12);
     await sleep(400);
     expect(roamer.options.speed === dayTemper.speed, 'and calm down again by day');
+
+    // 13j2. Three in the morning: the clock stops and only bed is left.
+    world.dayCycle.setHour(2.99);
+    await sleep(600);
+    await quiet();
+    expect(world.dayCycle.stalled && world.dayCycle.clock === '03:00', `the clock stops at 3, it says ${world.dayCycle.clock}`);
+    await sleep(1200);
+    expect(world.dayCycle.clock === '03:00', 'and stays there');
+    expect(document.querySelector('.banner').textContent.includes('You need to sleep'), 'a banner says to sleep');
+    await go(-52, 51.6);
+    world.can.left = 1;
+    await press('KeyE');
+    await sleep(200);
+    expect(world.can.left === 1, 'nothing else can be used at 3 in the morning');
+    const dayAt3 = world.dayCycle.day;
+    await go(-58, 55.5);
+    await press('KeyE');
+    await until(() => world.morning.isOpen);
+    world.morning.close();
+    expect(!world.dayCycle.stalled && world.dayCycle.day === dayAt3 && world.dayCycle.hour >= 6, `bed still works, and wakes on the same day: day ${world.dayCycle.day}, ${world.dayCycle.clock}`);
+    world.dayCycle.setHour(12);
+    await sleep(300);
 
     // 13k. One of them winds up before it hits, the hit shows, and there is a breather after it.
     world.population.clear();

@@ -28,6 +28,9 @@ export async function requestFullscreen(element: HTMLElement = document.document
     if (!canFullscreen(element)) return false;
     try {
         await element.requestFullscreen({ navigationUI: 'hide' });
+        // Where the browser allows it (Chromium), keep Escape for the game: a tap then closes a
+        // menu and only a long press leaves fullscreen. Elsewhere Escape leaves fullscreen as usual.
+        void (navigator as Navigator & { keyboard?: { lock?: (keys: string[]) => Promise<void> } }).keyboard?.lock?.(['Escape']).catch(() => undefined);
         return isFullscreen();
     } catch {
         // A browser that refuses is not an error worth surfacing.
@@ -39,6 +42,7 @@ export async function requestFullscreen(element: HTMLElement = document.document
 export async function exitFullscreen(): Promise<void> {
     if (!isFullscreen()) return;
     try {
+        (navigator as Navigator & { keyboard?: { unlock?: () => void } }).keyboard?.unlock?.();
         await document.exitFullscreen();
     } catch {
         // Ignore.
