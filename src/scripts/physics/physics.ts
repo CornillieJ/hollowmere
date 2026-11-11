@@ -293,15 +293,27 @@ export class Physics {
     /**
      * Add a static box for the given object, sized from its bounding box.
      * Handy for turning an imported glTF scene into level geometry.
+     *
+     * The box turns with the object: a house set at an angle gets a box at that
+     * angle, not the much larger upright box that would enclose it.
+     * @param shrink Scale the footprint, e.g. 0.85 to let a roof overhang without blocking.
      */
-    addStaticFromObject(object: THREE.Object3D, options: Partial<PhysicsBodyOptions> = {}): PhysicsBody {
+    addStaticFromObject(object: THREE.Object3D, options: Partial<PhysicsBodyOptions> = {}, shrink = 1): PhysicsBody {
+        // Measure with the turn taken off, then put it back on the collider.
+        const yaw = object.rotation.y;
+        object.rotation.y = 0;
+        object.updateMatrixWorld(true);
         const box = new THREE.Box3().setFromObject(object);
+        object.rotation.y = yaw;
+        object.updateMatrixWorld(true);
         const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
+        const origin = object.getWorldPosition(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3()).sub(origin).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw).add(origin);
         return this.add({
             kind: 'fixed',
-            shape: { type: 'box', size: { x: size.x, y: size.y, z: size.z } },
+            shape: { type: 'box', size: { x: size.x * shrink, y: size.y, z: size.z * shrink } },
             position: center,
+            rotation: new THREE.Euler(0, yaw, 0),
             object,
             syncObject: false,
             ...options,

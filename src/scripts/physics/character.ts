@@ -76,6 +76,8 @@ export class CharacterBody {
     justLeftGround = false;
 
     private wasGrounded = false;
+    /** The `y` of a surface normal below which the surface is a wall and not ground. */
+    private readonly wallLimit: number;
     private readonly physics: Physics;
     private readonly scratch = new THREE.Vector3();
 
@@ -104,6 +106,7 @@ export class CharacterBody {
         });
 
         this.controller = physics.world.createCharacterController(CONSTANTS.PHYSICS_DEFAULTS.CHARACTER_OFFSET);
+        this.wallLimit = Math.cos(THREE.MathUtils.degToRad(options.maxSlopeDegrees ?? CONSTANTS.PHYSICS_DEFAULTS.CHARACTER_MAX_SLOPE_DEGREES));
         this.controller.setMaxSlopeClimbAngle(THREE.MathUtils.degToRad(options.maxSlopeDegrees ?? CONSTANTS.PHYSICS_DEFAULTS.CHARACTER_MAX_SLOPE_DEGREES));
         this.controller.setMinSlopeSlideAngle(THREE.MathUtils.degToRad(options.minSlideDegrees ?? CONSTANTS.PHYSICS_DEFAULTS.CHARACTER_MIN_SLIDE_DEGREES));
         this.controller.enableAutostep(options.autostep ?? CONSTANTS.PHYSICS_DEFAULTS.AUTOSTEP_MAX_HEIGHT, CONSTANTS.PHYSICS_DEFAULTS.AUTOSTEP_MIN_WIDTH, true);
@@ -207,6 +210,9 @@ export class CharacterBody {
             const collision = this.controller.computedCollision(index);
             if (!collision) continue;
             const normal = collision.normal1;
+            // Ground is not a wall: a slope's normal leans downhill, and cancelling against it would
+            // take the speed out of every step uphill. Only surfaces too steep to walk count.
+            if (normal.y > this.wallLimit) continue;
             // Cancel velocity into the wall so the character does not build up speed against it.
             const dot = this.velocity.x * normal.x + this.velocity.z * normal.z;
             if (dot < 0) {

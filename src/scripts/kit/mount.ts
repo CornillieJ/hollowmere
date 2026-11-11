@@ -149,7 +149,8 @@ export function addMount(game: Game, options: AddMountOptions): MountHandle {
         else speed *= Math.max(0, 1 - drag * step);
 
         // A standing bike barely turns; a moving one turns at full rate.
-        const grip = Math.min(1, Math.abs(speed) / 3);
+        // Stopped against a wall it must still be possible to turn away, so pedalling always gives some steering.
+        const grip = Math.max(Math.min(1, Math.abs(speed) / 3), throttle !== 0 ? 0.4 : 0);
         heading -= steer * turnRate * grip * step * Math.sign(speed || 1);
         direction.set(Math.sin(heading), 0, Math.cos(heading));
         player.body.setHorizontalVelocity(direction, speed);

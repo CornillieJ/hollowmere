@@ -66,18 +66,9 @@ export async function model(game: Game, entry: ModelEntry, fallback: () => THREE
 
 /** A solid box around an object, so the player and the Hollow walk around it. */
 export function solid(game: Game, object: THREE.Object3D, refs: { solids: THREE.Box3[] }, shrink = 0.85): void {
-    object.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(object);
-    const size = box.getSize(new THREE.Vector3());
-    const centre = box.getCenter(new THREE.Vector3());
-    game.physics.add({
-        kind: 'fixed',
-        shape: { type: 'box', size: { x: size.x * shrink, y: size.y, z: size.z * shrink } },
-        position: centre,
-        syncObject: false,
-        tag: 'wall',
-    });
-    refs.solids.push(box);
+    // The box turns with the object, so a house at an angle is not wrapped in a far bigger upright one.
+    game.physics.addStaticFromObject(object, { tag: 'wall' }, shrink);
+    refs.solids.push(new THREE.Box3().setFromObject(object));
 }
 
 /** Stand an object on the ground at a spot. */
