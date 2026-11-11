@@ -92,10 +92,47 @@ footer { display: none; }
 	font-family: var(--ui-font);
 }
 
-.hud-objective.hv-quest {
+.hv-left {
+	position: absolute;
 	top: 12px;
-	right: auto;
 	left: 12px;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 9px;
+}
+
+/* What is carried that matters right now: dishes and how hot they are. */
+.hv-basket {
+	display: grid;
+	gap: 3px;
+	padding: 5px 10px 6px;
+	border: 1px solid rgba(201, 183, 138, 0.3);
+	border-radius: 2px;
+	background: rgba(13, 11, 9, 0.78);
+	color: #d8d0bc;
+	font-size: 12px;
+	white-space: nowrap;
+}
+
+.hv-basket-line.is-hot {
+	color: #ffb070;
+}
+
+.hv-basket-line.is-warm {
+	color: #e6d39a;
+}
+
+.hv-basket-line.is-cold {
+	color: #9fb0bc;
+}
+
+.hv-basket-line.is-bad {
+	color: #e08a80;
+}
+
+.hud-objective.hv-quest {
+	position: static;
 	max-width: 300px;
 	padding: 11px 16px 12px;
 	font-size: 14px;
@@ -351,9 +388,13 @@ footer { display: none; }
 		transform: none;
 	}
 
-	.hud-objective.hv-quest {
+	.hv-left {
 		top: 48px;
 		left: 8px;
+		gap: 6px;
+	}
+
+	.hud-objective.hv-quest {
 		max-width: calc(100vw - 150px);
 		padding: 8px 12px 9px;
 		font-size: 12.5px;
