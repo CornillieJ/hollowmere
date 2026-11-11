@@ -44,6 +44,13 @@ export const ITEMS: ItemDefinition[] = [
     { id: 'pumpkin-pie', name: 'Pumpkin pie', icon: '🥧', category: 'consumable', price: 300, description: 'Restores 80 health.', use: food(80) },
     { id: 'hollow-stew', name: 'Hollowveil stew', icon: '🍲', badge: '🎃', category: 'consumable', price: 420, description: 'Restores all health. The village eats it at funerals and at weddings.', use: food(100) },
 
+    // Taught by a villager at 2 hearts; see `content/regulars.ts`.
+    { id: 'counted-biscuits', name: 'Counted biscuits', icon: '🍪', category: 'consumable', price: 60, description: 'Restores 25 health. Barnaby taught you. None of them are brown.', use: food(25) },
+    { id: 'turnip-mash', name: 'Turnip mash', icon: '🥣', badge: '🥬', category: 'consumable', price: 130, description: 'Restores 45 health. Wren taught you. The same colour all the way through.', use: food(45) },
+    { id: 'postmans-loaf', name: "Postman's loaf", icon: '🥖', category: 'consumable', price: 120, description: 'Restores 45 health. Fen taught you. Sounds hollow when you knock.', use: food(45) },
+    { id: 'warm-milk', name: 'Warm milk', icon: '🍵', category: 'consumable', price: 46, description: 'Restores 20 health. Mother Hollis taught you. One cup for whoever is awake.', use: food(20) },
+    { id: 'corn-cakes', name: 'Corn cakes', icon: '🥞', category: 'consumable', price: 80, description: 'Restores 35 health. Pike taught you. 4 fit in a mouth.', use: food(35) },
+
     // Bought at the store and put on at once: each is the next size up.
     { id: 'backpack-1', name: 'Stitched backpack', icon: '🎒', badge: '6', category: 'tool', maxStack: 1, keep: true, price: 150, description: '6 slots instead of 3. Worn as soon as it is bought.' },
     { id: 'backpack-2', name: 'Leather backpack', icon: '🎒', badge: '10', category: 'tool', maxStack: 1, keep: true, price: 400, description: '10 slots. Worn as soon as it is bought.' },

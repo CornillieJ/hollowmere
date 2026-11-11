@@ -22,8 +22,8 @@ export type CrateOptions = {
     coins: ResourceHandle;
     /** What the stall pays for one. */
     stallPrice: (itemId: string) => number;
-    /** The part of the stall price paid here. Defaults to `CRATE_SHARE`. */
-    share?: number;
+    /** The part of the stall price paid here. Defaults to `CRATE_SHARE`. A function can change with events. */
+    share?: number | (() => number);
     title?: string;
     /** The first row of the window: what this place is for. */
     intro?: { title: string; detail: string };
@@ -53,9 +53,9 @@ export const CRATE_SHARE = 0.8;
 
 export function setupCrate(game: Game, options: CrateOptions): CrateHandle {
     const { carried, coins, format } = options;
-    const share = options.share ?? CRATE_SHARE;
+    const shareNow = (): number => (typeof options.share === 'function' ? options.share() : (options.share ?? CRATE_SHARE));
     const payer = options.payer ?? "Barnaby's crate";
-    const priceOf = (itemId: string): number => Math.floor(options.stallPrice(itemId) * share);
+    const priceOf = (itemId: string): number => Math.floor(options.stallPrice(itemId) * shareNow());
 
     /** One line per kind of thing, however many stacks and bags it is spread over. */
     const stock = (): Array<{ itemId: string; name: string; icon: string; amount: number; wanted: string | undefined }> => {
@@ -102,14 +102,14 @@ export function setupCrate(game: Game, options: CrateOptions): CrateHandle {
                 {
                     icon: '📦',
                     title: options.intro?.title ?? 'Sell from home, for a little less',
-                    detail: options.intro?.detail ?? 'For crops, food and wood you have too much of. Barnaby pays at once, but less than at his stall. A villager who asked for something pays far more.',
+                    detail: options.intro?.detail ?? (shareNow() < 1 ? 'For crops, food and wood you have too much of. Barnaby pays at once, but less than at his stall. A villager who asked for something pays far more.' : 'For crops, food and wood you have too much of. You are in the green book: Barnaby pays the full stall price here. A villager who asked for something still pays far more.'),
                 },
                 { heading: true, title: 'What you carry' },
                 ...(lines.length === 0 ? [{ title: 'Nothing the crate takes.', detail: 'It does not take tools, seeds or the things you keep.', dim: true }] : []),
                 ...lines.map((line) => ({
                     icon: line.icon,
                     title: `${line.name} ×${line.amount}`,
-                    detail: line.wanted ? `${line.wanted} asked for this` : share < 1 ? `${format(priceOf(line.itemId))} each (stall: ${format(options.stallPrice(line.itemId))})` : `${format(priceOf(line.itemId))} each`,
+                    detail: line.wanted ? `${line.wanted} asked for this` : shareNow() < 1 ? `${format(priceOf(line.itemId))} each (stall: ${format(options.stallPrice(line.itemId))})` : `${format(priceOf(line.itemId))} each`,
                     meta: format(priceOf(line.itemId) * line.amount),
                     action: {
                         label: line.wanted ? 'Sell anyway' : 'Sell',
