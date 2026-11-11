@@ -123,6 +123,38 @@ right, the name of the light under it. On a touch screen the pockets fold
 behind a button that shows what is in the hand; the layout has rules for
 upright and sideways phones. The template's HUD stat rows are not used here.
 
+## Branches (from 11 November 2026)
+
+`main` is what GitHub Pages serves and what people play: nothing lands there
+until a batch is done or Jeffrey says so. Work forks from `dev` as
+`feat/<name>` and merges back into `dev` with `--no-ff`. Push `dev` and the
+feature branches to `origin` and `ark`; only `main` deploys.
+
+## Batch 10 plan (on `dev`)
+
+In this order, each on its own branch, each with a probe step:
+
+1. `feat/comforts`: sell to Barnaby out of the backpack; dropped items
+   survive a reload; the barn can be entered (the chest moves inside).
+2. `feat/warm-food`: dishes are hot when they leave the pot and cool by the
+   hour; a hot delivery pays more. A delivery takes hours, so the order of a
+   round matters.
+3. `feat/scent`: the Hollow smell hot food. A full basket draws them from
+   further off and brings more of them, most of all after dark.
+4. `feat/lanterns`: the Veil thickens away from any light and as the day
+   wears on. Lanterns can be put up anywhere and kept in oil: each is a small
+   safe ring and a hole in the fog, so a lit road is something to maintain.
+5. `feat/regulars`: every villager has a favourite and a standing order that
+   comes round every few days. Hearts teach a recipe at 2 and give a lasting
+   favour at 3.
+6. `feat/wrongness`: the valley goes wrong by degrees with the days: a
+   scarecrow that is nearer each morning, a signpost that changes, people who
+   deny yesterday, a house in the woods that is not there, somebody on the
+   road who looks like you, a clock that slips. Noticed ones are kept in the
+   notebook.
+7. `feat/endings`: a spoken, pictured ending for waking up, and a second one
+   for staying when the last day passes.
+
 ## Not verified by a person yet
 
 - Pointer lock handover when a panel or dialogue opens and closes: the probe
