@@ -123,7 +123,63 @@ right, the name of the light under it. On a touch screen the pockets fold
 behind a button that shows what is in the hand; the layout has rules for
 upright and sideways phones. The template's HUD stat rows are not used here.
 
+## Branches (from 11 November 2026)
+
+`main` is what GitHub Pages serves and what people play: nothing lands there
+until a batch is done or Jeffrey says so. Work forks from `dev` as
+`feat/<name>` and merges back into `dev` with `--no-ff`. Push `dev` and the
+feature branches to `origin` and `ark`; only `main` deploys.
+
+## Batch 10 plan (on `dev`)
+
+In this order, each on its own branch, each with a probe step:
+
+1. `feat/comforts`: sell to Barnaby out of the backpack; dropped items
+   survive a reload; the barn can be entered (the chest moves inside).
+2. `feat/warm-food`: dishes are hot when they leave the pot and cool by the
+   hour; a hot delivery pays more. A delivery takes hours, so the order of a
+   round matters.
+3. `feat/scent`: the Hollow smell hot food. A full basket draws them from
+   further off and brings more of them, most of all after dark.
+4. `feat/lanterns`: the Veil thickens away from any light and as the day
+   wears on. Lanterns can be put up anywhere and kept in oil: each is a small
+   safe ring and a hole in the fog, so a lit road is something to maintain.
+5. `feat/regulars`: every villager has a favourite and a standing order that
+   comes round every few days. Hearts teach a recipe at 2 and give a lasting
+   favour at 3.
+6. `feat/wrongness`: the valley goes wrong by degrees with the days: a
+   scarecrow that is nearer each morning, a signpost that changes, people who
+   deny yesterday, a house in the woods that is not there, somebody on the
+   road who looks like you, a clock that slips. Noticed ones are kept in the
+   notebook.
+7. `feat/endings`: a spoken, pictured ending for waking up, and a second one
+   for staying when the last day passes.
+
+## Batch 10: done on `dev` (11 November 2026), not on `main`
+
+All 7 branches are merged into `dev`, plus `fix/phone-menus-and-colliders`.
+`hotfix/phone-menus-and-colliders` is the same 2 fixes on top of `main`,
+pushed and not merged: merging it is what puts them on GitHub Pages.
+
+Where things live: `barn.ts` (the room hangs 90 m above the yard), `crate.ts`
+(both sell windows), `warmth.ts`, scent in `monsters.ts` (`setScent`),
+`lanterns.ts` and `veilAt` in `boot.ts`, `regulars.ts` with
+`content/regulars.ts`, `wrongness.ts`, `ending.ts`. Colliders are measured in
+`world.ts` `solid()`: the faces between knee and head height, measured again
+when a stand-in is swapped for its model.
+
+Numbers to tune after play: `HOT_HOURS`, `WARM_HOURS`, `HEAT_BONUS`; scent
+(4 hot dishes is full strength; +70% notice range, up to +5 Hollow at night);
+`LANTERN` (24 h a flask, 10 at most), the Veil factor (up to 1.9); regular
+orders (`PREMIUM` 1.7, every 3 days, 3 days' patience); `WRONG_FROM` days.
+
 ## Not verified by a person yet
+
+- Everything in batch 10 was checked by probe and screenshot only: how the
+  thick Veil feels at night, whether the scent makes a hot round too hard,
+  how the barn room and the lantern look up close, the pacing of the endings.
+- The double on the road and the house in the woods were not seen in a
+  screenshot, only checked by the probe.
 
 - Pointer lock handover when a panel or dialogue opens and closes: the probe
   runs headless, where there is no pointer lock. Test in a real browser.

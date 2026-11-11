@@ -44,10 +44,17 @@ import { FARM, HAUNTS, POOL_LEVEL, PELL_SPOT, PLACES, SAFE_ZONES, VILLAGE, WORLD
 import { buildWorld, stump } from './world';
 import { setupMood } from './mood';
 import { setupFarming } from './farming';
-import { useHollowModels, animateHollow, forgetHollow, hollowTarget, isNight, pickKind, setNightTemper, spawnHollow, updateWatchers, type HollowKind } from './monsters';
+import { useHollowModels, animateHollow, forgetHollow, hollowTarget, isNight, pickKind, setNightTemper, setScent, spawnHollow, updateWatchers, type HollowKind } from './monsters';
 import { buildFarmyard, buildInfirmary } from './farmyard';
 import { modelOnly, modelled } from './models';
 import { setupCrate } from './crate';
+import { setupBarn } from './barn';
+import { HOT_HOURS, setupWarmth } from './warmth';
+import { LANTERN, setupLanterns } from './lanterns';
+import { setupRegulars } from './regulars';
+import { REGULARS } from '../content/regulars';
+import { setupWrongness } from './wrongness';
+import { STAY_SLIDES, WAKE_SLIDES, setupEnding } from './ending';
 import { HELD_PLACEHOLDER, setupPlates, type PlatesHandle } from './plates';
 import { OMEN_THOUGHTS, setupOmens } from './omens';
 import { setupDread } from './dread';
@@ -125,7 +132,7 @@ export async function boot(): Promise<void> {
     world.player.body.teleport(at(FARM.door, 0.2));
 
     useHollowModels(game);
-    buildFarmyard(game, game.scene, terrain, refs.solids);
+    const yard = buildFarmyard(game, game.scene, terrain, refs.solids);
     buildInfirmary(game.scene, terrain);
     const omens = setupOmens(game, terrain);
 
@@ -151,9 +158,34 @@ export async function boot(): Promise<void> {
         const yaw = player.root.rotation.y;
         const x = player.position.x + Math.sin(yaw) * 1.3;
         const z = player.position.z + Math.cos(yaw) * 1.3;
-        const name = pockets.inventory.registry.resolve(itemId).name;
-        world.pickups.spawn({ position: terrain.point(x, z, 0.45), itemId, amount, collect: 'interact', prompt: `Pick up ${amount > 1 ? `${amount} ` : ''}${name.toLowerCase()}`, color: 0xd8c8a0, size: 0.22 });
+        // At the farmer's own height: the ground is not always what is underfoot.
+        layDown({ itemId, amount, x, y: player.position.y + 0.45, z });
     };
+    /** What lies about, so it is still there after a reload. */
+    type Drop = { itemId: string; amount: number; x: number; y: number; z: number };
+    const drops = new Map<THREE.Object3D, Drop>();
+    const layDown = (drop: Drop): void => {
+        const name = pockets.inventory.registry.resolve(drop.itemId).name;
+        const pickup = world.pickups.spawn({
+            position: new THREE.Vector3(drop.x, drop.y, drop.z),
+            itemId: drop.itemId,
+            amount: drop.amount,
+            collect: 'interact',
+            prompt: `Pick up ${drop.amount > 1 ? `${drop.amount} ` : ''}${name.toLowerCase()}`,
+            color: 0xd8c8a0,
+            size: 0.22,
+            onCollect: (_game, object) => drops.delete(object),
+        });
+        drops.set(pickup, drop);
+    };
+    game.save.register('drops', {
+        save: (): Drop[] => [...drops.values()],
+        load: (data) => {
+            for (const pickup of drops.keys()) world.pickups.remove(pickup);
+            drops.clear();
+            for (const drop of Array.isArray(data) ? (data as Drop[]) : []) if (pockets.inventory.registry.get(drop.itemId)) layDown(drop);
+        },
+    });
     const stats = (): Array<{ icon: string; label: string; value: string }> => [
         { icon: '❤', label: 'Health', value: `${Math.ceil(game.player?.health.current ?? 0)}/${game.player?.health.max ?? 100}` },
         { icon: '🪙', label: 'Coins', value: coin(coins.value()) },
@@ -183,7 +215,7 @@ export async function boot(): Promise<void> {
         onDrop: dropInWorld,
     });
     const escape = setupEscape(game, { coins, day: () => dayCycle.day, narration, format: coin });
-    const hotbar = addHotbar(game, { inventory: pockets, slots: 8, useAction: 'use', onUse: (slot) => (dayCycle.stalled ? undefined : slot.itemId === 'candle' ? void lightCandle() : farming.useHeld(slot)) });
+    const hotbar = addHotbar(game, { inventory: pockets, slots: 8, useAction: 'use', onUse: (slot) => (dayCycle.stalled ? undefined : slot.itemId === 'candle' ? void lightCandle() : slot.itemId === 'lantern' ? void lanterns.place() : farming.useHeld(slot)) });
     game.systems.add({
         name: 'player-anim',
         order: SYSTEM_ORDER.GAMEPLAY + 7,
@@ -222,7 +254,7 @@ export async function boot(): Promise<void> {
     //#region Farm, animals and the bike
 
     /** Counted for the story and the journal, and saved with the day. */
-    const tally = { harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0, bestStreak: 0, bestDay: 0, dodged: 0 };
+    const tally = { harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0, bestStreak: 0, bestDay: 0, dodged: 0, regulars: 0, stayed: 0 };
     const thoughts = new Set<string>();
 
     /** The watering can holds this many waterings, and is filled at the well. */
@@ -378,11 +410,74 @@ export async function boot(): Promise<void> {
         persist: 'nodes',
     });
 
+    // Dishes are hot out of the pot and cool by the hour; hot ones pay more.
+    const warmth = setupWarmth(game, {
+        dishes: new Set([...COOKING, ...REGULARS.map((regular) => regular.teaches)].map((recipe) => recipe.output.itemId)),
+        have,
+        now: () => dayCycle.day * 24 + dayCycle.hour,
+        // Mother Hollis's cosy keeps a basket hot half as long again.
+        keep: () => (regulars.has('cosy') ? 1.5 : 1),
+    });
+    game.save.register('warmth', { save: () => warmth.toJSON(), load: (data) => warmth.fromJSON(data) });
+
+    // What the pot can make: the dishes anyone knows, and the ones a villager has taught.
+    const potRecipes = [...COOKING];
+    const regulars = setupRegulars({
+        day: () => dayCycle.day,
+        hearts: (id) => villagers.relationships.hearts(id),
+        nameOf: (id) => VILLAGERS.find((villager) => villager.id === id)?.name ?? id,
+        itemName: (itemId) => pockets.inventory.registry.resolve(itemId).name,
+        have,
+        take: takeCarried,
+        stallPrice: (itemId) => shop.inventory.sellPrice(itemId),
+        format: coin,
+        onRecipesChanged: () => {
+            potRecipes.length = 0;
+            potRecipes.push(...COOKING, ...REGULARS.filter((regular) => regulars.taught(regular.id)).map((regular) => regular.teaches));
+        },
+        onTaught: (regular) => {
+            const dish = pockets.inventory.registry.resolve(regular.teaches.output.itemId);
+            juice.banner(`${dish.icon ?? '🍲'} ${dish.name}`, `${VILLAGERS.find((villager) => villager.id === regular.id)?.name} taught you a dish. It is in the pot's list now.`, { color: '#b8f0a0', seconds: 4 });
+            juice.chime('fanfare');
+        },
+        onFavour: (regular) => {
+            juice.banner(`♥ ${regular.favour.title}`, regular.favour.text, { color: '#ffc8d8', seconds: 5 });
+            juice.chime('fanfare');
+        },
+        onDelivered: (regular, itemId, _amount, pay) => {
+            today.delivered += 1;
+            const heat = warmth.heatOf(itemId);
+            const heatBonus = Math.round(pay * warmth.bonus(itemId));
+            dayCycle.advance(visitHours());
+            coins.add(pay + heatBonus);
+            villagers.relationships.add(regular.id, heat === 'hot' ? 45 : 35);
+            tally.bestStreak = Math.max(tally.bestStreak, today.delivered);
+            tally.regulars += 1;
+            const name = VILLAGERS.find((villager) => villager.id === regular.id)?.name ?? '';
+            juice.banner('Regular order filled', `${name}  +${coin(pay)}${heat === 'hot' ? `  ·  still hot: +${coin(heatBonus)}` : heat === 'warm' ? `  ·  still warm: +${coin(heatBonus)}` : heat === 'cold' ? '  ·  gone cold' : ''}`, { color: '#ffe9a8' });
+            juice.chime('fanfare');
+            game.toasts.push(`${visitHours()} hours pass. It is ${dayCycle.clock}.`, { color: '#c8c0b0' });
+        },
+        onOpened: (regular, itemId, first) => {
+            const name = VILLAGERS.find((villager) => villager.id === regular.id)?.name ?? '';
+            game.toasts.push(`${name}'s regular order has come round: ${regular.amount} ${pockets.inventory.registry.resolve(itemId).name.toLowerCase()}`, { color: '#ffe9a8' });
+            if (first) think(`regular-${regular.id}`, [regular.asks, '(Regular orders are in the notebook, under Regulars. Hand one over when you talk to them.)']);
+        },
+        onLapsed: (regular, itemId) => {
+            const name = VILLAGERS.find((villager) => villager.id === regular.id)?.name ?? 'Someone';
+            game.toasts.push(`${name} went without their ${pockets.inventory.registry.resolve(itemId).name.toLowerCase()} this time`, { color: '#c8a0a0' });
+            villagers.relationships.add(regular.id, -15);
+        },
+    });
+    game.save.register('regulars', { save: () => regulars.toJSON(), load: (data) => regulars.fromJSON(data) });
+    /** A call on somebody takes this much of the day. Fen knows a shorter way round. */
+    const visitHours = (): number => (regulars.has('shortcut') ? 2 : 3);
+
     const cookpot = addCraftingStation(game, {
         id: 'cookpot',
         title: 'Cooking',
         object: refs.spots.hearth,
-        recipes: COOKING,
+        recipes: potRecipes,
         tierNames: POT_TIERS,
         sources: carried,
         give: stow,
@@ -396,9 +491,11 @@ export async function boot(): Promise<void> {
             juice.chime('success');
             juice.sparkle(refs.spots.hearth.position.clone().setY(refs.spots.hearth.position.y + 1.3), 0xffd9a0, 16);
         },
-        onCollected: () => {
+        onCollected: (itemId, amount) => {
             tally.cooked += 1;
             today.cooked += 1;
+            warmth.collected(itemId, amount);
+            think('hot', [`Hot from the pot. It will not stay that way: ${HOT_HOURS} hours, perhaps, and then it is only warm, and then it is cold.`, 'They pay more for hot food. And every visit takes hours of the day. So who gets theirs first is worth a thought.']);
         },
     });
     const bench = addCraftingStation(game, { id: 'bench', title: 'Workbench', object: refs.spots.workbench, recipes: WOODWORK, sources: carried, give: stow, prompt: 'Use the workbench', verb: 'Build' });
@@ -436,14 +533,19 @@ export async function boot(): Promise<void> {
             yaw: villager.spot.yaw,
             // Out in the square by day, on their own doorstep by night, facing out.
             ...(home && villager.hours ? { schedule: [{ from: villager.hours[0], position: square, yaw: villager.spot.yaw }, { from: villager.hours[1], position: at(home), yaw: home.yaw }] } : {}),
-            lines: villager.lines,
-            topics: villager.topics,
+            // Some days they are sure they did not see the farmer yesterday.
+            lines: (context: Parameters<typeof villager.lines>[0]) => {
+                const denial = wrongness.denial(villager.id);
+                return denial ? [denial] : villager.lines(context);
+            },
+            topics: [...regulars.topicsFor(villager.id), ...villager.topics],
             thanks: villager.thanks,
             };
         }),
         day: () => dayCycle.day,
         hour: () => dayCycle.hour,
         heightAt: ground,
+        onTalk: (id) => wrongness.talked(id),
         animate: (id, speed, delta) => folk.get(id)?.animator.update(speed, delta),
         inventory: pockets,
         // Deliveries may come out of the backpack too.
@@ -458,17 +560,22 @@ export async function boot(): Promise<void> {
         },
         onPaid: (amount, request) => {
             today.delivered += 1;
-            // A delivery is a visit: 3 hours go by.
-            dayCycle.advance(3);
-            game.toasts.push(`3 hours pass. It is ${dayCycle.clock}.`, { color: '#c8c0b0' });
+            // Read before the visit takes its hours: it is as hot as it was when it was handed over.
+            const heat = warmth.heatOf(request.itemId);
+            const heatBonus = Math.round(request.reward * warmth.bonus(request.itemId));
+            // A delivery is a visit: hours go by.
+            dayCycle.advance(visitHours());
+            game.toasts.push(`${visitHours()} hours pass. It is ${dayCycle.clock}.`, { color: '#c8c0b0' });
             // Each further delivery on the same day pays a little more, up to half as much again.
             const streak = Math.min(5, today.delivered - 1);
             const bonus = Math.round(request.reward * 0.1 * streak);
-            coins.add(amount + bonus);
+            coins.add(amount + bonus + heatBonus);
+            if (heat === 'hot') villagers.relationships.add(request.from, 10);
             if (request.deposit > 0) tally.bigJobs += 1;
             tally.bestStreak = Math.max(tally.bestStreak, today.delivered);
             const name = VILLAGERS.find((villager) => villager.id === request.from)?.name ?? '';
-            juice.banner('Request filled', `${name}  +${coin(request.reward)}${bonus > 0 ? `  ·  ${today.delivered} today: +${coin(bonus)} bonus` : ''}`, { color: '#ffe9a8' });
+            const heatLine = heat === 'hot' ? `  ·  still hot: +${coin(heatBonus)}` : heat === 'warm' ? `  ·  still warm: +${coin(heatBonus)}` : heat === 'cold' ? '  ·  gone cold' : '';
+            juice.banner('Request filled', `${name}  +${coin(request.reward)}${heatLine}${bonus > 0 ? `  ·  ${today.delivered} today: +${coin(bonus)} bonus` : ''}`, { color: '#ffe9a8' });
             juice.chime(streak > 0 ? 'fanfare' : 'success');
         },
         formatReward: coin,
@@ -491,13 +598,19 @@ export async function boot(): Promise<void> {
         return stock.includes(seed) || have(seed) > 0 || have(crop) > 0 || farm.plots.some((plot) => plot.crop?.id === crop);
     };
 
+    /** The name of whoever has asked for this, if anybody has. */
+    const wantedBy = (itemId: string): string | undefined => {
+        const request = villagers.requests?.open.find((open) => open.itemId === itemId);
+        return request ? VILLAGERS.find((villager) => villager.id === request.from)?.name : regulars.wanted(itemId);
+    };
+
     const stock = [...STORE_STOCK];
     /** What is on the shelf: seeds by what has been ordered in, and the next backpack up. */
     function restock(): void {
         const seeds = upgrades.level('seeds');
         const bagLevel = upgrades.level('bag');
         stock.length = 0;
-        stock.push('turnip-seed', 'wheat-seed', ...(seeds >= 1 ? ['corn-seed'] : []), ...(seeds >= 2 ? ['pumpkin-seed'] : []), 'fence-kit', 'candle', ...(bagLevel < 3 ? [`backpack-${bagLevel + 1}`] : []));
+        stock.push('turnip-seed', 'wheat-seed', ...(seeds >= 1 ? ['corn-seed'] : []), ...(seeds >= 2 ? ['pumpkin-seed'] : []), 'fence-kit', 'candle', 'lantern', 'lamp-oil', ...(bagLevel < 3 ? [`backpack-${bagLevel + 1}`] : []));
         if (shop.isOpen) shop.screen.refresh();
     }
     // A backpack bought at the counter is put on there and then.
@@ -517,7 +630,23 @@ export async function boot(): Promise<void> {
     lectern.position.copy(at({ x: VILLAGE.store.x + 5.6, z: VILLAGE.store.z + 4.8 }));
     lectern.rotation.y = VILLAGE.store.yaw;
     game.scene.add(counter, lectern);
-    game.interactions.add(counter, { prompt: 'Buy and sell at the store', range: 2.6, onInteract: () => shop.open() });
+    game.interactions.add(counter, { prompt: 'Buy at the store', range: 2.6, onInteract: () => shop.open() });
+    // The counter only reaches into the pockets. The crate at its end takes from the backpack as well.
+    const scales = setupCrate(game, {
+        position: at({ x: VILLAGE.store.x + 0.4, z: VILLAGE.store.z + 7.1 }),
+        yaw: VILLAGE.store.yaw,
+        carried,
+        coins,
+        stallPrice: (itemId) => shop.inventory.sellPrice(itemId),
+        share: 1,
+        title: 'Sell to Barnaby',
+        intro: { title: 'Half price, counted twice', detail: 'Barnaby buys crops, food and wood out of your pockets and your backpack. A villager who asked for something pays far more.' },
+        prompt: 'Sell to Barnaby',
+        payer: 'Barnaby',
+        model: 'crate',
+        wantedBy: (itemId) => wantedBy(itemId),
+        format: coin,
+    });
 
     const upgrades = addUpgrades(game, {
         title: "Barnaby's order book",
@@ -593,15 +722,14 @@ export async function boot(): Promise<void> {
         yaw: Math.PI,
         carried,
         coins,
+        // In Barnaby's green book the crate pays what the stall does.
+        share: () => (regulars.has('ledger') ? 1 : 0.8),
         stallPrice: (itemId) => shop.inventory.sellPrice(itemId),
-        wantedBy: (itemId) => {
-            const request = villagers.requests?.open.find((open) => open.itemId === itemId);
-            return request ? VILLAGERS.find((villager) => villager.id === request.from)?.name : undefined;
-        },
+        wantedBy: (itemId) => wantedBy(itemId),
         format: coin,
     });
 
-    // A chest against the barn's yard wall, under the lamp: what is in it is safe from dying.
+    // A chest in the barn: what is in it is safe from dying.
     const barnWall = refs.solids.find((box) => box.containsPoint(new THREE.Vector3(FARM.barn.x, box.min.y + 1, FARM.barn.z)));
     const chestMesh = new THREE.Group();
     const chestBody = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.7, 0.8), new THREE.MeshStandardMaterial({ color: 0x5a4430, roughness: 1, flatShading: true }));
@@ -612,9 +740,21 @@ export async function boot(): Promise<void> {
     chestLock.position.set(0, 0.6, 0.42);
     chestMesh.add(chestBody, chestLid, chestLock);
     modelled(game, 'chest', chestMesh);
-    chestMesh.position.copy(at({ x: (barnWall?.min.x ?? FARM.barn.x - 5) - 0.6, z: FARM.barn.z + 3 }));
+    const barnFront = (barnWall?.min.x ?? FARM.barn.x - 5) - 0.5;
+    const barn = setupBarn(game, {
+        door: at({ x: barnFront, z: FARM.barn.z }, 1),
+        outside: at({ x: barnFront - 1.4, z: FARM.barn.z }, 0.3),
+        atmosphere,
+        canEnter: () => (bike.mounted ? 'The bicycle stays outside' : dayCycle.stalled ? 'You need to sleep. Go home to bed.' : undefined),
+        onEnter: () => {
+            plates?.setPlace('The barn');
+            think('barn', ['Straw, old wood, one lamp. And quiet: the first real quiet since I woke up here.', 'Nothing has ever come in after me. They do not seem to know it has an inside.']);
+        },
+        onLeave: () => plates?.setPlace(safeZones.zoneAt(game.player?.position ?? barn.floor)?.name),
+    });
+    chestMesh.position.set(3.6, 0, 2.2);
     chestMesh.rotation.y = -Math.PI / 2;
-    game.scene.add(chestMesh);
+    barn.room.add(chestMesh);
     game.interactions.add(chestMesh, { prompt: 'Open the chest', range: 2.4, onInteract: () => chestPack.open() });
 
     const well = new THREE.Object3D();
@@ -682,6 +822,42 @@ export async function boot(): Promise<void> {
         return true;
     };
 
+    // Lanterns: put up anywhere outdoors, kept in oil, each a small safe ring and a hole in the Veil.
+    const lanterns = setupLanterns(game, {
+        safeZones,
+        ground: (x, z) => terrain.point(x, z, 0),
+        now: () => dayCycle.day * 24 + dayCycle.hour,
+        have,
+        take: takeCarried,
+        give: (itemId, amount) => void give(itemId, amount),
+        refuse: (spot) => (barn.inside ? 'Not in here' : safeZones.zoneAt(spot) ? 'There is light here already' : ground(spot.x, spot.z) < POOL_LEVEL + 0.3 ? 'Not in the water' : undefined),
+        onPlaced: () => {
+            body.play('reach');
+            synth.tone({ frequency: 660, duration: 0.2, type: 'sine', gain: 0.07 });
+            juice.chime('success');
+            think('lantern', ['There. A ring of light they will not step into, and the Veil draws back from it a little.', `It has a day of oil in it. A flask buys another day. If I let it go dark it is only a post.`]);
+        },
+        onFilled: (lantern) => {
+            body.play('pour');
+            juice.reward(lantern.position.clone().setY(lantern.position.y + 2.2), `${Math.ceil(lanterns.hoursLeft(lantern))}h of oil`, { chime: false, color: 0xffd9a0 });
+        },
+    });
+    game.save.register('lanterns', { save: () => lanterns.toJSON(), load: (data) => lanterns.fromJSON(data) });
+
+    /**
+     * How much thicker than the hour makes it the Veil is where the farmer stands: 1 by any
+     * light, up to nearly double far from all of them late in the day.
+     */
+    let veilFactor = 1;
+    const veilAt = (position: THREE.Vector3): number => {
+        let toLight = lanterns.distanceToLight(position) - LANTERN.clearing * 0.5;
+        for (const zone of safeZones.zones) toLight = Math.min(toLight, Math.hypot(position.x - zone.position.x, position.z - zone.position.z) - zone.radius);
+        const far = THREE.MathUtils.smoothstep(toLight, 4, 55);
+        const hour = dayCycle.hour;
+        const late = hour < 5.5 ? 1 : THREE.MathUtils.smoothstep(hour, 12, 19.5);
+        return 1 + far * (0.2 + 0.8 * late) * 0.9;
+    };
+
     // The pool is knee deep: wading is slow, and the Hollow do not mind the water.
     addGroundDrag(game, {
         movement: world.controls.movement,
@@ -721,6 +897,23 @@ export async function boot(): Promise<void> {
             game.toasts.push(night ? 'Night. The fog is full of them now.' : 'Dawn. Most of them drift back into the fog.', { color: night ? '#c8a0a0' : '#e8e0c8' });
             if (night) synth.tone({ frequency: 46, duration: 3, type: 'sawtooth', gain: 0.16, sweep: 0.7 });
             if (night) think('night', ['Night. There are 3 of them now for every one I saw by day, and they are not wandering any more.', 'A lamp, a candle, a door. Or the bicycle, and do not stop.']);
+        },
+    });
+
+    // Hot food carries on the air. 4 hot dishes is as strong as it gets; a lit place or the barn hides it.
+    let scentTimer = 0;
+    // Pike's smell on the basket halves it.
+    const scentLevel = (): number => (!hunting() || barn.inside || safeZones.playerSafe ? 0 : Math.min(1, warmth.scent() / 8) * (regulars.has('guard') ? 0.5 : 1));
+    game.systems.add({
+        name: 'scent',
+        order: SYSTEM_ORDER.GAMEPLAY - 2,
+        update: (delta) => {
+            scentTimer -= delta;
+            if (scentTimer > 0) return;
+            scentTimer = 0.5;
+            const level = scentLevel();
+            setScent(level, isNight(dayCycle));
+            if (level >= 0.25) think('scent', ['They turned their heads. All of them, the same way, as I came past with the basket.', 'It is the food. They can smell it while it is hot. The more I carry, the further off they notice, and the more of them come.']);
         },
     });
 
@@ -791,7 +984,10 @@ export async function boot(): Promise<void> {
             if (!player) return;
             const { x, z } = player.position;
             const out = Math.max(Math.abs(x), Math.abs(z));
-            atmosphere.setDensity(atmosphere.fog.density * (1 + (1 - THREE.MathUtils.smoothstep(WRAP_AT - out, 0, 24)) * 4));
+            // Thicker away from any light and late in the day, and thicker still at the edge of the valley.
+            veilFactor += (veilAt(player.position) - veilFactor) * Math.min(1, game.time.delta * 0.8);
+            if (veilFactor > 1.55) think('thick', ['I can hardly see my own hands. It was not like this at noon, or near the lamps.', 'The Veil is thickest late in the day and far from any light. A lantern on the way would make a hole in it.']);
+            atmosphere.setDensity(atmosphere.fog.density * veilFactor * (1 + (1 - THREE.MathUtils.smoothstep(WRAP_AT - out, 0, 24)) * 4));
 
             if (!crossing) {
                 if (out <= WRAP_AT) return;
@@ -867,11 +1063,32 @@ export async function boot(): Promise<void> {
             { id: 'overrun', icon: '🏚', title: 'Only the porch is mine', description: 'Stand on your porch while the farm is overrun.', hidden: true, done: () => happenings.active === 'overrun' && atHome() },
             { id: 'dodge', icon: '💨', title: 'Close!', description: 'Step out from under a blow.', done: () => tally.dodged > 0 },
             { id: 'streak', icon: '🔔', title: 'A good day', description: 'Fill 3 requests in one day.', done: () => tally.bestStreak >= 3 },
+            { id: 'noticing', icon: '✎', title: 'It is an ordinary valley', description: 'Notice 4 things that are not right.', done: () => wrongness.noticed.size >= 4 },
+            { id: 'all-wrong', icon: '🪞', title: 'Everybody says so', description: 'Notice all 7.', hidden: true, done: () => wrongness.noticed.size >= 7 },
+            { id: 'regulars', icon: '🧺', title: 'On the day', description: 'Fill 5 regular orders.', done: () => tally.regulars >= 5 },
+            { id: 'stayed', icon: '🌫', title: 'There are worse neighbours', description: 'Let the last day pass, and stay.', hidden: true },
             { id: 'died', icon: '🛏', title: 'Clean sheets', description: 'Wake up in the infirmary.', hidden: true },
         ],
     });
 
     //#endregion The edge, bad days and deeds
+
+    //#region What is not right
+
+    const wrongness = setupWrongness(game, {
+        terrain,
+        day: () => dayCycle.day,
+        hour: () => dayCycle.hour,
+        scarecrow: yard.scarecrow,
+        think: (id, lines) => think(id, lines),
+        // Once the farmer belongs here nothing is out of place any more.
+        settled: () => tally.stayed > 0,
+        waterField: () => farm.plots.filter((plot) => plot.active && plot.crop && !plot.ripe && farm.water(plot)).length,
+        onNoticed: () => game.toasts.push('Written in the notebook, under "Not right"', { color: '#c8c0b0' }),
+    });
+    game.save.register('wrongness', { save: () => wrongness.toJSON(), load: (data) => wrongness.fromJSON(data) });
+
+    //#endregion What is not right
 
     //#region Feel
 
@@ -904,7 +1121,7 @@ export async function boot(): Promise<void> {
         order: SYSTEM_ORDER.GAMEPLAY - 3,
         update: (delta) => {
             const spent = dayCycle.stalled;
-            game.interactions.filter = spent ? (object) => object === door : undefined;
+            game.interactions.filter = spent ? (object) => object === door || object === barn.exit : undefined;
             if (!spent) {
                 nagTimer = 0;
                 return;
@@ -1017,15 +1234,18 @@ export async function boot(): Promise<void> {
         have,
         day: () => dayCycle.day,
         deeds: () => deeds.rows(),
-        extra: () =>
-            escape.pledge.state === 'running'
+        wrong: () => wrongness.rows(),
+        extra: () => [
+            ...regulars.rows(),
+            ...(escape.pledge.state === 'running'
                 ? [
                       { heading: true, title: 'Going home' },
-                      { icon: '🌅', title: `Pay Fen ${coin(escape.pledge.remaining)} more`, detail: `${escape.pledge.daysLeft} days left, to the end of day ${escape.pledge.deadline}. Paid so far: ${coin(escape.pledge.paid)}. Dying costs 3 days.`, progress: escape.pledge.paid / ESCAPE.price },
+                      { icon: '🌅', title: `Burn ${coin(escape.pledge.remaining)} more at the old tree`, detail: `${escape.pledge.daysLeft} days left, to the end of day ${escape.pledge.deadline}. Paid so far: ${coin(escape.pledge.paid)}. Dying costs 3 days.`, progress: escape.pledge.paid / ESCAPE.price },
                   ]
                 : escape.waiting
                   ? [{ heading: true, title: 'Going home' }, { icon: '🕯', title: 'Pell is waiting on the hill', detail: 'Up the west path from the chapel, to the old tree on the lookout. He has something to say about going home.' }]
-                  : [],
+                  : []),
+        ],
     });
 
     // The compass: home, the village, and wherever the current task is.
@@ -1132,6 +1352,7 @@ export async function boot(): Promise<void> {
             { icon: '❗', title: 'Requests filled', meta: String(today.delivered) },
             { icon: '🍲', title: 'Dishes cooked', meta: String(today.cooked) },
             { icon: '🌱', title: 'Crops picked', meta: String(today.picked) },
+            ...nightRows,
             ...(letters.waiting ? [{ icon: '✉', title: 'There is a letter in the mailbox' }] : []),
             ...(cookpot.station.ready.length > 0 ? [{ icon: '🍲', title: 'The pot finished overnight' }] : []),
             { title: 'Saved.', dim: true, action: { label: 'Get up', onPress: () => morning.close() } },
@@ -1148,8 +1369,11 @@ export async function boot(): Promise<void> {
     ];
     let nightLine = NIGHTS[0] as string;
 
+    /** What was done in the night, for the morning to mention. */
+    let nightRows: ReturnType<typeof wrongness.newDay> = [];
     function sleep(message?: string): void {
         dayCycle.sleep();
+        nightRows = wrongness.newDay();
         // A night is long enough for anything left on the fire or the bench.
         cookpot.skip(DAY_LENGTH);
         bench.skip(DAY_LENGTH);
@@ -1163,9 +1387,18 @@ export async function boot(): Promise<void> {
     function goToBed(): void {
         // Paid in full: this is the night the farmer does not wake up here.
         if (escape.pledge.state === 'kept') {
-            game.effects.flash(2.5, 0xffffff, 1);
             saves.save();
-            window.setTimeout(() => world.flow.win(), 1200);
+            void ending.play({ kind: 'wake', title: 'You woke up', slides: WAKE_SLIDES, tally: lifeTally(), button: 'Wake' }).then(() => world.flow.win());
+            return;
+        }
+        // The last day went by unpaid: this is the night the farmer stops being a visitor.
+        if (escape.pledge.state === 'missed' && tally.stayed === 0) {
+            tally.stayed = dayCycle.day;
+            tally.bestDay = Math.max(tally.bestDay, today.earned);
+            nightLine = 'You slept well. You always sleep well now.';
+            sleep();
+            deeds.award('stayed');
+            void ending.play({ kind: 'stay', title: 'You stayed', slides: STAY_SLIDES, tally: lifeTally(), button: 'Go on living here' }).then(() => morning.open());
             return;
         }
         tally.bestDay = Math.max(tally.bestDay, today.earned);
@@ -1175,9 +1408,29 @@ export async function boot(): Promise<void> {
         morning.open();
     }
 
+    const ending = setupEnding(game);
+    /** What a life here came to, for the last card of an ending. */
+    const lifeTally = (): Array<{ label: string; value: string }> => [
+        { label: 'Days in Hollowveil', value: String(dayCycle.day) },
+        { label: 'Requests filled', value: String(villagers.requests?.completed ?? 0) },
+        { label: 'Regular orders kept', value: String(tally.regulars) },
+        { label: 'Crops picked', value: String(tally.harvested) },
+        { label: 'Hearts', value: String(VILLAGERS.reduce((total, villager) => total + villagers.relationships.hearts(villager.id), 0)) },
+        { label: 'Things noticed that were not right', value: `${wrongness.noticed.size} of 7` },
+        { label: 'Deeds', value: String(deeds.earned) },
+    ];
+
     dayCycle.hooks.onDayStart = (day) => {
         farm.newDay();
         villagers.newDay();
+        regulars.newDay();
+        // Wren's half: a few seeds on the step, of whatever the store stocks.
+        if (regulars.has('seeds')) {
+            const seeds = stock.filter((itemId) => itemId.endsWith('-seed'));
+            const seed = seeds[day % seeds.length] as string;
+            give(seed, 2);
+            game.toasts.push(`Wren left 2 ${pockets.inventory.registry.resolve(seed).name.toLowerCase()} on your step`, { color: '#b8f0a0' });
+        }
         happenings.newDay();
         omens.setDay(day);
         juice.banner(`Day ${day}`, escape.pledge.state === 'running' ? `${escape.pledge.daysLeft} days left to wake` : '');
@@ -1189,7 +1442,18 @@ export async function boot(): Promise<void> {
         coins,
         format: coin,
         hotbar,
+        clock: () => wrongness.clock(),
+        label: () => wrongness.questLabel(),
         note: () => (escape.pledge.state === 'running' ? `${coin(escape.pledge.remaining)} to wake · ${escape.pledge.daysLeft}d` : ''),
+        basket: () =>
+            [
+                ...warmth.carried().slice(0, 4).map((dish) => {
+                    const name = pockets.inventory.registry.resolve(dish.itemId).name;
+                    const left = dish.hoursLeft >= 1 ? `${Math.floor(dish.hoursLeft)}h` : `${Math.max(1, Math.round(dish.hoursLeft * 60))}m`;
+                    return { text: `${dish.heat === 'cold' ? '❄' : '♨'} ${name}${dish.amount > 1 ? ` ×${dish.amount}` : ''} · ${dish.heat}${dish.heat === 'cold' ? '' : ` ${left}`}`, tone: dish.heat };
+                }),
+                ...(scentLevel() >= 0.5 ? [{ text: '☁ They smell this from far off', tone: 'bad' as const }] : scentLevel() >= 0.25 ? [{ text: '☁ The smell carries', tone: 'bad' as const }] : []),
+            ],
     });
     // A phone has no J: the notebook is a button there.
     const notebookHint = game.device.touch ? '' : '. J for the notebook';
@@ -1277,7 +1541,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates,
+    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         spawnKind: (x: number, z: number, kind: HollowKind) => spawnHollow(world.enemies, terrain.point(x, z, 0.4), { night: isNight(dayCycle), hunting: hunting(), kind }),

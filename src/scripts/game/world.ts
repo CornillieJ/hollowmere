@@ -65,11 +65,83 @@ export async function model(game: Game, entry: ModelEntry, fallback: () => THREE
     }
 }
 
-/** A solid box around an object, so the player and the Hollow walk around it. */
-export function solid(game: Game, object: THREE.Object3D, refs: { solids: THREE.Box3[] }, shrink = 0.85): void {
-    // The box turns with the object, so a house at an angle is not wrapped in a far bigger upright one.
-    game.physics.addStaticFromObject(object, { tag: 'wall' }, shrink);
-    refs.solids.push(new THREE.Box3().setFromObject(object));
+/** The band of height that is in the way of somebody walking: over a doorstep, under the eaves. */
+const KNEE = 0.45;
+const HEAD = 1.5;
+const CORNERS = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] as const;
+const CORNER = new THREE.Vector3();
+const UPRIGHT = new THREE.Vector3(0, 1, 0);
+
+/**
+ * The box a walker bumps into: every face of the object that passes through
+ * the band between knee and head, measured with the object's turn taken off.
+ * Eaves, awnings and the crown of a roof hang over ground that can be walked
+ * on, and steps and porch boards lie under the feet, so both are left out.
+ */
+function footprint(object: THREE.Object3D): THREE.Box3 {
+    const yaw = object.rotation.y;
+    object.rotation.y = 0;
+    object.updateMatrixWorld(true);
+    const whole = new THREE.Box3().setFromObject(object);
+    const band = new THREE.Box3();
+    // Something lower than the band is all in the way, e.g. a trough.
+    const floor = whole.min.y + Math.min(KNEE, (whole.max.y - whole.min.y) * 0.4);
+    const ceiling = whole.min.y + HEAD;
+    object.traverse((child) => {
+        const mesh = child as THREE.Mesh;
+        const positions = mesh.isMesh ? mesh.geometry?.getAttribute('position') : undefined;
+        if (!positions || mesh.userData.billboard) return;
+        const index = mesh.geometry.getIndex();
+        const count = index ? index.count : positions.count;
+        for (let face = 0; face + 2 < count; face += 3) {
+            let low = Infinity;
+            let high = -Infinity;
+            for (let corner = 0; corner < 3; corner += 1) {
+                const point = CORNERS[corner] as THREE.Vector3;
+                point.fromBufferAttribute(positions, index ? index.getX(face + corner) : face + corner).applyMatrix4(mesh.matrixWorld);
+                low = Math.min(low, point.y);
+                high = Math.max(high, point.y);
+            }
+            if (high < floor || low > ceiling) continue;
+            for (const point of CORNERS) band.expandByPoint(point);
+        }
+    });
+    object.rotation.y = yaw;
+    object.updateMatrixWorld(true);
+    if (band.isEmpty()) return whole;
+    // As tall as the whole thing: nobody is meant to get onto a roof by its eaves.
+    band.min.y = whole.min.y;
+    band.max.y = whole.max.y;
+    return band;
+}
+
+/**
+ * A solid box around an object, so the player and the Hollow walk around it.
+ * It turns with the object, and is measured again when a stand-in is swapped
+ * for its model, which is rarely the same size.
+ */
+export function solid(game: Game, object: THREE.Object3D, refs: { solids: THREE.Box3[] }, shrink = 0.97): void {
+    const outline = new THREE.Box3();
+    refs.solids.push(outline);
+    let body: ReturnType<Game['physics']['add']> | undefined;
+    const build = (): void => {
+        if (body) game.physics.remove(body);
+        const yaw = object.rotation.y;
+        const box = footprint(object);
+        const size = box.getSize(new THREE.Vector3());
+        const origin = object.getWorldPosition(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3()).sub(origin).applyAxisAngle(UPRIGHT, yaw).add(origin);
+        body = game.physics.add({ kind: 'fixed', shape: { type: 'box', size: { x: size.x * shrink, y: size.y, z: size.z * shrink } }, position: center, rotation: new THREE.Euler(0, yaw, 0), object, syncObject: false, tag: 'wall' });
+        // What the Hollow steer round: the upright box that holds the turned one.
+        outline.makeEmpty();
+        for (const [x, z] of [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
+            CORNER.set((x * size.x * shrink) / 2, 0, (z * size.z * shrink) / 2).applyAxisAngle(UPRIGHT, yaw).add(center);
+            outline.expandByPoint(CORNER.clone().setY(box.min.y));
+            outline.expandByPoint(CORNER.clone().setY(box.max.y));
+        }
+    };
+    build();
+    object.addEventListener('modelled' as never, build);
 }
 
 /** Stand an object on the ground at a spot. */
@@ -152,7 +224,7 @@ export async function buildWorld(game: Game): Promise<WorldRefs> {
     }
 
     const chapelHut = place(modelled(game, 'chapel', chapel()), CHAPEL, root);
-    solid(game, chapelHut, { solids }, 0.6);
+    solid(game, chapelHut, { solids });
     place(modelled(game, 'shrine', shrine()), VILLAGE.center, root);
 
     const trees = buildWoods(game, root);

@@ -27,6 +27,12 @@ export type PlatesOptions = {
     hotbar: HotbarHandle;
     /** A second line under the purse, e.g. what is still owed. Empty hides it. */
     note?: () => string;
+    /** Lines hung under the task, e.g. the dishes carried and how hot they are. */
+    basket?: () => Array<{ text: string; tone?: 'hot' | 'warm' | 'cold' | 'bad' }>;
+    /** What the clock reads instead of the hour, while it is not itself. */
+    clock?: () => string | undefined;
+    /** The small heading over the task. Defaults to "✦ Don't forget". */
+    label?: () => string;
 };
 
 export type PlatesHandle = {
@@ -40,7 +46,12 @@ export function setupPlates(game: Game, options: PlatesOptions): PlatesHandle {
     const { dayCycle, coins, hotbar } = options;
     const root = game.hud.root;
 
-    root.querySelector('.hud-objective')?.classList.add('hv-plate', 'hv-quest');
+    // The task and what hangs under it share a column, so the second follows the first however tall it is.
+    const left = div('hv-left click-through', undefined, root);
+    const quest = root.querySelector('.hud-objective');
+    quest?.classList.add('hv-plate', 'hv-quest');
+    if (quest) left.appendChild(quest);
+    const basket = div('hv-basket is-hidden', undefined, left);
 
     const clock = div('hv-plate hv-clock click-through', undefined, root);
     const top = div('hv-clock-top', undefined, clock);
@@ -76,22 +87,35 @@ export function setupPlates(game: Game, options: PlatesOptions): PlatesHandle {
 
     let shown = '';
     let heldShown = '';
+    let basketShown = '';
     game.systems.add({
         name: 'plates',
         order: SYSTEM_ORDER.EFFECTS,
         always: true,
         update: () => {
             const night = options.isNight();
-            const text = `${night ? '☾' : '☀'}|${dayCycle.day}|${dayCycle.clock}|${dayCycle.stalled}|${options.note?.() ?? ''}`;
+            const clockText = options.clock?.() ?? dayCycle.clock;
+            const label = options.label?.() ?? "✦ Don't forget";
+            const text = `${night ? '☾' : '☀'}|${dayCycle.day}|${clockText}|${dayCycle.stalled}|${options.note?.() ?? ''}|${label}`;
             if (text !== shown) {
                 shown = text;
                 day.textContent = `${night ? '☾ Night' : '☀ Day'} ${dayCycle.day}`;
-                time.textContent = dayCycle.clock;
+                time.textContent = clockText;
+                time.classList.toggle('is-slipping', clockText !== dayCycle.clock);
+                if (quest instanceof HTMLElement) quest.dataset.label = label;
                 clock.classList.toggle('is-night', night);
                 clock.classList.toggle('is-late', dayCycle.stalled);
                 const owed = options.note?.() ?? '';
                 note.textContent = owed;
                 note.classList.toggle('is-hidden', owed.length === 0);
+            }
+            const lines = options.basket?.() ?? [];
+            const basketText = lines.map((line) => `${line.tone ?? ''}:${line.text}`).join('|');
+            if (basketText !== basketShown) {
+                basketShown = basketText;
+                basket.replaceChildren();
+                for (const line of lines) div(`hv-basket-line${line.tone ? ` is-${line.tone}` : ''}`, line.text, basket);
+                basket.classList.toggle('is-hidden', lines.length === 0);
             }
             if (!held) return;
             const slot = hotbar.selected;

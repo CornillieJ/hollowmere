@@ -145,6 +145,12 @@
     await until(() => have('turnip-soup') === 1);
     log.soup = have('turnip-soup');
     expect(log.soup === 1, `took the soup off the fire, got ${log.soup}`);
+    // 4b. It is hot out of the pot, and the plate says so.
+    await quiet();
+    expect(world.warmth.heatOf('turnip-soup') === 'hot' && world.warmth.heatOf('turnip') === undefined, 'a dish is hot when it leaves the pot; a turnip has no temperature');
+    await sleep(200);
+    expect(document.querySelector('.hv-basket')?.textContent.includes('Turnip soup') && document.querySelector('.hv-basket-line.is-hot'), 'the basket line under the task shows it hot');
+    expect(world.warmth.bonus('turnip-soup') === 0.3, 'hot food pays 30% more');
     await sleep(300);
     expect(step() === 'ride', `the story moved on to the ride, got ${step()}`);
 
@@ -264,7 +270,12 @@
     log.roaming = world.population.count;
 
     // 12. Save, spoil the state, load: everything comes back.
+    world.pockets.add('wheat', 2);
+    world.dropInWorld('wheat', 2);
+    world.pockets.remove('wheat', 2);
+    expect(world.drops.size === 1, 'a dropped stack lies on the ground');
     expect(world.saves.save(), 'the game saves');
+    for (const pickup of [...world.drops.keys()]) world.pickups.remove(pickup);
     const saved = { coins: world.coins.value(), wood: have('wood'), tier: world.cookpot.station.tier };
     world.coins.set(1);
     world.cookpot.station.tier = 1;
@@ -276,6 +287,9 @@
     expect(world.farm.activeFields === 2, 'bought land comes back from the save');
     expect(world.nodes.nodes[0].depleted, 'the felled tree is still felled after a load');
     expect(step() === 'sleep', 'the story resumes at the same step');
+    expect(world.drops.size === 1 && world.pickups.objects.length >= 1, 'what was dropped is still lying there after a load');
+    for (const pickup of [...world.drops.keys()]) world.pickups.remove(pickup);
+    world.drops.clear();
 
     // 13. Settings apply and stick.
     world.settings.set('vhs', false);
@@ -647,6 +661,312 @@
         crate.close();
         await sleep(200);
         log.crate = made;
+    }
+
+    // 14e2. The barn has an inside, and the stall buys out of the backpack.
+    {
+        await go(world.barn.floor.x - 12, world.barn.floor.z);
+        world.barn.enter();
+        await sleep(900);
+        await quiet();
+        expect(world.barn.inside && game.player.position.y > 60, 'the barn door leads to a room of its own');
+        expect(document.querySelector('.hv-place')?.textContent.includes('barn'), 'the plate names the barn');
+        const height = game.player.position.y;
+        await sleep(600);
+        expect(Math.abs(game.player.position.y - height) < 0.5, 'the floor holds');
+        world.barn.leave();
+        await sleep(900);
+        expect(!world.barn.inside && game.player.position.y < 20, 'and the door inside leads back to the yard');
+
+        world.bag.add('pumpkin', 2);
+        const before = world.coins.value();
+        const made = world.scales.send('pumpkin');
+        expect(made === world.shop.inventory.sellPrice('pumpkin') * 2 && world.coins.value() === before + made, `the stall pays its full price out of the backpack, ${made}`);
+    }
+
+    // 14e3. Food cools by the hour, and a hot delivery pays more.
+    {
+        const { warmth, dayCycle } = world;
+        world.pockets.remove('turnip-soup', have('turnip-soup'));
+        await sleep(100);
+        dayCycle.setHour(8);
+        world.pockets.add('turnip-soup', 1);
+        warmth.collected('turnip-soup', 1);
+        expect(warmth.heatOf('turnip-soup') === 'hot' && Math.abs(warmth.hoursLeft('turnip-soup') - 4) < 0.2, 'fresh soup is hot for 4 hours');
+        dayCycle.setHour(13);
+        expect(warmth.heatOf('turnip-soup') === 'warm' && warmth.bonus('turnip-soup') === 0.12, 'after 5 hours it is warm');
+        dayCycle.setHour(19);
+        expect(warmth.heatOf('turnip-soup') === 'cold' && warmth.bonus('turnip-soup') === 0, 'after 11 hours it is cold');
+        // A fresh bowl in with a cold one: the two together are warm.
+        world.pockets.add('turnip-soup', 1);
+        warmth.collected('turnip-soup', 1);
+        expect(warmth.heatOf('turnip-soup') === 'warm', `one fresh bowl and one cold one make a warm basket, got ${warmth.heatOf('turnip-soup')}`);
+        expect(warmth.scent() === 2, `2 warm bowls smell of 2, got ${warmth.scent()}`);
+        // They smell it: hot food widens how far off they notice, and brings more of them.
+        {
+            await go(34, 62);
+            const sniffer = world.spawnKind(74, 62, 'walker');
+            await sleep(700);
+            const calm = sniffer.options.aggroRange;
+            const calmTarget = world.hollowTarget();
+            world.pockets.add('bread', 4);
+            warmth.collected('bread', 4);
+            await sleep(900);
+            expect(world.scentLevel() === 1, `4 hot loaves and 2 warm bowls smell as strong as it gets, ${world.scentLevel()} in ${world.safeZones.zoneAt(game.player.position)?.name}`);
+            expect(sniffer.options.aggroRange > calm * 1.3, `they notice from further off: ${calm} to ${sniffer.options.aggroRange}`);
+            expect(world.hollowTarget() > calmTarget, 'and more of them come');
+            expect(document.querySelector('.hv-basket')?.textContent.includes('smell'), 'the basket line says they smell it');
+            world.pockets.remove('bread', 4);
+            await sleep(900);
+            expect(sniffer.options.aggroRange < calm * 1.3, 'with the basket lighter they lose interest again');
+            await quiet();
+        }
+        // Out of the hands, it has no heat left to keep.
+        world.pockets.remove('turnip-soup', 2);
+        await sleep(150);
+        world.pockets.add('turnip-soup', 1);
+        expect(warmth.heatOf('turnip-soup') === 'cold', 'a dish that left the hands is cold when it comes back');
+        world.pockets.remove('turnip-soup', 1);
+        dayCycle.setHour(10);
+    }
+
+    // 14e4. The Veil thickens far from light and late; a lantern makes a hole in it and a ring they keep out of.
+    {
+        const { lanterns, dayCycle } = world;
+        dayCycle.setHour(12);
+        await go(40, 96);
+        const noonFar = world.veilAt(game.player.position);
+        dayCycle.setHour(22);
+        const nightFar = world.veilAt(game.player.position);
+        expect(nightFar > 1.7 && noonFar < 1.3, `far from any light the Veil is thick at night (${nightFar.toFixed(2)}) and thin at noon (${noonFar.toFixed(2)}) near ${world.safeZones.zones.map((zone) => `${zone.name}@${Math.round(Math.hypot(zone.position.x - game.player.position.x, zone.position.z - game.player.position.z))}`).join(',')}`);
+        expect(world.veilAt({ x: -58, y: 0, z: 54 }) === 1, 'on the porch it is as thin as it gets');
+        world.pockets.add('lantern', 1);
+        world.pockets.add('lamp-oil', 2);
+        hold('lantern');
+        await press('KeyF');
+        await sleep(400);
+        await quiet();
+        expect(lanterns.lanterns.length === 1 && have('lantern') === 0, 'F puts the lantern up');
+        const lantern = lanterns.lanterns[0];
+        expect(Math.abs(lanterns.hoursLeft(lantern) - 24) < 0.5, 'it comes with a day of oil');
+        await sleep(300);
+        expect(world.safeZones.zoneAt(lantern.position)?.name === 'Lantern', 'its light is a ring they keep out of');
+        expect(world.veilAt(lantern.position) < 1.05, `and the Veil is thin round it, ${world.veilAt(lantern.position).toFixed(2)}`);
+        await go(lantern.position.x + 0.8, lantern.position.z);
+        await press('KeyE');
+        expect(have('lamp-oil') === 1 && Math.abs(lanterns.hoursLeft(lantern) - 48) < 0.5, `a flask adds a day, ${lanterns.hoursLeft(lantern).toFixed(1)}h`);
+        // Out of oil it is only a post.
+        lantern.until = dayCycle.day * 24 + dayCycle.hour - 1;
+        await sleep(300);
+        expect(!world.safeZones.zoneAt(lantern.position) && world.veilAt(lantern.position) > 1.7, 'out of oil the ring and the clearing are gone');
+        // Saved and loaded, it stands where it stood. With no oil in the pocket, E takes it down.
+        const kept = lanterns.toJSON();
+        lanterns.fromJSON(kept);
+        expect(lanterns.lanterns.length === 1, 'a lantern comes back from a save');
+        world.pockets.remove('lamp-oil', 1);
+        await go(lanterns.lanterns[0].position.x + 0.8, lanterns.lanterns[0].position.z);
+        await press('KeyE');
+        expect(lanterns.lanterns.length === 0 && have('lantern') === 1, 'E without oil takes it down again');
+        world.pockets.remove('lantern', 1);
+        dayCycle.setHour(10);
+    }
+
+    // 14e5. Regulars: a standing order at 1 heart, a dish at 2, a favour at 3.
+    {
+        const { regulars, villagers, dayCycle } = world;
+        const hearts = villagers.relationships;
+        dayCycle.setHour(10);
+        villagers.snapToSchedule();
+        await sleep(300);
+        hearts.add('wren', -1000);
+        expect(regulars.orderOf('wren') === undefined, 'a stranger keeps no regular order');
+        hearts.add('wren', 120);
+        regulars.newDay();
+        await sleep(300);
+        await quiet();
+        const order = regulars.orderOf('wren');
+        expect(order?.open && order.itemId === 'boiled-egg' && order.amount === 2, `at 1 heart Wren's order comes round: ${JSON.stringify(order)}`);
+        expect(order.pay > world.shop.inventory.sellPrice('boiled-egg') * 2 * 1.5, `it pays well over the stall, ${order.pay}`);
+        expect(world.crate.isOpen === false && regulars.wanted('boiled-egg') === 'Wren', 'the crate will know it is spoken for');
+        const wren = game.scene.getObjectByName('villager-wren');
+        const pick = async (text) => {
+            await go(wren.position.x + 1.2, wren.position.z + 1.2);
+            await talkUntilChoices();
+            const choice = choices().find((option) => option.textContent.includes(text));
+            choice?.click();
+            await sleep(500);
+            for (let index = 0; index < 8 && choices().length === 0; index += 1) {
+                await press('Space');
+                await sleep(350);
+            }
+            choices().find((option) => option.textContent.includes('Goodbye'))?.click();
+            await sleep(500);
+            await quiet();
+            return Boolean(choice);
+        };
+        expect(!(await pick('regular order')), 'with nothing to hand over the order is not offered');
+        world.pockets.add('boiled-egg', 2);
+        world.warmth.collected('boiled-egg', 2);
+        const before = world.coins.value();
+        const hourBefore = dayCycle.hour;
+        expect(await pick('regular order'), 'with the eggs in hand it is');
+        const paid = world.coins.value() - before;
+        expect(paid === Math.round(order.pay * 1.3) && have('boiled-egg') === 0, `handed over hot it pays the order and 30% more: ${paid} for ${order.pay}`);
+        expect(!regulars.orderOf('wren').open && regulars.orderOf('wren').dueDay === dayCycle.day + 3, 'and the next one comes round in 3 days');
+        expect(Math.abs(dayCycle.hour - hourBefore - 3) < 0.4, 'the call took 3 hours');
+        // 2 hearts: she teaches her dish, and the order changes to it.
+        hearts.add('wren', 200 - hearts.points('wren'));
+        dayCycle.setHour(10);
+        expect(!world.potRecipes.some((recipe) => recipe.id === 'turnip-mash'), 'turnip mash is not known yet');
+        expect(await pick('favourite'), 'at 2 hearts she can be asked what she likes');
+        expect(regulars.taught('wren') && world.potRecipes.some((recipe) => recipe.id === 'turnip-mash'), 'the pot can make turnip mash now');
+        expect(regulars.orderOf('wren').itemId === 'turnip-mash', 'and her order is for mash from now on');
+        // 3 hearts: a favour that lasts.
+        hearts.add('wren', 300 - hearts.points('wren'));
+        dayCycle.setHour(10);
+        expect(await pick('buried half'), 'at 3 hearts she offers a favour');
+        expect(regulars.has('seeds'), 'Wren leaves seeds from now on');
+        // The others' favours do what they say.
+        const kept = regulars.toJSON();
+        regulars.fromJSON({ ...kept, favours: ['seeds', 'ledger', 'shortcut', 'cosy', 'guard'] });
+        expect(world.crate.priceOf('pumpkin') === world.shop.inventory.sellPrice('pumpkin'), 'in the green book the crate pays the stall price');
+        expect(world.visitHours() === 2, 'the short way round makes a call 2 hours');
+        dayCycle.setHour(8);
+        world.pockets.add('bread', 1);
+        world.warmth.collected('bread', 1);
+        expect(Math.abs(world.warmth.hoursLeft('bread') - 6) < 0.2, 'the cosy keeps a dish hot for 6 hours');
+        world.pockets.remove('bread', 1);
+        regulars.fromJSON(kept);
+        expect(regulars.taught('wren') && world.potRecipes.some((recipe) => recipe.id === 'turnip-mash') && world.visitHours() === 3, 'what was taught and granted comes back from a save, and no more');
+        // Left too long, an order lapses.
+        hearts.add('fen', 120);
+        regulars.newDay();
+        const day = dayCycle.day;
+        dayCycle.day = day + 3;
+        const fenBefore = hearts.points('fen');
+        regulars.newDay();
+        expect(!regulars.orderOf('fen').open && hearts.points('fen') < fenBefore, 'an order left 3 days lapses and costs some goodwill');
+        dayCycle.day = day;
+        dayCycle.setHour(10);
+        await quiet();
+    }
+
+    // 14e6. The valley goes wrong by degrees.
+    {
+        const { wrongness, dayCycle } = world;
+        const day = dayCycle.day;
+        const scarecrow = () => game.scene.getObjectByName('scarecrow') ?? wrongness.scarecrowObject;
+        wrongness.fromJSON(undefined);
+        dayCycle.day = 2;
+        dayCycle.setHour(10);
+        expect(wrongness.level === 0 && wrongness.sign.text()[1] === 'not far', `on day 2 only the signpost has changed: ${wrongness.sign.text()[1]}`);
+        expect(wrongness.newDay().length === 0 && wrongness.scarecrowSteps === 0, 'and nothing happens in the night');
+        // Day 9: the scarecrow walks, things are done in the night, the label over the task changes.
+        dayCycle.day = 10;
+        const planted = world.farm.plots.filter((plot) => plot.active && plot.crop && !plot.ripe);
+        for (const plot of planted) plot.watered = false;
+        const rows = wrongness.newDay();
+        expect(wrongness.scarecrowSteps === 1, 'the scarecrow is a step nearer the house in the morning');
+        expect(rows.length === 1 && (planted.length === 0 || planted.every((plot) => plot.watered)), `something was done in the night: ${rows[0]?.title}`);
+        expect(wrongness.noticed.has('night'), 'which goes in the notebook');
+        expect(wrongness.questLabel().includes('who you are'), `the label over the task has changed: ${wrongness.questLabel()}`);
+        await sleep(300);
+        expect(document.querySelector('.hv-quest').dataset.label.includes('who you are'), 'and the plate shows it');
+        // Near the scarecrow the farmer notices, and can carry it back.
+        const post = { x: -48, z: 40.2 };
+        await go(post.x - 2.4, post.z + 3.6);
+        await sleep(600);
+        await quiet();
+        expect(wrongness.noticed.has('scarecrow'), 'near it, the farmer notices the scarecrow has moved');
+        await press('KeyE');
+        await sleep(200);
+        expect(wrongness.scarecrowSteps === 0, 'E carries it back to its post');
+        // The signpost.
+        await go(-44.5 - 1, 43.2 + 1);
+        await press('KeyE');
+        await sleep(400);
+        await quiet();
+        expect(wrongness.noticed.has('sign') && wrongness.sign.text()[1] === 'we like you', `the signpost says something else: ${wrongness.sign.text().join(' / ')}`);
+        // Yesterday.
+        wrongness.talked('fen');
+        dayCycle.day = 12;
+        expect(wrongness.denial('fen') === undefined, 'nobody denies a talk that was not yesterday');
+        dayCycle.day = 11;
+        expect(String(wrongness.denial('fen')).includes('did not see you yesterday'), 'Fen denies yesterday');
+        await sleep(400);
+        await quiet();
+        expect(wrongness.noticed.has('denial'), 'and the farmer notes it');
+        // The house that is not there.
+        wrongness.force('house');
+        expect(wrongness.house.visible, 'there is a house in the woods by the road');
+        await go(wrongness.house.position.x + 8, wrongness.house.position.z);
+        await sleep(500);
+        await quiet();
+        expect(!wrongness.house.visible && wrongness.noticed.has('house'), 'walked up to, it is not there');
+        // Somebody on the road at dusk.
+        dayCycle.setHour(20);
+        await go(8, 0);
+        wrongness.force('double');
+        await sleep(500);
+        expect(wrongness.double.visible && wrongness.double.position.distanceTo(game.player.position) >= 29, 'at dusk somebody stands a way down the road');
+        await go(wrongness.double.position.x + 5, wrongness.double.position.z + 5);
+        await sleep(500);
+        await quiet();
+        expect(!wrongness.double.visible && wrongness.noticed.has('double'), 'reached, there is nobody');
+        // The clock.
+        wrongness.force('clock');
+        await sleep(350);
+        expect(Boolean(document.querySelector('.hv-clock-time.is-slipping')) && wrongness.clock() !== undefined, 'the clock slips for a moment');
+        await sleep(1500);
+        expect(!document.querySelector('.hv-clock-time.is-slipping'), 'and is right again');
+        expect(wrongness.rows().length >= 6, 'what was noticed is listed in the notebook');
+        const kept = wrongness.toJSON();
+        wrongness.fromJSON(kept);
+        expect(wrongness.noticed.size >= 5, 'and comes back from a save');
+        dayCycle.day = day;
+        dayCycle.setHour(10);
+        wrongness.fromJSON({ noticed: [...wrongness.noticed] });
+        await quiet();
+    }
+
+    // 14e7. Staying: the last day passes, the farmer sleeps on it, and nothing is wrong any more.
+    {
+        const { ending, wrongness, escape, dayCycle } = world;
+        expect(escape.pledge.state === 'running', `the bargain is on, ${escape.pledge.state}`);
+        const day = dayCycle.day;
+        dayCycle.day = escape.pledge.deadline + 1;
+        await sleep(500);
+        await quiet();
+        expect(escape.pledge.state === 'missed', 'the last day passes unpaid');
+        dayCycle.setHour(22);
+        world.goToBedNow();
+        await sleep(400);
+        expect(ending.playing && document.querySelector('.ending.is-stay.is-open'), 'going to bed after that plays the ending for staying');
+        expect(game.time.effectiveScale === 0, 'and the valley holds still under it');
+        const firstCard = document.querySelector('.ending-text').textContent;
+        let cards = 0;
+        for (; cards < 12 && document.querySelector('.ending-button').classList.contains('is-hidden'); cards += 1) {
+            ending.next();
+            await sleep(60);
+        }
+        expect(cards === 7 && firstCard.includes('soup'), `7 cards are read before the last one, ${cards}`);
+        expect(document.querySelector('.ending-tally').textContent.includes('Days in Hollowveil'), 'the last card adds the life up');
+        expect(document.querySelector('.ending-button').textContent === 'Go on living here', 'and offers to go on');
+        document.querySelector('.ending-button').click();
+        await sleep(300);
+        expect(!ending.playing && world.morning.isOpen, 'then it is morning, like any other');
+        world.morning.close();
+        await sleep(200);
+        expect(world.tally.stayed > 0 && world.deeds.has('stayed'), 'staying is kept');
+        expect(wrongness.sign.text()[1] === 'home' && wrongness.questLabel() === '✦ Today' && wrongness.scarecrowSteps === 0, 'nothing is wrong any more');
+        dayCycle.setHour(22);
+        world.goToBedNow();
+        await sleep(300);
+        expect(!ending.playing && world.morning.isOpen, 'the ending plays once');
+        world.morning.close();
+        dayCycle.day = day;
+        dayCycle.setHour(10);
+        await quiet();
     }
 
     // 14f. The plates: the task top left, the day, hour and purse top right.

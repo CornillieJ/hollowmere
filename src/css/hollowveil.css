@@ -92,10 +92,47 @@ footer { display: none; }
 	font-family: var(--ui-font);
 }
 
-.hud-objective.hv-quest {
+.hv-left {
+	position: absolute;
 	top: 12px;
-	right: auto;
 	left: 12px;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 9px;
+}
+
+/* What is carried that matters right now: dishes and how hot they are. */
+.hv-basket {
+	display: grid;
+	gap: 3px;
+	padding: 5px 10px 6px;
+	border: 1px solid rgba(201, 183, 138, 0.3);
+	border-radius: 2px;
+	background: rgba(13, 11, 9, 0.78);
+	color: #d8d0bc;
+	font-size: 12px;
+	white-space: nowrap;
+}
+
+.hv-basket-line.is-hot {
+	color: #ffb070;
+}
+
+.hv-basket-line.is-warm {
+	color: #e6d39a;
+}
+
+.hv-basket-line.is-cold {
+	color: #9fb0bc;
+}
+
+.hv-basket-line.is-bad {
+	color: #e08a80;
+}
+
+.hud-objective.hv-quest {
+	position: static;
 	max-width: 300px;
 	padding: 11px 16px 12px;
 	font-size: 14px;
@@ -105,7 +142,7 @@ footer { display: none; }
 }
 
 .hv-quest::before {
-	content: "✦ Don't forget";
+	content: attr(data-label);
 	display: block;
 	margin-bottom: 4px;
 	color: var(--ui-accent);
@@ -170,6 +207,13 @@ footer { display: none; }
 	margin-top: 3px;
 	color: #d0a8a0;
 	font-size: 12px;
+}
+
+/* For a moment it is not an hour at all. */
+.hv-clock-time.is-slipping {
+	color: #b9c4a0;
+	letter-spacing: 0.12em;
+	transform: skewX(-8deg);
 }
 
 /* By night the plate goes cold. */
@@ -351,9 +395,13 @@ footer { display: none; }
 		transform: none;
 	}
 
-	.hud-objective.hv-quest {
+	.hv-left {
 		top: 48px;
 		left: 8px;
+		gap: 6px;
+	}
+
+	.hud-objective.hv-quest {
 		max-width: calc(100vw - 150px);
 		padding: 8px 12px 9px;
 		font-size: 12.5px;
@@ -488,6 +536,120 @@ footer { display: none; }
 }
 
 /* A window is open: the fullscreen button would sit on its corner. */
-#ui-root:has(.list-panel-wrap:not(.is-hidden), .pack-wrap:not(.is-hidden)) .fullscreen-button {
+#ui-root:has(.list-panel-wrap:not(.is-hidden), .pack-wrap:not(.is-hidden), .inventory:not(.is-hidden), .ending.is-open) .fullscreen-button {
 	display: none;
+}
+
+/* --------------------------------------------------------------------------
+   An ending: the screen closes over the valley and the rest is read.
+   -------------------------------------------------------------------------- */
+
+.ending {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	padding: 24px;
+	box-sizing: border-box;
+	background: rgba(0, 0, 0, 0);
+	pointer-events: auto;
+	transition: background 2.4s ease;
+}
+
+.ending.is-wake.is-open {
+	background: #e9e6da;
+	color: #26221c;
+}
+
+.ending.is-stay.is-open {
+	background: #7d867a;
+	color: #14130f;
+}
+
+.ending-card {
+	display: grid;
+	gap: 14px;
+	justify-items: center;
+	width: min(560px, 92vw);
+	text-align: center;
+	font-family: var(--ui-font);
+	opacity: 0;
+}
+
+.ending.is-open .ending-card.is-in {
+	animation: ending-in 1.4s ease 0.9s forwards;
+}
+
+@keyframes ending-in {
+	from { opacity: 0; transform: translateY(6px); }
+	to { opacity: 1; transform: none; }
+}
+
+/* Coarse, like everything else here: drawn small and blown up. */
+.ending-picture {
+	font-size: 26px;
+	line-height: 1;
+	transform: scale(3.2);
+	margin: 34px 0 30px;
+	filter: saturate(0.55) contrast(0.9);
+	image-rendering: pixelated;
+}
+
+.ending-title {
+	font-size: 15px;
+	font-style: italic;
+	letter-spacing: 0.34em;
+	text-transform: uppercase;
+	opacity: 0.7;
+}
+
+.ending-title:empty,
+.ending-text:empty,
+.ending-hint:empty {
+	display: none;
+}
+
+.ending-text {
+	font-size: clamp(18px, 2.6vw, 23px);
+	line-height: 1.5;
+}
+
+.ending-hint {
+	margin-top: 8px;
+	font-size: 11px;
+	letter-spacing: 0.3em;
+	text-transform: uppercase;
+	opacity: 0.45;
+	animation: ending-hint 2s ease-in-out infinite;
+}
+
+@keyframes ending-hint {
+	50% { opacity: 0.15; }
+}
+
+.ending-tally {
+	display: grid;
+	gap: 6px;
+	width: min(380px, 86vw);
+	font-size: 15px;
+}
+
+.ending-tally-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 16px;
+	padding-bottom: 5px;
+	border-bottom: 1px dashed rgba(0, 0, 0, 0.25);
+}
+
+.ending-tally-value {
+	font-weight: 700;
+}
+
+.ending .menu-button.ending-button {
+	margin-top: 10px;
+	min-width: 220px;
+	border-color: rgba(0, 0, 0, 0.5);
+	background: rgba(0, 0, 0, 0.78);
+	color: #efe8d4;
 }

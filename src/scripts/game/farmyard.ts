@@ -18,7 +18,7 @@ const STRAW = new THREE.MeshStandardMaterial({ color: 0x9a8a52, roughness: 1, fl
 
 type Context = { game: Game; root: THREE.Object3D; terrain: Terrain; solids: THREE.Box3[] };
 
-export function buildFarmyard(game: Game, root: THREE.Object3D, terrain: Terrain, solids: THREE.Box3[]): void {
+export function buildFarmyard(game: Game, root: THREE.Object3D, terrain: Terrain, solids: THREE.Box3[]): { scarecrow: THREE.Object3D } {
     const context: Context = { game, root, terrain, solids };
     const put = (object: THREE.Object3D, x: number, z: number, yaw = 0, collide = true): THREE.Object3D => {
         terrain.place(object, x, z);
@@ -54,7 +54,7 @@ export function buildFarmyard(game: Game, root: THREE.Object3D, terrain: Terrain
     ] as Array<[number, number]>) {
         put(modelled(game, 'crate', crate()), x, z, x * 0.7);
     }
-    put(modelled(game, 'scarecrow', scarecrow()), -48, 40.2, Math.PI, false);
+    const yardScarecrow = put(modelled(game, 'scarecrow', scarecrow()), -48, 40.2, Math.PI, false);
     washingLine(context, { x: -57, z: 62 }, { x: -52.5, z: 63.2 });
 
     // A fence along the north of the fields, with a gap a cart, or anything else, can come through.
@@ -63,6 +63,7 @@ export function buildFarmyard(game: Game, root: THREE.Object3D, terrain: Terrain
         put(fence, x, 25.2, 0, false);
         game.physics.add({ kind: 'fixed', shape: { type: 'box', size: { x: 4, y: 1.2, z: 0.2 } }, position: new THREE.Vector3(x, terrain.heightAt(x, 25.2) + 0.6, 25.2), syncObject: false, tag: 'wall' });
     }
+    return { scarecrow: yardScarecrow };
 }
 
 /** Marks the empty house on the square as the infirmary: a white lamp and a cross over the door. */
