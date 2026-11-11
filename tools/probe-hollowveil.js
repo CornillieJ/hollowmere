@@ -851,6 +851,84 @@
         await quiet();
     }
 
+    // 14e6. The valley goes wrong by degrees.
+    {
+        const { wrongness, dayCycle } = world;
+        const day = dayCycle.day;
+        const scarecrow = () => game.scene.getObjectByName('scarecrow') ?? wrongness.scarecrowObject;
+        wrongness.fromJSON(undefined);
+        dayCycle.day = 2;
+        dayCycle.setHour(10);
+        expect(wrongness.level === 0 && wrongness.sign.text()[1] === 'not far', `on day 2 only the signpost has changed: ${wrongness.sign.text()[1]}`);
+        expect(wrongness.newDay().length === 0 && wrongness.scarecrowSteps === 0, 'and nothing happens in the night');
+        // Day 9: the scarecrow walks, things are done in the night, the label over the task changes.
+        dayCycle.day = 10;
+        const planted = world.farm.plots.filter((plot) => plot.active && plot.crop && !plot.ripe);
+        for (const plot of planted) plot.watered = false;
+        const rows = wrongness.newDay();
+        expect(wrongness.scarecrowSteps === 1, 'the scarecrow is a step nearer the house in the morning');
+        expect(rows.length === 1 && (planted.length === 0 || planted.every((plot) => plot.watered)), `something was done in the night: ${rows[0]?.title}`);
+        expect(wrongness.noticed.has('night'), 'which goes in the notebook');
+        expect(wrongness.questLabel().includes('who you are'), `the label over the task has changed: ${wrongness.questLabel()}`);
+        await sleep(300);
+        expect(document.querySelector('.hv-quest').dataset.label.includes('who you are'), 'and the plate shows it');
+        // Near the scarecrow the farmer notices, and can carry it back.
+        const post = { x: -48, z: 40.2 };
+        await go(post.x - 2.4, post.z + 3.6);
+        await sleep(600);
+        await quiet();
+        expect(wrongness.noticed.has('scarecrow'), 'near it, the farmer notices the scarecrow has moved');
+        await press('KeyE');
+        await sleep(200);
+        expect(wrongness.scarecrowSteps === 0, 'E carries it back to its post');
+        // The signpost.
+        await go(-44.5 - 1, 43.2 + 1);
+        await press('KeyE');
+        await sleep(400);
+        await quiet();
+        expect(wrongness.noticed.has('sign') && wrongness.sign.text()[1] === 'we like you', `the signpost says something else: ${wrongness.sign.text().join(' / ')}`);
+        // Yesterday.
+        wrongness.talked('fen');
+        dayCycle.day = 12;
+        expect(wrongness.denial('fen') === undefined, 'nobody denies a talk that was not yesterday');
+        dayCycle.day = 11;
+        expect(String(wrongness.denial('fen')).includes('did not see you yesterday'), 'Fen denies yesterday');
+        await sleep(400);
+        await quiet();
+        expect(wrongness.noticed.has('denial'), 'and the farmer notes it');
+        // The house that is not there.
+        wrongness.force('house');
+        expect(wrongness.house.visible, 'there is a house in the woods by the road');
+        await go(wrongness.house.position.x + 8, wrongness.house.position.z);
+        await sleep(500);
+        await quiet();
+        expect(!wrongness.house.visible && wrongness.noticed.has('house'), 'walked up to, it is not there');
+        // Somebody on the road at dusk.
+        dayCycle.setHour(20);
+        await go(8, 0);
+        wrongness.force('double');
+        await sleep(500);
+        expect(wrongness.double.visible && wrongness.double.position.distanceTo(game.player.position) >= 29, 'at dusk somebody stands a way down the road');
+        await go(wrongness.double.position.x + 5, wrongness.double.position.z + 5);
+        await sleep(500);
+        await quiet();
+        expect(!wrongness.double.visible && wrongness.noticed.has('double'), 'reached, there is nobody');
+        // The clock.
+        wrongness.force('clock');
+        await sleep(350);
+        expect(Boolean(document.querySelector('.hv-clock-time.is-slipping')) && wrongness.clock() !== undefined, 'the clock slips for a moment');
+        await sleep(1500);
+        expect(!document.querySelector('.hv-clock-time.is-slipping'), 'and is right again');
+        expect(wrongness.rows().length >= 6, 'what was noticed is listed in the notebook');
+        const kept = wrongness.toJSON();
+        wrongness.fromJSON(kept);
+        expect(wrongness.noticed.size >= 5, 'and comes back from a save');
+        dayCycle.day = day;
+        dayCycle.setHour(10);
+        wrongness.fromJSON({ noticed: [...wrongness.noticed] });
+        await quiet();
+    }
+
     // 14f. The plates: the task top left, the day, hour and purse top right.
     {
         const quest = document.querySelector('.hv-quest').getBoundingClientRect();

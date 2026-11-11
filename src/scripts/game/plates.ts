@@ -29,6 +29,10 @@ export type PlatesOptions = {
     note?: () => string;
     /** Lines hung under the task, e.g. the dishes carried and how hot they are. */
     basket?: () => Array<{ text: string; tone?: 'hot' | 'warm' | 'cold' | 'bad' }>;
+    /** What the clock reads instead of the hour, while it is not itself. */
+    clock?: () => string | undefined;
+    /** The small heading over the task. Defaults to "✦ Don't forget". */
+    label?: () => string;
 };
 
 export type PlatesHandle = {
@@ -90,11 +94,15 @@ export function setupPlates(game: Game, options: PlatesOptions): PlatesHandle {
         always: true,
         update: () => {
             const night = options.isNight();
-            const text = `${night ? '☾' : '☀'}|${dayCycle.day}|${dayCycle.clock}|${dayCycle.stalled}|${options.note?.() ?? ''}`;
+            const clockText = options.clock?.() ?? dayCycle.clock;
+            const label = options.label?.() ?? "✦ Don't forget";
+            const text = `${night ? '☾' : '☀'}|${dayCycle.day}|${clockText}|${dayCycle.stalled}|${options.note?.() ?? ''}|${label}`;
             if (text !== shown) {
                 shown = text;
                 day.textContent = `${night ? '☾ Night' : '☀ Day'} ${dayCycle.day}`;
-                time.textContent = dayCycle.clock;
+                time.textContent = clockText;
+                time.classList.toggle('is-slipping', clockText !== dayCycle.clock);
+                if (quest instanceof HTMLElement) quest.dataset.label = label;
                 clock.classList.toggle('is-night', night);
                 clock.classList.toggle('is-late', dayCycle.stalled);
                 const owed = options.note?.() ?? '';

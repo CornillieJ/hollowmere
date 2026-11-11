@@ -142,7 +142,7 @@ footer { display: none; }
 }
 
 .hv-quest::before {
-	content: "✦ Don't forget";
+	content: attr(data-label);
 	display: block;
 	margin-bottom: 4px;
 	color: var(--ui-accent);
@@ -207,6 +207,13 @@ footer { display: none; }
 	margin-top: 3px;
 	color: #d0a8a0;
 	font-size: 12px;
+}
+
+/* For a moment it is not an hour at all. */
+.hv-clock-time.is-slipping {
+	color: #b9c4a0;
+	letter-spacing: 0.12em;
+	transform: skewX(-8deg);
 }
 
 /* By night the plate goes cold. */
