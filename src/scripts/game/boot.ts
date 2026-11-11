@@ -53,6 +53,7 @@ import { HOT_HOURS, setupWarmth } from './warmth';
 import { LANTERN, setupLanterns } from './lanterns';
 import { setupRegulars } from './regulars';
 import { REGULARS } from '../content/regulars';
+import { setupWrongness } from './wrongness';
 import { HELD_PLACEHOLDER, setupPlates, type PlatesHandle } from './plates';
 import { OMEN_THOUGHTS, setupOmens } from './omens';
 import { setupDread } from './dread';
@@ -130,7 +131,7 @@ export async function boot(): Promise<void> {
     world.player.body.teleport(at(FARM.door, 0.2));
 
     useHollowModels(game);
-    buildFarmyard(game, game.scene, terrain, refs.solids);
+    const yard = buildFarmyard(game, game.scene, terrain, refs.solids);
     buildInfirmary(game.scene, terrain);
     const omens = setupOmens(game, terrain);
 
@@ -531,7 +532,11 @@ export async function boot(): Promise<void> {
             yaw: villager.spot.yaw,
             // Out in the square by day, on their own doorstep by night, facing out.
             ...(home && villager.hours ? { schedule: [{ from: villager.hours[0], position: square, yaw: villager.spot.yaw }, { from: villager.hours[1], position: at(home), yaw: home.yaw }] } : {}),
-            lines: villager.lines,
+            // Some days they are sure they did not see the farmer yesterday.
+            lines: (context: Parameters<typeof villager.lines>[0]) => {
+                const denial = wrongness.denial(villager.id);
+                return denial ? [denial] : villager.lines(context);
+            },
             topics: [...regulars.topicsFor(villager.id), ...villager.topics],
             thanks: villager.thanks,
             };
@@ -539,6 +544,7 @@ export async function boot(): Promise<void> {
         day: () => dayCycle.day,
         hour: () => dayCycle.hour,
         heightAt: ground,
+        onTalk: (id) => wrongness.talked(id),
         animate: (id, speed, delta) => folk.get(id)?.animator.update(speed, delta),
         inventory: pockets,
         // Deliveries may come out of the backpack too.
@@ -1056,11 +1062,29 @@ export async function boot(): Promise<void> {
             { id: 'overrun', icon: '🏚', title: 'Only the porch is mine', description: 'Stand on your porch while the farm is overrun.', hidden: true, done: () => happenings.active === 'overrun' && atHome() },
             { id: 'dodge', icon: '💨', title: 'Close!', description: 'Step out from under a blow.', done: () => tally.dodged > 0 },
             { id: 'streak', icon: '🔔', title: 'A good day', description: 'Fill 3 requests in one day.', done: () => tally.bestStreak >= 3 },
+            { id: 'noticing', icon: '✎', title: 'It is an ordinary valley', description: 'Notice 4 things that are not right.', done: () => wrongness.noticed.size >= 4 },
+            { id: 'all-wrong', icon: '🪞', title: 'Everybody says so', description: 'Notice all 7.', hidden: true, done: () => wrongness.noticed.size >= 7 },
+            { id: 'regulars', icon: '🧺', title: 'On the day', description: 'Fill 5 regular orders.', done: () => tally.regulars >= 5 },
             { id: 'died', icon: '🛏', title: 'Clean sheets', description: 'Wake up in the infirmary.', hidden: true },
         ],
     });
 
     //#endregion The edge, bad days and deeds
+
+    //#region What is not right
+
+    const wrongness = setupWrongness(game, {
+        terrain,
+        day: () => dayCycle.day,
+        hour: () => dayCycle.hour,
+        scarecrow: yard.scarecrow,
+        think: (id, lines) => think(id, lines),
+        waterField: () => farm.plots.filter((plot) => plot.active && plot.crop && !plot.ripe && farm.water(plot)).length,
+        onNoticed: () => game.toasts.push('Written in the notebook, under "Not right"', { color: '#c8c0b0' }),
+    });
+    game.save.register('wrongness', { save: () => wrongness.toJSON(), load: (data) => wrongness.fromJSON(data) });
+
+    //#endregion What is not right
 
     //#region Feel
 
@@ -1206,6 +1230,7 @@ export async function boot(): Promise<void> {
         have,
         day: () => dayCycle.day,
         deeds: () => deeds.rows(),
+        wrong: () => wrongness.rows(),
         extra: () => [
             ...regulars.rows(),
             ...(escape.pledge.state === 'running'
@@ -1323,6 +1348,7 @@ export async function boot(): Promise<void> {
             { icon: '❗', title: 'Requests filled', meta: String(today.delivered) },
             { icon: '🍲', title: 'Dishes cooked', meta: String(today.cooked) },
             { icon: '🌱', title: 'Crops picked', meta: String(today.picked) },
+            ...nightRows,
             ...(letters.waiting ? [{ icon: '✉', title: 'There is a letter in the mailbox' }] : []),
             ...(cookpot.station.ready.length > 0 ? [{ icon: '🍲', title: 'The pot finished overnight' }] : []),
             { title: 'Saved.', dim: true, action: { label: 'Get up', onPress: () => morning.close() } },
@@ -1339,8 +1365,11 @@ export async function boot(): Promise<void> {
     ];
     let nightLine = NIGHTS[0] as string;
 
+    /** What was done in the night, for the morning to mention. */
+    let nightRows: ReturnType<typeof wrongness.newDay> = [];
     function sleep(message?: string): void {
         dayCycle.sleep();
+        nightRows = wrongness.newDay();
         // A night is long enough for anything left on the fire or the bench.
         cookpot.skip(DAY_LENGTH);
         bench.skip(DAY_LENGTH);
@@ -1388,6 +1417,8 @@ export async function boot(): Promise<void> {
         coins,
         format: coin,
         hotbar,
+        clock: () => wrongness.clock(),
+        label: () => wrongness.questLabel(),
         note: () => (escape.pledge.state === 'running' ? `${coin(escape.pledge.remaining)} to wake · ${escape.pledge.daysLeft}d` : ''),
         basket: () =>
             [
@@ -1485,7 +1516,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
+    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         spawnKind: (x: number, z: number, kind: HollowKind) => spawnHollow(world.enemies, terrain.point(x, z, 0.4), { night: isNight(dayCycle), hunting: hunting(), kind }),

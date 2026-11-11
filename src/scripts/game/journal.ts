@@ -19,6 +19,8 @@ export type JournalOptions = {
     extra?: () => PanelRow[];
     /** The list of deeds, for its own tab. */
     deeds: () => PanelRow[];
+    /** What the farmer has noticed is not right. */
+    wrong: () => PanelRow[];
 };
 
 const GUIDE: Array<[string, string, string]> = [
@@ -99,6 +101,7 @@ export function setupJournal(game: Game, options: JournalOptions): PanelHandle {
             { id: 'tasks', label: 'Tasks', rows: tasks },
             { id: 'recipes', label: 'Recipes', rows: recipes },
             { id: 'deeds', label: 'Deeds', rows: options.deeds },
+            { id: 'wrong', label: 'Not right', rows: options.wrong },
             { id: 'guide', label: 'How to live here', rows: () => GUIDE.map(([glyph, title, detail]) => ({ icon: glyph, title, detail })) },
         ],
     });
