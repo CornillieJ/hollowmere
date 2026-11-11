@@ -41,7 +41,7 @@ import { createBike, spinWheels } from '../content/bike';
 import { COOKING, CROPS, ITEMS, NEEDS_CROP, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
 import { REQUESTS, VILLAGERS } from '../content/villagers';
 import { FARM, HAUNTS, POOL_LEVEL, PELL_SPOT, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF, WRAP_AT, homeOf } from '../content/world';
-import { buildWorld, stump } from './world';
+import { buildWorld, solid, stump } from './world';
 import { setupMood } from './mood';
 import { setupFarming } from './farming';
 import { useHollowModels, animateHollow, forgetHollow, hollowTarget, isNight, pickKind, setNightTemper, setScent, spawnHollow, updateWatchers, type HollowKind } from './monsters';
@@ -59,6 +59,7 @@ import { HELD_PLACEHOLDER, setupPlates, type PlatesHandle } from './plates';
 import { OMEN_THOUGHTS, setupOmens } from './omens';
 import { setupDread } from './dread';
 import { INTRO, setupStory } from './story';
+import { worded } from './wording';
 import { setupJournal } from './journal';
 import { setupLetters } from './letters';
 import { ESCAPE, setupEscape } from './escape';
@@ -123,6 +124,9 @@ export async function boot(): Promise<void> {
     const atmosphere = addAtmosphere(game, { color: 0x8b9488, density: 0.045, heightFalloff: 0.16, noiseScale: 0.05, noiseAmount: 0.7 });
     const look = addRetroLook(game, { resolutionScale: 0.36, psx: { colorLevels: 28, dither: 0.7 }, vhs: { wobble: 0.5, saturation: 0.72, noise: 0.07 } });
     game.renderer.toneMappingExposure = 1.1;
+
+    const say = worded(game);
+    if (game.device.touch) for (const item of ITEMS) if (item.description) item.description = say(item.description);
 
     const refs = await buildWorld(game);
     const { terrain } = refs;
@@ -630,11 +634,14 @@ export async function boot(): Promise<void> {
     lectern.position.copy(at({ x: VILLAGE.store.x + 5.6, z: VILLAGE.store.z + 4.8 }));
     lectern.rotation.y = VILLAGE.store.yaw;
     game.scene.add(counter, lectern);
+    solid(game, counter, refs, 1);
+    solid(game, lectern, refs, 1);
     game.interactions.add(counter, { prompt: 'Buy at the store', range: 2.6, onInteract: () => shop.open() });
     // The counter only reaches into the pockets. The crate at its end takes from the backpack as well.
     const scales = setupCrate(game, {
         position: at({ x: VILLAGE.store.x + 0.4, z: VILLAGE.store.z + 7.1 }),
         yaw: VILLAGE.store.yaw,
+        solids: refs.solids,
         carried,
         coins,
         stallPrice: (itemId) => shop.inventory.sellPrice(itemId),
@@ -720,6 +727,7 @@ export async function boot(): Promise<void> {
     const crate = setupCrate(game, {
         position: crateSpot,
         yaw: Math.PI,
+        solids: refs.solids,
         carried,
         coins,
         // In Barnaby's green book the crate pays what the stall does.
@@ -1509,9 +1517,9 @@ export async function boot(): Promise<void> {
         slot: SAVE_SLOT,
         title: 'Hollowveil Farm',
         subtitle: 'A farm for the hollow, behind the veil.',
-        hint: 'WASD to walk, E to interact, F to use what you hold, 1 to 8 to pick it, Tab for the bag, J for the notebook',
+        hint: say('WASD to walk, E to interact, F to use what you hold, 1 to 8 to pick it, Tab for the bag, J for the notebook'),
         describe: (save) => `day ${(save.data.hollowveil as Saved | undefined)?.day ?? 1}`,
-        onNewGame: () => void narration.speak(INTRO),
+        onNewGame: () => void narration.speak(INTRO.map(say)),
         onContinue: () => villagers.snapToSchedule(),
         buttons: [settings.button],
     });
