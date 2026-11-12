@@ -4,7 +4,7 @@ import { randomFloat } from '../helpers/random';
 import { createHollow, dressFolk, FolkAnimator } from '../content/folk';
 import type { Enemy, EnemyManager } from '../game/enemies';
 import type { DayCycle } from '../game/daycycle';
-import type { PopulationPost } from '../kit';
+import { addEnemyKinds, type EnemyKindsHandle, type PopulationPost } from '../kit';
 
 /**
  * The Hollow: slow, patient, always somewhere in the fog.
@@ -28,17 +28,53 @@ import type { PopulationPost } from '../kit';
 export type HollowKind = 'walker' | 'crawler' | 'watcher';
 
 const animators = new Map<number, FolkAnimator>();
-const watchers = new Set<Enemy>();
-/** What each one was made as, so its temper can follow the hour. */
-const made = new Map<Enemy, { kind: HollowKind; posted: boolean; hunting: boolean; daySpeed: number }>();
 let seed = 0;
 /** How strongly the farmer's basket smells, 0 to 1. */
 let scent = 0;
+let dark = false;
 /** Set once at boot: with it, each of them is dressed in its model as it appears. */
 let hub: Game | undefined;
+let kinds: EnemyKindsHandle | undefined;
 
-export function useHollowModels(game: Game): void {
+/** A walk is 4.5 m/s and a run 6.8: even hurrying, none of them keeps up with someone who moves. */
+const COMMON = {
+    // They cannot be killed, only avoided.
+    health: 1e9,
+    damage: 25,
+    attackRange: 1.3,
+    attackCooldown: 1.6,
+    // Half a second with its arms up before the blow: time to get out of reach.
+    attackWindup: 0.55,
+    wanderRadius: 13,
+    wanderSpeed: 0.5,
+    // They come on in a wandering line and at an uneven pace, and hurry a little at the end.
+    meander: 0.85,
+    pace: 0.8,
+    focusRange: 9,
+    focusBoost: 1.25,
+    // Roamers drift towards wherever the farmer is.
+    drift: 0.55,
+    radius: 0.3,
+    height: 2,
+};
+/** By night they see farther, close in faster and more directly, and walk a little quicker. */
+const NIGHT = { scale: { speed: 1.25, aggroRange: 1.5, drift: 2 }, set: { meander: 0.55, wanderSpeed: 0.7 } };
+/** A basket of hot food: noticed from 70% further off, and the roamers close in twice as fast. */
+const SCENT = { aggroRange: 0.7, drift: 1 };
+
+export function useHollowModels(game: Game, enemies: EnemyManager): void {
     hub = game;
+    kinds = addEnemyKinds(game, {
+        enemies,
+        mood: () => (dark ? 'night' : undefined),
+        alert: () => scent,
+        kinds: {
+            walker: { options: () => ({ ...COMMON, speed: randomFloat(1.1, 1.6), aggroRange: 14 }), moods: { night: NIGHT }, alert: SCENT },
+            crawler: { options: () => ({ ...COMMON, speed: randomFloat(1.9, 2.5), aggroRange: 11, height: 1 }), moods: { night: NIGHT }, alert: SCENT },
+            // It walks straight and at one speed, when it walks at all.
+            watcher: { options: { ...COMMON, speed: 3.1, damage: 40, aggroRange: 26, meander: 0, pace: 0, focusBoost: 1 }, moods: { night: { scale: { aggroRange: 1.5, drift: 2 }, set: { wanderSpeed: 0.7 } } }, alert: SCENT, frozenWhenWatched: true },
+        },
+    });
 }
 
 /** The `animate` hook for the enemy manager: walk each Hollow with its own rig. */
@@ -105,91 +141,36 @@ export function spawnHollow(enemies: EnemyManager, position: THREE.Vector3, opti
 
     if (hub) void dressFolk(hub, rig, `hollow-${kind}`);
 
-    const speed = kind === 'crawler' ? randomFloat(1.9, 2.5) : kind === 'watcher' ? 3.1 : randomFloat(1.1, 1.6);
-    const enemy = enemies.spawn({
-        position,
-        object: rig.root,
-        // They cannot be killed, only avoided.
-        health: 1e9,
-        // A walk is 4.5 m/s and a run 6.8: even hurrying, none of them keeps up with someone who moves.
-        speed,
-        damage: kind === 'watcher' ? 40 : 25,
-        attackRange: 1.3,
-        attackCooldown: 1.6,
-        // Half a second with its arms up before the blow: time to get out of reach.
-        attackWindup: 0.55,
-        aggroRange: !hunting ? 5 : kind === 'crawler' ? 11 : kind === 'watcher' ? 26 : 14,
-        wanderRadius: post ? Math.max(4, post.radius ?? 3) : 13,
-        wanderSpeed: 0.5,
-        // They come on in a wandering line and at an uneven pace, and hurry a little at the end.
-        meander: kind === 'watcher' ? 0 : 0.85,
-        pace: kind === 'watcher' ? 0 : 0.8,
-        focusRange: 9,
-        focusBoost: kind === 'watcher' ? 1 : 1.25,
-        // Roamers drift towards wherever the farmer is. The ones with a place stay near it.
-        ...(post ? { leash: (post.radius ?? 3) + 22 } : hunting ? { drift: 0.55 } : {}),
-        radius: 0.3,
-        height: kind === 'crawler' ? 1 : 2,
-        name: `hollow-${kind}-${seed}`,
+    if (!kinds) throw new Error('useHollowModels has not been called');
+    const enemy = kinds.spawn(position, {
+        kind,
+        // Before the tutorial ends they keep their manners whatever the hour.
+        fixed: !hunting,
+        options: {
+            object: rig.root,
+            name: `hollow-${kind}-${seed}`,
+            ...(hunting ? {} : { aggroRange: 5, drift: 0 }),
+            // The ones with a place stay near it.
+            ...(post ? { wanderRadius: Math.max(4, post.radius ?? 3), leash: (post.radius ?? 3) + 22, drift: 0 } : {}),
+        },
     });
     animators.set(enemy.id, new FolkAnimator(rig, kind === 'crawler' ? { stride: 1.2, stutter: 4, armSwing: 0.6 } : { stride: 0.7, stutter: 3, armSwing: 0.2 }));
-    if (kind === 'watcher') watchers.add(enemy);
-    made.set(enemy, { kind, posted: post !== undefined, hunting, daySpeed: speed });
-    setTemper(enemy, night);
     return enemy;
 }
 
 export function forgetHollow(enemy: Enemy): void {
     animators.delete(enemy.id);
-    watchers.delete(enemy);
-    made.delete(enemy);
-}
-
-/**
- * Day or night manners for one of them. By night they see farther, close in
- * on the farmer faster and more directly, and walk a little quicker. Still
- * slower than a walking farmer, let alone a running one.
- */
-function setTemper(enemy: Enemy, night: boolean): void {
-    const origin = made.get(enemy);
-    if (!origin || !origin.hunting) return;
-    const { kind, posted, daySpeed } = origin;
-    if (kind !== 'watcher') enemy.options.speed = daySpeed * (night ? 1.25 : 1);
-    enemy.options.aggroRange = (kind === 'crawler' ? 11 : kind === 'watcher' ? 26 : 14) * (night ? 1.5 : 1) * (1 + scent * 0.7);
-    enemy.options.meander = kind === 'watcher' ? 0 : night ? 0.55 : 0.85;
-    enemy.options.wanderSpeed = night ? 0.7 : 0.5;
-    if (!posted) enemy.options.drift = (night ? 1.1 : 0.55) * (1 + scent);
+    kinds?.forget(enemy);
 }
 
 /** How strongly the farmer smells of hot food right now, 0 to 1. Every one of them is told. */
-export function setScent(level: number, night: boolean): void {
-    const next = Math.max(0, Math.min(1, level));
-    if (Math.abs(next - scent) < 0.05) return;
-    scent = next;
-    for (const enemy of made.keys()) setTemper(enemy, night);
+export function setScent(level: number): void {
+    scent = Math.max(0, Math.min(1, level));
 }
 
 export const currentScent = (): number => scent;
 
 /** Switch every one of them to day or night manners. Call when the hour crosses over. */
 export function setNightTemper(night: boolean): void {
-    for (const enemy of made.keys()) setTemper(enemy, night);
-}
-
-const TO_WATCHER = new THREE.Vector3();
-const VIEW = new THREE.Vector3();
-
-/** Watchers freeze while the camera has them in view. Call every frame. */
-export function updateWatchers(camera: THREE.Camera): void {
-    camera.getWorldDirection(VIEW);
-    for (const watcher of watchers) {
-        if (watcher.dead) {
-            watchers.delete(watcher);
-            continue;
-        }
-        TO_WATCHER.copy(watcher.root.position).sub(camera.position);
-        const distance = TO_WATCHER.length();
-        const seen = distance < 45 && TO_WATCHER.normalize().dot(VIEW) > 0.72;
-        watcher.options.speed = seen ? 0.001 : 3.1;
-    }
+    dark = night;
 }

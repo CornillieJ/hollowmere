@@ -64,7 +64,7 @@ Pack screen (Tab) with stats, drag and drop, drop into the world, item menu;
 backpack starts at 3 slots with 3 upgrades; chest by the barn; Escape closes
 windows before pausing; all of the farmer's lines are spoken in the box;
 trees regrow in 2 to 3 days; deposits on tier 2 and 3 requests; the way home
-(`escape.ts`: 12000c in 60 days, Pell on the hill); the world wraps at
+(`escape.ts`: 6000c in 60 days, Pell on the hill); the world wraps at
 `WRAP_AT`; sieges and overruns (`happenings.ts`); 17 deeds; seeds have their
 own icons.
 
@@ -201,3 +201,12 @@ orders (`PREMIUM` 1.7, every 3 days, 3 days' patience); `WRONG_FROM` days.
 - Dropped items are not saved; they are gone after a reload.
 - The barn is a solid model, so the chest stands outside against its wall.
 - An ending cutscene instead of a menu when the farmer wakes.
+
+## Batch 11: on `dev`
+
+- Template blocks now used here: `addEnemyKinds` (the Hollow's kinds, night mood and scent in `monsters.ts`), `addRandomEvents` (weather), `addMount` `wheels`.
+- `weather.ts`: rain, thick Veil, clear night. Numbers in `WEATHER`; gaps of 10 to 26 in-game hours. Probes call `world.weather.hold(true)`.
+- `whispers.ts`: steps behind, a knock on the barn door, a voice from the Veil. Heard by nobody yet: volumes are guesses.
+- `pool.ts`: what was carried at death is kept (save key `pool`) and handed back from the end of the jetty at night. The sign by the jetty is the only hint.
+- Goal price halved to 6000c. A save that had already burned 6000c or more stays "running" until the next payment.
+- Shop counter, lectern, crates, hearth and shrine are solid. Hints are reworded for touch in `wording.ts`.

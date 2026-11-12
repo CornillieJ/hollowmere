@@ -60,11 +60,3 @@ export function createBike(): THREE.Group {
     bike.add(basket);
     return bike;
 }
-
-/** Turn the wheels by the distance travelled. */
-export function spinWheels(bike: THREE.Object3D, distance: number): void {
-    for (const name of ['front-wheel', 'rear-wheel']) {
-        const wheel = bike.getObjectByName(name);
-        if (wheel) wheel.rotation.x += distance / 0.34;
-    }
-}
