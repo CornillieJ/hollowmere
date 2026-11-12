@@ -38,6 +38,8 @@
     expect(game.state.current === 'menu', `starts on the title screen, got ${game.state.current}`);
     expect(!document.querySelector('.menu:not(.is-hidden) .menu-dynamic:not(.is-hidden)'), 'no Continue button without a save');
     world.saves.newGame();
+    // Weather comes when it likes: not during a test.
+    world.weather.hold(true);
     await sleep(700);
     expect(game.state.current === 'playing', `playing, got ${game.state.current}`);
     // The opening is spoken in a box that holds the game until it is read.
@@ -615,7 +617,7 @@
         await press('Space');
         await sleep(250);
     }
-    expect(world.escape.pledge.remaining === 11500 && world.coins.value() === 200, `500 burned: ${world.escape.pledge.remaining} left, purse ${world.coins.value()}`);
+    expect(world.escape.pledge.remaining === 5500 && world.coins.value() === 200, `500 burned: ${world.escape.pledge.remaining} left, purse ${world.coins.value()}`);
 
     // 14c. The valley loops.
     await quiet();
@@ -629,9 +631,10 @@
 
     // 14d. A bad day: they ring the village, and are gone by morning.
     world.happenings.trigger('siege');
+    // Counted at once: the farmer is on the hill, and those too far off to be seen are let go again.
+    log.siege = world.happenings.gathered;
     await sleep(400);
     await quiet();
-    log.siege = world.happenings.gathered;
     expect(log.siege >= 12, `a siege gathers a crowd round the wall, ${log.siege}`);
     world.happenings.newDay();
     world.enemies.clear();
@@ -977,6 +980,68 @@
         expect(clock.right > innerWidth - 90 && clock.top < 80, 'the clock hangs top right');
         const clockText = document.querySelector('.hv-clock').textContent;
         expect(/Day|Night/.test(clockText) && /\d\d:\d\d/.test(clockText) && clockText.includes(`${world.coins.value()}c`), `the clock shows the day, the hour and the purse: ${clockText}`);
+    }
+
+    // 14g. Weather: each kind says what it does and does it.
+    {
+        const { weather, dayCycle } = world;
+        dayCycle.setHour(10);
+        const dry = world.farm.plots.find((plot) => plot.active && plot.crop && !plot.ripe && !plot.watered);
+        weather.force('rain', 3);
+        await sleep(500);
+        expect(weather.id === 'rain' && weather.cooling === 1.5, `it rains, and food cools faster: ${weather.id} ${weather.cooling}`);
+        expect(/Rain/.test(document.querySelector('.banner')?.textContent ?? ''), `a banner says what rain does: ${document.querySelector('.banner')?.textContent}`);
+        expect(/Rain/.test(document.querySelector('.hv-basket')?.textContent ?? ''), 'and the line stays under the task');
+        expect(!dry || dry.watered, 'the rain waters what was dry');
+        weather.force('thick', 3);
+        await sleep(400);
+        const compass = document.querySelector('.compass');
+        expect(compass.classList.contains('is-hidden') || getComputedStyle(compass).display === 'none', 'a thick Veil takes the compass away');
+        weather.force('clear', 3);
+        await sleep(400);
+        expect(weather.hollow === 0.5 && !(compass.classList.contains('is-hidden') || getComputedStyle(compass).display === 'none'), 'a clear night halves them, and the compass is back');
+        weather.stop();
+        await sleep(200);
+        expect(weather.id === undefined && weather.hollow === 1 && weather.line === '', 'and then it is over');
+    }
+
+    // 14h. Sounds that lie: each can be heard, and none of them is anything.
+    {
+        for (const id of ['steps', 'knock', 'voice']) world.whispers.play(id);
+        await sleep(600);
+        await quiet();
+        expect(world.whispers.heard.steps === 1 && world.whispers.heard.knock === 1 && world.whispers.heard.voice === 1, 'steps, a knock and a voice');
+    }
+
+    // 14i. The pool keeps what the farmer carried when they died, and gives it back after dark.
+    {
+        const { pool, dayCycle } = world;
+        world.pockets.add('bread', 2);
+        world.bag.add('wood', 3);
+        const breadBefore = have('bread');
+        const woodBefore = have('wood');
+        const day = dayCycle.day;
+        world.wakeFromDeath();
+        await sleep(400);
+        if (world.morning.isOpen) world.morning.close();
+        await quiet();
+        expect(have('bread') === 0 && have('wood') === 0 && have('axe') === 1, 'dying empties the pockets and the backpack, but not of tools');
+        expect(pool.kept.find((entry) => entry.itemId === 'bread')?.amount === breadBefore && pool.kept.find((entry) => entry.itemId === 'wood')?.amount === woodBefore, `the pool has it all: ${JSON.stringify(pool.kept)}`);
+        dayCycle.day = day;
+        dayCycle.setHour(12);
+        await go(pool.reachSpot.x, pool.reachSpot.z);
+        await sleep(300);
+        expect(/Look into the water/.test(document.querySelector('.prompt')?.textContent ?? ''), `by day the water can only be looked into: ${document.querySelector('.prompt')?.textContent}`);
+        await press('KeyE');
+        expect(have('bread') === 0, 'and gives nothing');
+        dayCycle.setHour(22);
+        await sleep(500);
+        expect(/Reach into the water/.test(document.querySelector('.prompt')?.textContent ?? ''), `after dark a hand can go in: ${document.querySelector('.prompt')?.textContent}`);
+        await press('KeyE');
+        await sleep(300);
+        await quiet();
+        expect(have('bread') === breadBefore && have('wood') === woodBefore && pool.kept.length === 0, `everything comes back: ${have('bread')} bread, ${have('wood')} wood, ${JSON.stringify(pool.kept)}`);
+        dayCycle.setHour(10);
     }
 
     // 15. Back at the title screen there is a save to continue.

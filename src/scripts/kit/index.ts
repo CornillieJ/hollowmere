@@ -71,3 +71,5 @@ export * from './pack';
 export * from './pledge';
 export * from './achievements';
 export * from './juice';
+export * from './events';
+export * from './enemy-kinds';

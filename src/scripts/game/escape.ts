@@ -12,7 +12,7 @@ import type { DialogueBox } from '../ui/dialogue-box';
  */
 export const ESCAPE = {
     /** Coins to burn at the old tree. */
-    price: 12000,
+    price: 6000,
     /** Days allowed, counting the day the farmer says yes. */
     days: 60,
     /** The first day Pell asks to be met on the hill. */

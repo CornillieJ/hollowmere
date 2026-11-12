@@ -37,14 +37,14 @@ import {
     type AnimalDefinition,
 } from '../kit';
 import { createFolk, createHeldTool, dressFolk, FolkAnimator, type FolkRig } from '../content/folk';
-import { createBike, spinWheels } from '../content/bike';
+import { createBike } from '../content/bike';
 import { COOKING, CROPS, ITEMS, NEEDS_CROP, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
 import { REQUESTS, VILLAGERS } from '../content/villagers';
 import { FARM, HAUNTS, POOL_LEVEL, PELL_SPOT, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF, WRAP_AT, homeOf } from '../content/world';
 import { buildWorld, solid, stump } from './world';
 import { setupMood } from './mood';
 import { setupFarming } from './farming';
-import { useHollowModels, animateHollow, forgetHollow, hollowTarget, isNight, pickKind, setNightTemper, setScent, spawnHollow, updateWatchers, type HollowKind } from './monsters';
+import { useHollowModels, animateHollow, forgetHollow, hollowTarget, isNight, pickKind, setNightTemper, setScent, spawnHollow, type HollowKind } from './monsters';
 import { buildFarmyard, buildInfirmary } from './farmyard';
 import { modelOnly, modelled } from './models';
 import { setupCrate } from './crate';
@@ -60,6 +60,9 @@ import { OMEN_THOUGHTS, setupOmens } from './omens';
 import { setupDread } from './dread';
 import { INTRO, setupStory } from './story';
 import { worded } from './wording';
+import { setupWeather } from './weather';
+import { setupWhispers } from './whispers';
+import { setupPool } from './pool';
 import { setupJournal } from './journal';
 import { setupLetters } from './letters';
 import { ESCAPE, setupEscape } from './escape';
@@ -135,7 +138,7 @@ export async function boot(): Promise<void> {
     // The ground arrived after the player did.
     world.player.body.teleport(at(FARM.door, 0.2));
 
-    useHollowModels(game);
+    useHollowModels(game, world.enemies);
     const yard = buildFarmyard(game, game.scene, terrain, refs.solids);
     buildInfirmary(game.scene, terrain);
     const omens = setupOmens(game, terrain);
@@ -368,8 +371,8 @@ export async function boot(): Promise<void> {
         maxSpeed: 12,
         seat: { x: 0, y: 0.28, z: -0.05 },
         prompt: 'Ride the bicycle',
+        wheels: ['front-wheel', 'rear-wheel'],
     });
-    game.systems.add({ name: 'bike-wheels', order: SYSTEM_ORDER.GAMEPLAY + 6, update: (delta) => spinWheels(bikeModel, bike.speed * delta) });
 
     //#endregion Farm, animals and the bike
 
@@ -420,7 +423,7 @@ export async function boot(): Promise<void> {
         have,
         now: () => dayCycle.day * 24 + dayCycle.hour,
         // Mother Hollis's cosy keeps a basket hot half as long again.
-        keep: () => (regulars.has('cosy') ? 1.5 : 1),
+        keep: () => (regulars.has('cosy') ? 1.5 : 1) / weather.cooling,
     });
     game.save.register('warmth', { save: () => warmth.toJSON(), load: (data) => warmth.fromJSON(data) });
 
@@ -878,7 +881,7 @@ export async function boot(): Promise<void> {
 
     const population = addPopulation(game, {
         enemies: world.enemies,
-        target: () => hollowTarget(dayCycle, hunting()),
+        target: () => Math.round(hollowTarget(dayCycle, hunting()) * weather.hollow),
         spawn: (position, post) => spawnHollow(world.enemies, position, { night: isNight(dayCycle), post, hunting: hunting(), kind: pickKind(dayCycle.day) }),
         // Night fills up fast; day thins out slowly.
         interval: () => (isNight(dayCycle) ? [1, 2.5] : [4, 8]),
@@ -896,11 +899,10 @@ export async function boot(): Promise<void> {
         name: 'watchers',
         order: SYSTEM_ORDER.GAMEPLAY - 2,
         update: () => {
-            updateWatchers(game.camera);
             const night = isNight(dayCycle);
+            setNightTemper(night);
             if (night === wasNight) return;
             wasNight = night;
-            setNightTemper(night);
             if (!hunting()) return;
             game.toasts.push(night ? 'Night. The fog is full of them now.' : 'Dawn. Most of them drift back into the fog.', { color: night ? '#c8a0a0' : '#e8e0c8' });
             if (night) synth.tone({ frequency: 46, duration: 3, type: 'sawtooth', gain: 0.16, sweep: 0.7 });
@@ -920,7 +922,7 @@ export async function boot(): Promise<void> {
             if (scentTimer > 0) return;
             scentTimer = 0.5;
             const level = scentLevel();
-            setScent(level, isNight(dayCycle));
+            setScent(level);
             if (level >= 0.25) think('scent', ['They turned their heads. All of them, the same way, as I came past with the basket.', 'It is the food. They can smell it while it is hot. The more I carry, the further off they notice, and the more of them come.']);
         },
     });
@@ -959,7 +961,11 @@ export async function boot(): Promise<void> {
     });
     function wake(): void {
         for (const inventory of carried) {
-            for (const slot of [...inventory.inventory.slots]) if (!slot.definition.keep) inventory.remove(slot.itemId, slot.amount);
+            for (const slot of [...inventory.inventory.slots]) {
+                if (slot.definition.keep) continue;
+                pool.keep(slot.itemId, slot.amount);
+                inventory.remove(slot.itemId, slot.amount);
+            }
         }
         // The last of the lost days ends with a morning, like any other.
         // Dying after midnight is already on the new day, so the morning does not add one.
@@ -995,7 +1001,7 @@ export async function boot(): Promise<void> {
             // Thicker away from any light and late in the day, and thicker still at the edge of the valley.
             veilFactor += (veilAt(player.position) - veilFactor) * Math.min(1, game.time.delta * 0.8);
             if (veilFactor > 1.55) think('thick', ['I can hardly see my own hands. It was not like this at noon, or near the lamps.', 'The Veil is thickest late in the day and far from any light. A lantern on the way would make a hole in it.']);
-            atmosphere.setDensity(atmosphere.fog.density * veilFactor * (1 + (1 - THREE.MathUtils.smoothstep(WRAP_AT - out, 0, 24)) * 4));
+            atmosphere.setDensity(atmosphere.fog.density * veilFactor * weather.fog * (1 + (1 - THREE.MathUtils.smoothstep(WRAP_AT - out, 0, 24)) * 4));
 
             if (!crossing) {
                 if (out <= WRAP_AT) return;
@@ -1080,6 +1086,55 @@ export async function boot(): Promise<void> {
     });
 
     //#endregion The edge, bad days and deeds
+
+    //#region Weather, sounds that lie, and the pool
+
+    const weather = setupWeather(game, {
+        clock: () => dayCycle.day * 24 + dayCycle.hour,
+        hour: () => dayCycle.hour,
+        enabled: () => hunting() && game.state.is('playing') && !ending.playing,
+        sheltered: () => barn.inside,
+        synth,
+        waterField: () => farm.plots.filter((plot) => plot.active && plot.crop && !plot.ripe && farm.water(plot)).length,
+        setCompass: (visible) => compass.setVisible(visible),
+        banner: (title, effect) => juice.banner(title, effect, { color: '#c8d4d8' }),
+    });
+
+    const whispers = setupWhispers(game, {
+        synth,
+        hour: () => dayCycle.hour,
+        night: () => isNight(dayCycle),
+        enabled: () => hunting() && game.state.is('playing') && !narration.speaking && !ending.playing,
+        inBarn: () => barn.inside,
+        safe: () => safeZones.playerSafe,
+        riding: () => bike.mounted,
+        toVillage: () => Math.hypot((game.player?.position.x ?? 0) - VILLAGE.center.x, (game.player?.position.z ?? 0) - VILLAGE.center.z),
+        thick: () => weather.id === 'thick',
+        say: (line) => game.toasts.push(line, { color: '#b8c8c0', duration: 5 }),
+        think,
+    });
+
+    // What the farmer carried when they died is kept by the black pool, and given back there after dark.
+    const pool = setupPool(game, {
+        terrain,
+        night: () => isNight(dayCycle),
+        stow,
+        knows: (itemId) => pockets.inventory.registry.get(itemId) !== undefined,
+        say: (line) => game.toasts.push(line, { color: '#b8c8c0', duration: 5 }),
+        think,
+        onReturned: (count, left) => {
+            if (count === 0) {
+                game.toasts.push(left > 0 ? 'Your pockets and backpack are full' : 'Cold water. Nothing else.', { color: '#c8a0a0' });
+                return;
+            }
+            synth.tone({ frequency: 70, duration: 1.6, type: 'sine', gain: 0.18, sweep: 1.6 });
+            juice.banner('The water gives it back', left > 0 ? `${count} things. ${left} more are still down there.` : `${count} things, cold and wet, and all yours.`, { color: '#a8c8d0' });
+            think('pool-back', ['Cold, right up to the shoulder. And then a strap, in my hand. Mine.', 'Everything I was carrying when they got me. It was all laid out down there, in a row.', 'I did not feel the bottom. I felt it being handed up.']);
+            saves.save();
+        },
+    });
+
+    //#endregion Weather, sounds that lie, and the pool
 
     //#region What is not right
 
@@ -1274,7 +1329,7 @@ export async function boot(): Promise<void> {
         pot: { x: VILLAGE.store.x + 5.6, z: VILLAGE.store.z + 4.8 },
         pell: PELL_SPOT,
     };
-    addCompass(game, {
+    const compass = addCompass(game, {
         markers: () => {
             const step = dayCycle.stalled ? 'sleep' : story.story.current?.id;
             const target = step === 'deliver' ? villagerSpot(villagers.requests?.open[0]?.from) : step ? TARGETS[step] : undefined;
@@ -1460,6 +1515,7 @@ export async function boot(): Promise<void> {
                     const left = dish.hoursLeft >= 1 ? `${Math.floor(dish.hoursLeft)}h` : `${Math.max(1, Math.round(dish.hoursLeft * 60))}m`;
                     return { text: `${dish.heat === 'cold' ? '❄' : '♨'} ${name}${dish.amount > 1 ? ` ×${dish.amount}` : ''} · ${dish.heat}${dish.heat === 'cold' ? '' : ` ${left}`}`, tone: dish.heat };
                 }),
+                ...(weather.line ? [{ text: weather.line, tone: 'warm' as const }] : []),
                 ...(scentLevel() >= 0.5 ? [{ text: '☁ They smell this from far off', tone: 'bad' as const }] : scentLevel() >= 0.25 ? [{ text: '☁ The smell carries', tone: 'bad' as const }] : []),
             ],
     });
@@ -1552,6 +1608,10 @@ export async function boot(): Promise<void> {
     game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
+        weather,
+        whispers,
+        pool,
+        wakeFromDeath: wake,
         spawnKind: (x: number, z: number, kind: HollowKind) => spawnHollow(world.enemies, terrain.point(x, z, 0.4), { night: isNight(dayCycle), hunting: hunting(), kind }),
     };
 }

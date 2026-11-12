@@ -37,6 +37,10 @@ export type AddMountOptions = {
     lean?: number;
     /** Where the rider's feet sit relative to the mount origin. */
     seat?: Vec3;
+    /** Wheels to turn with the distance travelled: objects, or names to look up inside `object`. */
+    wheels?: Array<THREE.Object3D | string>;
+    /** Defaults to 0.34 m. */
+    wheelRadius?: number;
     /** Prompt shown when the player can get on. */
     prompt?: string;
     /** Prompt shown while riding. Getting off owns the interact key until then. */
@@ -67,6 +71,9 @@ export function addMount(game: Game, options: AddMountOptions): MountHandle {
     const turnRate = options.turnRate ?? 2.4;
     const leanAmount = options.lean ?? 0.3;
     const seat = new THREE.Vector3(options.seat?.x ?? 0, options.seat?.y ?? 0.45, options.seat?.z ?? 0);
+
+    const wheels = (options.wheels ?? []).map((wheel) => (typeof wheel === 'string' ? object.getObjectByName(wheel) : wheel)).filter((wheel): wheel is THREE.Object3D => wheel !== undefined);
+    const wheelRadius = options.wheelRadius ?? 0.34;
 
     const parked = new THREE.Group();
     parked.name = 'mount';
@@ -120,6 +127,7 @@ export function addMount(game: Game, options: AddMountOptions): MountHandle {
         const player = game.player;
         if (!mounted || !player) return;
         mounted = false;
+        speed = 0;
         for (const part of riderParts) part.position.sub(seat);
         riderParts.length = 0;
         controller.movementOverride = undefined;
@@ -158,6 +166,7 @@ export function addMount(game: Game, options: AddMountOptions): MountHandle {
         // Walls stop a bike: read back what the body actually managed.
         const actual = player.body.speed;
         if (actual < Math.abs(speed) - 0.5) speed = Math.sign(speed) * actual;
+        for (const wheel of wheels) wheel.rotation.x += (speed * step) / wheelRadius;
 
         player.root.rotation.y = heading;
         lean = damp(lean, -steer * leanAmount * grip, 0.02, step);

@@ -8,6 +8,8 @@
     const expect = (condition, message) => condition || failures.push(message);
 
     world.saves.newGame();
+    // Weather comes when it likes: not during a test.
+    world.weather.hold(true);
     await sleep(700);
     const selfBox = () => document.querySelector('.dialogue-self:not(.is-hidden)');
     const read = () => selfBox() && document.body.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true }));
