@@ -20,6 +20,8 @@ export type BarnOptions = {
     atmosphere: Atmosphere;
     /** False while the farmer may not go in, with the reason. */
     canEnter?: () => string | undefined;
+    /** Called right after the farmer is moved, to bring the camera along at once. */
+    settle?: () => void;
     onEnter?: () => void;
     onLeave?: () => void;
 };
@@ -99,8 +101,10 @@ export function setupBarn(game: Game, options: BarnOptions): BarnHandle {
 
     let inside = false;
     const step = (to: THREE.Vector3, then: () => void): void => {
-        game.effects.flash(0.7, 0x000000, 1);
+        game.effects.flash(1.1, 0x000000, 1);
         game.player?.body.teleport(to);
+        // The camera is put there too, or it is seen flying up to the loft through the dark.
+        options.settle?.();
         then();
     };
     const enter = (): void => {

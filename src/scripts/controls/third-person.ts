@@ -166,6 +166,11 @@ export class ThirdPersonController {
         this.pivot.z = damp(this.pivot.z, this.scratch.z, Math.exp(-this.followDamping), delta);
     }
 
+    /** Put the camera where it belongs at once, e.g. after a teleport, so it is not seen travelling there. */
+    snap(): void {
+        this.pivot.copy(this.player.position).setY(this.player.position.y + this.targetHeight);
+    }
+
     private fixedUpdate(step: number): void {
         if (this.player.frozen || this.player.isDead) {
             this.player.body.update(step);

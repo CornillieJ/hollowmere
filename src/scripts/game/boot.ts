@@ -803,8 +803,8 @@ export async function boot(): Promise<void> {
 
     //#region Home
 
-    // Beside the mailbox: what is too much goes in, and Barnaby pays for it, less than at his stall.
-    const crateSpot = at({ x: FARM.door.x + 3.2, z: FARM.door.z + 3.5 });
+    // On its own by the yard's edge, clear of the mailbox and the bench: what is too much goes in, and Barnaby pays for it, less than at his stall.
+    const crateSpot = at({ x: FARM.door.x + 5.4, z: FARM.door.z + 6.2 });
     const crate = setupCrate(game, {
         position: crateSpot,
         yaw: Math.PI,
@@ -834,6 +834,7 @@ export async function boot(): Promise<void> {
         door: at({ x: barnFront, z: FARM.barn.z }, 1),
         outside: at({ x: barnFront - 1.4, z: FARM.barn.z }, 0.3),
         atmosphere,
+        settle: () => world.controls.snap(),
         canEnter: () => (bike.mounted ? 'The bicycle stays outside' : dayCycle.stalled ? 'You need to sleep. Go home to bed.' : undefined),
         onEnter: () => {
             plates?.setPlace('The barn');
@@ -874,6 +875,9 @@ export async function boot(): Promise<void> {
 
     const safeZones = addSafeZones(game, {
         enemies: world.enemies,
+        // Lamplight on the ground, not a drawn line.
+        ringStyle: 'glow',
+        ground,
         zones: SAFE_ZONES.map((zone) => ({ ...zone, position: { ...zone.position, y: ground(zone.position.x, zone.position.z) } })),
         onEnter: (zone) => {
             plates?.setPlace(zone.name ?? 'Safe');
