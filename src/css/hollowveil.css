@@ -1109,3 +1109,56 @@ footer { display: none; }
 	background: rgba(0, 0, 0, 0.78);
 	color: #efe8d4;
 }
+
+/* --------------------------------------------------------------------------
+   Fitting the window: every size follows the height there is, and what does
+   not fit scrolls inside its frame.
+   -------------------------------------------------------------------------- */
+
+#ui-root * {
+	scrollbar-width: thin;
+	scrollbar-color: var(--ui-fg) var(--tape-ink);
+}
+
+.menu-panel {
+	gap: clamp(8px, 2.2vh, 18px);
+	padding: clamp(14px, 4vh, 34px) clamp(16px, 3vw, 38px);
+}
+
+.menu-title {
+	font-size: clamp(34px, 9vh, 64px);
+}
+
+.menu-button {
+	font-size: clamp(19px, 3.6vh, 24px);
+	padding: clamp(4px, 1vh, 8px) 20px;
+}
+
+.menu-actions {
+	gap: clamp(6px, 1.4vh, 10px);
+	/* Room for the scrollbar, and for the hover nudge, inside the frame. */
+	padding: 0 6px 2px 0;
+}
+
+.menu-slider {
+	padding: 2px 4px;
+}
+
+.menu-slider-head {
+	font-size: 19px;
+}
+
+/* The way back stays in reach however long the list above it is. */
+.menu-actions > .menu-button.is-primary:last-child {
+	position: sticky;
+	bottom: 0;
+	/* A dark band above and below it, so half a button never shows past its edge. */
+	box-shadow: 0 -10px 0 var(--tape-ink), 0 10px 0 var(--tape-ink);
+}
+
+/* A low window: the reminder of the keys goes first. */
+@media (max-height: 460px) {
+	.menu-hint {
+		display: none;
+	}
+}

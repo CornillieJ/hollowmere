@@ -892,7 +892,7 @@
         await sleep(200);
         expect(wrongness.scarecrowSteps === 0, 'E carries it back to its post');
         // The signpost.
-        await go(-44.5 - 1, 43.2 + 1);
+        await go(-41.9, 42.3);
         await press('KeyE');
         await sleep(400);
         await quiet();

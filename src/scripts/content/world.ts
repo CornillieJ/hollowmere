@@ -14,6 +14,8 @@ export const FARM = {
     house: { x: -64, z: 54, yaw: Math.PI / 2 },
     /** Where the player wakes, in front of the door. */
     door: { x: -58, z: 54 },
+    /** Where a new game begins: out in the yard, far enough that the camera has room behind the farmer. */
+    start: { x: -54.5, z: 55.5 },
     /** The first field, and the land that can be bought later, at fixed places. */
     field: { x: -54, z: 34, columns: 4, rows: 3 },
     extraFields: [
