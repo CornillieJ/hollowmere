@@ -619,6 +619,13 @@
     }
     expect(world.escape.pledge.remaining === 5500 && world.coins.value() === 200, `500 burned: ${world.escape.pledge.remaining} left, purse ${world.coins.value()}`);
 
+    // A quarter of the price turns the old tree green, once.
+    world.coins.add(1000);
+    world.escape.pledge.pay(1000);
+    await sleep(600);
+    expect(world.tally.burned === 1, `a quarter burned is marked: ${world.tally.burned}`);
+    await quiet();
+
     // 14c. The valley loops.
     await quiet();
     game.player.body.teleport({ x: 118, y: world.terrain.heightAt(118, 10) + 0.2, z: 10 });
@@ -1018,8 +1025,10 @@
         const { pool, dayCycle } = world;
         world.pockets.add('bread', 2);
         world.bag.add('wood', 3);
-        const breadBefore = have('bread');
-        const woodBefore = have('wood');
+        // An earlier death in this run may have left things in the water already.
+        const inPool = (id) => pool.kept.find((entry) => entry.itemId === id)?.amount ?? 0;
+        const breadBefore = have('bread') + inPool('bread');
+        const woodBefore = have('wood') + inPool('wood');
         const day = dayCycle.day;
         world.wakeFromDeath();
         await sleep(400);
@@ -1066,6 +1075,77 @@
         await go(-58, 54);
         await sleep(300);
         expect(!marker.visible, 'and the frame goes away off the field');
+    }
+
+    // 14k. The day's plan, a late call, the basket, the scarecrow and the quarters of the price.
+    {
+        const { farm, dayCycle, warmth, bike, scarecrows, escape } = world;
+        // A late call pays half as much again.
+        dayCycle.setHour(22);
+        world.villagers.snapToSchedule();
+        world.villagers.requests.refill();
+        const request = world.villagers.requests.open.find((open) => open.accepted);
+        expect(Boolean(request), 'somebody wants something');
+        if (request) {
+            world.bag.add(request.itemId, request.amount);
+            const villager = game.scene.getObjectByName(`villager-${request.from}`);
+            await go(villager.position.x + 1.2, villager.position.z + 1.2);
+            const before = world.coins.value();
+            await talkUntilChoices();
+            choices().find((choice) => choice.textContent.includes('Hand over'))?.click();
+            await sleep(500);
+            for (let index = 0; index < 6 && choices().length === 0; index += 1) {
+                await press('Space');
+                await sleep(350);
+            }
+            choices().find((choice) => choice.textContent.includes('Goodbye'))?.click();
+            await sleep(400);
+            await quiet();
+            log.lateCall = [world.coins.value() - before, request.reward];
+            expect(world.coins.value() - before >= Math.round(request.reward * 1.5), `a call after dark pays half as much again: ${world.coins.value() - before} for a ${request.reward} request`);
+        }
+        // The morning says what the day holds.
+        world.goToBedNow();
+        await sleep(500);
+        const morningText = world.morning.isOpen ? document.body.textContent : '';
+        expect(/Today/.test(morningText) && /ready to pick|empty/.test(morningText), `the morning lists the day ahead (open: ${world.morning.isOpen})`);
+        if (world.morning.isOpen) world.morning.close();
+        await quiet();
+        // The basket: a ride costs a dish half the heat a walk would.
+        dayCycle.setHour(9);
+        world.pockets.add('bread', 1);
+        warmth.collected('bread', 1);
+        await sleep(200);
+        const left = warmth.hoursLeft('bread');
+        bike.mount();
+        await sleep(200);
+        dayCycle.advance(0.5);
+        await sleep(200);
+        dayCycle.advance(0.5);
+        await sleep(200);
+        bike.dismount();
+        const lost = left - warmth.hoursLeft('bread');
+        log.basket = Math.round(lost * 100) / 100;
+        expect(lost > 0.3 && lost < 0.8, `an hour in the basket costs about half an hour of heat, cost ${lost}`);
+        world.pockets.remove('bread', 1);
+        // The scarecrow.
+        const plot = farm.plots.find((candidate) => candidate.active && candidate.cell.x === 1 && candidate.cell.z === 1 && candidate.field === 0);
+        for (const each of farm.plots.filter((candidate) => candidate.active && candidate.field === 0 && !candidate.crop)) farm.plant(each, 'turnip', false);
+        farm.newDay();
+        if (world.pockets.add('scarecrow', 1) > 0) world.bag.add('scarecrow', 1);
+        await go(plot.position.x + 0.3, plot.position.z + 0.3);
+        scarecrows.place();
+        await sleep(300);
+        await quiet();
+        expect(scarecrows.count === 1 && have('scarecrow') === 0, `the scarecrow stands in the field: ${scarecrows.count}, carried ${have('scarecrow')}`);
+        dayCycle.setHour(21);
+        world.goToBedNow();
+        await sleep(500);
+        const wet = farm.plots.filter((candidate) => candidate.active && candidate.field === 0 && candidate.watered).length;
+        log.wept = wet;
+        expect(wet >= 8, `by morning the plots round it are wet: ${wet}`);
+        if (world.morning.isOpen) world.morning.close();
+        await quiet();
     }
 
     // 15. Back at the title screen there is a save to continue.

@@ -57,6 +57,7 @@ export const ITEMS: ItemDefinition[] = [
     { id: 'backpack-3', name: "Postman's satchel", icon: '🎒', badge: '16', category: 'tool', maxStack: 1, keep: true, price: 900, description: '16 slots. Fen will not say where the last postman went.' },
     { id: 'candle', name: 'Grave candle', icon: '🕯', category: 'tool', price: 18, description: 'Press F to set it down and light it. The walkers keep out of its light for a minute and a half.' },
     { id: 'lantern', name: 'Lantern', icon: '🏮', category: 'tool', price: 45, description: 'Press F to put it up where you stand, with a day of oil in it. They keep out of its light and the Veil thins round it. Keep it in oil.' },
+    { id: 'scarecrow', name: 'Weeping scarecrow', icon: '👒', category: 'tool', price: 260, description: 'Press F in the field to stand it on the corner between plots. Each morning the plots within 2 steps of it are found watered. Press E at it to take it down.' },
     { id: 'lamp-oil', name: 'Lamp oil', icon: '🛢', category: 'material', price: 9, description: 'One flask burns for a day. Press E at a lantern to fill it: it holds 2.' },
     { id: 'name-slip', name: 'Folded slip', icon: '📜', category: 'quest', maxStack: 1, keep: true, description: 'Your name, in your own hand. You do not remember writing it. Read it every morning.' },
 ];

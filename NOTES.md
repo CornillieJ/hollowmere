@@ -219,3 +219,13 @@ orders (`PREMIUM` 1.7, every 3 days, 3 days' patience); `WRONG_FROM` days.
 - Working down a row climbs a scale (`ROW_SCALE`).
 - The compass shows ❗ for every villager whose request or regular order is in the pockets or the backpack.
 - A save whose pledge is already paid past the new price counts as kept on load (template `pledge.ts`).
+
+## Batch 13: crops and days, on `dev`
+
+- Crop models have one part per growth stage (`stage-0` and up, built by `crop` in `tools/blender/build_props.py`; `STAGES` there must match `stages` in `content/items.ts`). The template's `Farm` shows the right part when the model is marked `userData.staged`.
+- The morning panel has a "Today" list (`planRows` in `boot.ts`).
+- A delivery after dark pays 50% more (`NIGHT_PAY`).
+- A dish cools half as fast while riding (`warmth.spare`, system `basket`).
+- `scarecrows.ts`: a weeping scarecrow (260c) on a plot corner waters up to 12 plots each morning. Save key `scarecrows`.
+- Quarters of the price (`QUARTERS` in `boot.ts`): banner, lines and leaves on the old tree. `tally.burned` holds how many were announced.
+- The gameplay probe crashed the headless browser ("Target crashed") in 2 of about 10 runs on this batch. Cause not found; reruns pass.

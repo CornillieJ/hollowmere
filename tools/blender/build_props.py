@@ -477,6 +477,10 @@ def shed():
     return paint, build
 
 
+# One part per growth stage, the last one ripe. Must match `stages` in content/items.ts.
+STAGES = {"turnip": 3, "wheat": 3, "corn": 4, "pumpkin": 4}
+
+
 def crop(kind):
     green = (86, 124, 74)
 
@@ -507,38 +511,75 @@ def crop(kind):
         face(atlas, C, ink=(30, 14, 8), eyes="triangles")
         atlas.fill(D, (120, 96, 52), 0.25)
 
+    def leaf(part, base, angle, length, width, lift, region=A):
+        """A flat leaf from a point on the ground, pointing out at `angle` and raised by `lift` radians."""
+        reach = math.cos(lift) * length / 2
+        at = (base[0] + math.cos(angle) * reach, base[1] + math.sin(angle) * reach, base[2] + math.sin(lift) * length / 2)
+        part.box(at, (length, width, 0.012), region, rotate=(math.sin(angle) * lift, -math.cos(angle) * lift, angle))
+
+    def stalk(part, x, y, height, lean, region=A, radius=0.014, sides=3):
+        part.tube((x + lean[1] * height / 2, y - lean[0] * height / 2, height / 2), radius, radius * 0.8, height, region, sides=sides, rotate=(lean[0], lean[1], 0))
+
+    def turnip(part, stage):
+        for index, (x, y) in enumerate(((-0.3, -0.3), (0.32, -0.26), (-0.28, 0.3), (0.3, 0.32))):
+            count, length, width, lift = ((2, 0.16, 0.07, 0.7), (5, 0.3, 0.09, 0.75), (6, 0.42, 0.1, 0.85))[stage]
+            for n in range(count):
+                leaf(part, (x, y, 0.02), n / count * math.tau + index, length, width, lift)
+            if stage == 2:
+                part.ball((x, y, 0.07), (0.13, 0.13, 0.12), B, detail=1)
+
+    def wheat(part, stage):
+        rng = random.Random(7)
+        count, height = ((12, 0.2), (16, 0.55), (18, 0.95))[stage]
+        for _ in range(count):
+            x, y = (rng.random() - 0.5) * 1.05, (rng.random() - 0.5) * 1.05
+            lean = ((rng.random() - 0.5) * 0.3, (rng.random() - 0.5) * 0.3)
+            tall = height * (0.85 + rng.random() * 0.3)
+            stalk(part, x, y, tall, lean, D if stage == 2 else A)
+            if stage == 2:
+                part.ball((x + lean[1] * tall, y - lean[0] * tall, tall + 0.05), (0.035, 0.035, 0.13), B, detail=1)
+
+    def corn(part, stage):
+        height, leaves = ((0.2, 2), (0.6, 3), (1.2, 5), (1.65, 6))[stage]
+        for index, (x, y) in enumerate(((-0.34, -0.2), (0.3, -0.3), (0.02, 0.34))):
+            part.tube((x, y, height / 2), 0.035 if stage else 0.02, 0.022 if stage else 0.014, height, A, sides=5)
+            for n in range(leaves):
+                angle = n * 2.4 + index
+                z = height * (0.25 + 0.7 * n / leaves)
+                leaf(part, (x, y, z), angle, 0.16 + 0.3 * min(1.0, height / 1.2), 0.05 + 0.03 * stage / 3, 0.35)
+            if stage == 3:
+                for n, z in enumerate((0.75, 1.1)):
+                    angle = 1.0 + n * 2.6 + index
+                    part.ball((x + math.cos(angle) * 0.09, y + math.sin(angle) * 0.09, z), (0.06, 0.06, 0.17), B, detail=1)
+
+    def pumpkin(part, stage):
+        if stage == 0:
+            part.tube((0, 0, 0.06), 0.016, 0.012, 0.12, A, sides=3)
+            for n in range(2):
+                leaf(part, (0, 0, 0.11), n * math.pi + 0.4, 0.17, 0.14, 0.3)
+            return
+        vines = 3 if stage == 1 else 5
+        reach = 0.3 if stage == 1 else 0.5
+        for n in range(vines):
+            angle = n / vines * math.tau + 0.3
+            part.tube((math.cos(angle) * reach / 2, math.sin(angle) * reach / 2, 0.05), 0.014, 0.014, reach, A, sides=3, rotate=(0, QUARTER, angle))
+            leaf(part, (math.cos(angle) * reach * 0.8, math.sin(angle) * reach * 0.8, 0.1), angle + 0.5, 0.26, 0.24, 0.25)
+            leaf(part, (math.cos(angle) * reach * 0.4, math.sin(angle) * reach * 0.4, 0.08), angle - 1.2, 0.2, 0.18, 0.3)
+        if stage == 2:
+            # Green and no bigger than a fist: no face yet.
+            part.ball((0.05, -0.04, 0.12), (0.15, 0.15, 0.12), A, detail=1)
+        if stage == 3:
+            part.ball((0, 0, 0.24), (0.36, 0.34, 0.27), B, front=C, detail=2)
+            part.tube((0, 0, 0.53), 0.035, 0.02, 0.12, D, sides=5, rotate=(0.2, 0.2, 0))
+
     def build():
-        rng = random.Random(len(kind))
-        plant = Part("plant", (0, 0, 0))
-        ripe = Part("ripe", (0, 0, 0))
-        if kind == "turnip":
-            for index in range(6):
-                angle = index / 6 * math.tau
-                plant.box((math.cos(angle) * 0.07, math.sin(angle) * 0.07, 0.22), (0.07, 0.012, 0.42), A, rotate=(-math.sin(angle) * 0.45, math.cos(angle) * 0.45, angle))
-            ripe.ball((0, 0, 0.02), (0.11, 0.11, 0.1), B, detail=1)
-        elif kind == "wheat":
-            for index in range(8):
-                x, y = (rng.random() - 0.5) * 0.4, (rng.random() - 0.5) * 0.4
-                lean = ((rng.random() - 0.5) * 0.25, (rng.random() - 0.5) * 0.25, 0)
-                plant.tube((x, y, 0.45), 0.012, 0.01, 0.9, A, sides=3, rotate=lean)
-                ripe.ball((x - lean[1] * 0.5, y + lean[0] * 0.5, 0.98), (0.03, 0.03, 0.12), B, detail=1)
-        elif kind == "corn":
-            plant.tube((0, 0, 0.8), 0.035, 0.025, 1.6, A, sides=5)
-            for index in range(6):
-                angle = index * 2.4
-                z = 0.4 + index * 0.2
-                plant.box((math.cos(angle) * 0.2, math.sin(angle) * 0.2, z), (0.46, 0.07, 0.012), A, rotate=(0, 0.5, angle))
-            for index, z in enumerate((0.75, 1.1)):
-                angle = 1.0 + index * 2.6
-                ripe.ball((math.cos(angle) * 0.09, math.sin(angle) * 0.09, z), (0.055, 0.055, 0.16), B, detail=1)
-        else:
-            for index in range(5):
-                angle = index / 5 * math.tau + 0.3
-                plant.tube((math.cos(angle) * 0.2, math.sin(angle) * 0.2, 0.06), 0.012, 0.012, 0.42, A, sides=3, rotate=(0, QUARTER, angle))
-                plant.box((math.cos(angle) * 0.4, math.sin(angle) * 0.4, 0.14), (0.24, 0.24, 0.012), A, rotate=(0.25, 0.2, angle))
-            ripe.ball((0, 0, 0.24), (0.34, 0.32, 0.26), B, front=C, detail=2)
-            ripe.tube((0, 0, 0.53), 0.035, 0.02, 0.12, D, sides=5, rotate=(0.2, 0.2, 0))
-        return [plant, ripe]
+        grow = {"turnip": turnip, "wheat": wheat, "corn": corn, "pumpkin": pumpkin}[kind]
+        parts = []
+        for stage in range(STAGES[kind]):
+            part = Part(f"stage-{stage}", (0, 0, 0))
+            grow(part, stage)
+            parts.append(part)
+        return parts
 
     return paint, build
 
