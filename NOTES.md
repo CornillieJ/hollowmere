@@ -233,7 +233,7 @@ orders (`PREMIUM` 1.7, every 3 days, 3 days' patience); `WRONG_FROM` days.
 ## Batch 14: house and signs, on `dev`
 
 - The farmhouse is our own model (`farmhouse` in `tools/blender/build_props.py`), no longer the downloaded cottage.
-- Safe places show as lamplight on the ground (`ringStyle: 'glow'` in the template's `addSafeZones`), not a drawn circle.
+- Safe places show as a pool of warm light with a bright edge and sparks rising along it (`ringStyle: 'glow'` in the template's `addSafeZones`), not a drawn circle.
 - Going into and out of the barn snaps the camera (`controls.snap()`) under a longer black.
 - The farm's collection crate stands apart from the mailbox and the bench.
 - Sign boards hang in front of their posts, are larger, and use block letters. The pool sign says plainly what the pool does.
