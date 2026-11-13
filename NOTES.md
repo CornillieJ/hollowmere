@@ -210,3 +210,12 @@ orders (`PREMIUM` 1.7, every 3 days, 3 days' patience); `WRONG_FROM` days.
 - `pool.ts`: what was carried at death is kept (save key `pool`) and handed back from the end of the jetty at night. The sign by the jetty is the only hint.
 - Goal price halved to 6000c. A save that had already burned 6000c or more stays "running" until the next payment.
 - Shop counter, lectern, crates, hearth and shrine are solid. Hints are reworded for touch in `wording.ts`.
+
+## Batch 12: the loop, on `dev`
+
+- Hours that are skipped pass over the field: a night in bed and every visit (`growFor` in `boot.ts`, `Farm.advance` in the template). The morning panel counts what ripened.
+- A bigger watering can in the order book: 10, then 20 waterings (`CAN_SIZES`).
+- The plot the next press works is framed in the colour of the action, and a growing crop says in how many clock hours it is ripe (`farming.ts`).
+- Working down a row climbs a scale (`ROW_SCALE`).
+- The compass shows ❗ for every villager whose request or regular order is in the pockets or the backpack.
+- A save whose pledge is already paid past the new price counts as kept on load (template `pledge.ts`).

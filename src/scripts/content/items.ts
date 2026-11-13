@@ -17,7 +17,7 @@ import type { Recipe } from '../game/crafting';
 const food = (heal: number): NonNullable<ItemDefinition['use']> => ({ onUse: ({ game }) => game?.player?.heal(heal), cooldown: 1 });
 
 export const ITEMS: ItemDefinition[] = [
-    { id: 'watering-can', name: 'Watering can', icon: '💧', category: 'tool', maxStack: 1, keep: true, description: 'Water a planted plot. Watered crops grow twice as fast that day. Holds 5 waterings; fill it at the well.' },
+    { id: 'watering-can', name: 'Watering can', icon: '💧', category: 'tool', maxStack: 1, keep: true, description: 'Water a planted plot. Watered crops grow twice as fast that day. Fill it at the well.' },
     { id: 'axe', name: 'Axe', icon: '🪓', category: 'tool', maxStack: 1, keep: true, description: 'Hold it and press E at a dead tree. Four swings bring one down.' },
     { id: 'fence-kit', name: 'Fence kit', icon: '🚧', category: 'tool', price: 14, description: 'Press F to put a length of fence down. Holds the walkers back for a while. Nothing holds them for long.' },
 
