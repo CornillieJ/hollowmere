@@ -1,62 +1,512 @@
-/* Hollowveil's skin over the template UI: bone and soot instead of neon. */
+/*
+ * Hollowveil's skin over the template UI: a tape somebody found.
+ *
+ * Everything on screen is the on-screen display of an old camcorder: block
+ * letters with colour fringes, hard white frames with pieces missing, scan
+ * lines, and a tracking fault that rolls down every window. The font is VT323,
+ * loaded in boot.ts. Icons are drawn from `:name:` tokens (content/icons.ts).
+ */
 
 :root {
-	--ui-font: Georgia, 'Times New Roman', serif;
-	--ui-fg: #e6dfcc;
-	--ui-muted: #9a917c;
-	--ui-bg: rgba(10, 9, 7, 0.86);
-	--ui-bg-soft: rgba(10, 9, 7, 0.55);
-	--ui-accent: #c9b78a;
-	--ui-danger: #b0605a;
-	--ui-success: #9ab07a;
-	--ui-radius: 3px;
+	--ui-font: 'VT323', 'Courier New', monospace;
+	--ui-fg: #f2f2e8;
+	--ui-muted: #a9ad9c;
+	--ui-bg: rgba(5, 8, 6, 0.9);
+	--ui-bg-soft: rgba(5, 8, 6, 0.6);
+	--ui-accent: #ffe14a;
+	--ui-danger: #ff5a4a;
+	--ui-success: #a8e08a;
+	--ui-radius: 0;
+	--tape-ink: #050806;
+	--tape-fringe: 1px 0 rgba(255, 42, 42, 0.45), -1px 0 rgba(42, 255, 255, 0.4);
+	--tape-fringe-big: 2px 0 rgba(255, 42, 42, 0.55), -2px 0 rgba(42, 255, 255, 0.5), 0 2px 0 #000;
+	--tape-lines: repeating-linear-gradient(rgba(0, 0, 0, 0) 0 3px, rgba(0, 0, 0, 0.28) 3px 4px);
+	/* A frame with 3 pieces missing. Measured in pixels, so the nicks are the same size on every window. */
+	--tape-nicks: polygon(0 0, 100% 0, 100% calc(100% - 66px), calc(100% - 9px) calc(100% - 59px), 100% calc(100% - 52px), 100% 100%, 96px 100%, 89px calc(100% - 8px), 82px 100%, 0 100%, 0 60px, 8px 53px, 0 46px);
+	--tape-nicks-small: polygon(0 0, calc(100% - 30px) 0, calc(100% - 25px) 5px, calc(100% - 20px) 0, 100% 0, 100% 100%, 0 100%, 0 calc(100% - 12px), 5px calc(100% - 17px), 0 calc(100% - 22px));
+}
+
+#ui-root {
+	/* VT323 is drawn small for its size: this brings its letters up to the size the layouts were made for. */
+	font-size-adjust: 0.5;
+	text-shadow: var(--tape-fringe);
+	-webkit-font-smoothing: none;
+}
+
+/* ---- Windows: one frame for all of them --------------------------------- */
+
+.menu-panel,
+.list-panel,
+.pack,
+.inventory-panel,
+.choice-card,
+.dialogue-card,
+.pack-menu,
+.hud-objective.hv-quest {
+	border: 3px solid var(--ui-fg);
+	border-radius: 0;
+	background:
+		linear-gradient(rgba(255, 255, 255, 0) 0 46%, rgba(255, 255, 255, 0.07) 50%, rgba(255, 255, 255, 0) 54% 100%) 0 0 / 100% 300% no-repeat,
+		var(--tape-lines),
+		var(--ui-bg);
+	box-shadow: inset 0 0 0 3px var(--tape-ink), inset 0 0 0 5px rgba(242, 242, 232, 0.4);
+	clip-path: var(--tape-nicks);
+	color: var(--ui-fg);
+	animation: hv-tracking 7s linear infinite;
+}
+
+.pack-menu,
+.hud-objective.hv-quest,
+.choice-card {
+	clip-path: var(--tape-nicks-small);
+}
+
+/* The tracking fault: a pale band that rolls down the window and starts again. */
+@keyframes hv-tracking {
+	from { background-position: 0 120%, 0 0, 0 0; }
+	to { background-position: 0 -60%, 0 0, 0 0; }
+}
+
+.menu-title,
+.list-panel-title,
+.pack-title,
+.inventory-title,
+.banner-title,
+.choice-title {
+	font-weight: 400;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	text-shadow: var(--tape-fringe-big);
 }
 
 .menu-title {
-	font-size: 46px;
-	font-weight: 400;
-	letter-spacing: 0.32em;
-	text-transform: uppercase;
-	text-shadow: 0 0 18px rgba(201, 183, 138, 0.25);
+	font-size: 64px;
+	line-height: 0.95;
+	animation: hv-glitch 6.5s steps(1) infinite;
+}
+
+/* Now and then the picture tears for a frame or 2. */
+@keyframes hv-glitch {
+	0%, 100% { transform: none; clip-path: none; }
+	91% { transform: translateX(-5px) skewX(-8deg); }
+	92% { transform: translateX(4px); clip-path: inset(0 0 55% 0); }
+	93% { transform: translateX(-2px); clip-path: inset(40% 0 0 0); }
+	94% { transform: none; clip-path: none; }
 }
 
 .menu-subtitle {
-	font-style: italic;
-	letter-spacing: 0.08em;
+	font-size: 20px;
+	color: var(--ui-muted);
 }
 
-.menu-panel {
-	border-color: rgba(201, 183, 138, 0.18);
-	background: rgba(8, 7, 5, 0.9);
+.menu-hint {
+	font-size: 17px;
+}
+
+.list-panel-title,
+.pack-title,
+.inventory-title {
+	font-size: 34px;
+	line-height: 1;
+}
+
+/* Recording. */
+.list-panel-title::before,
+.pack-title::before,
+.inventory-title::before {
+	content: '';
+	display: inline-block;
+	width: 12px;
+	height: 12px;
+	margin-right: 10px;
+	background: var(--ui-danger);
+	animation: hv-rec 1.2s steps(2) infinite;
+}
+
+@keyframes hv-rec {
+	50% { opacity: 0.15; }
 }
 
 .menu-button,
 .dialogue-choice,
-.hotbar-slot {
-	border-radius: 2px;
+.choice-option,
+.list-panel-action,
+.list-panel-tab,
+.pack-menu-button,
+.inventory-filter {
+	border: 2px solid var(--ui-fg);
+	border-radius: 0;
+	background: var(--tape-ink);
+	color: var(--ui-fg);
+	font-family: var(--ui-font);
+	font-size: 20px;
+	line-height: 1.1;
+	text-transform: uppercase;
+	text-shadow: none;
+	transition: none;
+}
+
+.menu-button {
+	font-size: 24px;
+	padding: 8px 20px;
+}
+
+.menu-button:hover,
+.dialogue-choice:hover,
+.choice-option:hover,
+.list-panel-action:hover,
+.list-panel-tab:hover,
+.pack-menu-button:hover,
+.inventory-filter:hover {
+	border-color: var(--ui-accent);
+	background: var(--ui-accent);
+	color: var(--tape-ink);
+	transform: translateX(3px);
 }
 
 .menu-button.is-primary,
-.hotbar-slot.is-selected {
-	background: rgba(201, 183, 138, 0.14);
+.choice-option.is-primary,
+.list-panel-action,
+.list-panel-tab.is-active,
+.inventory-filter.is-selected {
+	background: var(--ui-fg);
+	color: var(--tape-ink);
 }
 
+.list-panel-close,
+.pack-close,
+.inventory-close {
+	border: 2px solid var(--ui-fg);
+	border-radius: 0;
+	background: var(--tape-ink);
+	color: var(--ui-fg);
+	font-size: 20px;
+}
+
+.list-panel-close:hover,
+.pack-close:hover,
+.inventory-close:hover {
+	background: var(--ui-danger);
+	border-color: var(--ui-danger);
+	color: var(--tape-ink);
+}
+
+.menu-slider input[type='range'] {
+	accent-color: var(--ui-fg);
+}
+
+/* ---- Lists: lines on a display, not cards -------------------------------- */
+
+.list-panel-row,
+.pack-stat {
+	border-radius: 0;
+	border-bottom: 2px dotted rgba(242, 242, 232, 0.28);
+	background: none;
+	padding: 7px 4px;
+}
+
+.list-panel-row-title {
+	font-size: 21px;
+	line-height: 1.05;
+}
+
+.list-panel-detail {
+	font-size: 17px;
+	line-height: 1.1;
+	color: var(--ui-muted);
+}
+
+.list-panel-meta,
+.pack-stat-value {
+	color: var(--ui-accent);
+	font-size: 21px;
+}
+
+.list-panel-heading {
+	position: relative;
+	padding-left: 14px;
+	color: var(--ui-accent);
+	font-size: 19px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.list-panel-heading::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 12%;
+	width: 7px;
+	height: 76%;
+	background: var(--ui-accent);
+}
+
+.list-panel-icon {
+	font-size: 26px;
+}
+
+.list-panel-bar {
+	border: 2px solid var(--ui-fg);
+	border-radius: 0;
+	background: var(--tape-ink);
+}
+
+.list-panel-fill {
+	border-radius: 0;
+	background: repeating-linear-gradient(90deg, var(--ui-fg) 0 7px, var(--tape-ink) 7px 9px);
+}
+
+/* ---- Slots: pockets, backpack, store ------------------------------------- */
+
+.hotbar {
+	border: 0;
+	border-radius: 0;
+	background: none;
+	gap: 7px;
+}
+
+.hotbar-slot,
+.pack-slot,
+.inventory-slot {
+	border: 2px solid rgba(242, 242, 232, 0.5);
+	border-radius: 0;
+	background: var(--tape-lines), rgba(5, 8, 6, 0.72);
+	box-shadow: inset 0 0 0 2px var(--tape-ink);
+	transition: none;
+}
+
+.pack-slot.is-empty {
+	border-style: dotted;
+	border-color: rgba(242, 242, 232, 0.25);
+}
+
+.hotbar-slot.is-selected,
+.inventory-slot.is-selected {
+	border: 3px solid var(--ui-accent);
+	background: var(--tape-lines), rgba(255, 225, 74, 0.16);
+	color: var(--ui-accent);
+	transform: translateY(-5px);
+}
+
+.hotbar-icon,
+.pack-slot-icon,
+.inventory-slot-icon {
+	font-size: 30px;
+	line-height: 1;
+}
+
+.hotbar-key {
+	color: var(--ui-muted);
+	font-size: 14px;
+}
+
+.hotbar-count,
+.pack-slot-count,
+.inventory-slot-count,
+.hv-held-count {
+	font-size: 18px;
+	color: var(--ui-fg);
+	text-shadow: 1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
+}
+
+.item-badge {
+	bottom: 1px;
+	left: 2px;
+	padding: 1px;
+	background: var(--tape-ink);
+	color: var(--ui-accent);
+	font-size: 15px;
+	text-shadow: none;
+}
+
+.inventory-slot-price {
+	color: var(--ui-accent);
+	font-size: 16px;
+}
+
+.inventory-detail-name {
+	font-size: 26px;
+	text-transform: uppercase;
+}
+
+.inventory-detail-text,
+.pack-menu-text {
+	font-size: 18px;
+	line-height: 1.1;
+}
+
+.pack-menu-title {
+	font-size: 22px;
+	text-transform: uppercase;
+	color: var(--ui-accent);
+}
+
+/* ---- Talk ---------------------------------------------------------------- */
+
 .dialogue-card {
-	border-color: rgba(201, 183, 138, 0.2);
-	background: rgba(8, 7, 5, 0.92);
+	padding: 18px 22px;
+}
+
+.dialogue-portrait {
+	width: 84px;
+	height: 84px;
+	border: 2px solid var(--ui-fg);
+	border-radius: 0;
+	background: var(--tape-ink);
+	font-size: 76px;
+	line-height: 1;
+	overflow: hidden;
+}
+
+.dialogue-portrait .ui-icon {
+	width: 1em;
+	height: 1em;
+	vertical-align: top;
+}
+
+.dialogue-speaker {
+	color: var(--ui-accent);
+	font-size: 20px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
 }
 
 .dialogue-text {
+	font-size: 24px;
+	line-height: 1.12;
+	color: var(--ui-fg);
+}
+
+.dialogue-hint {
+	color: var(--ui-accent);
+	animation: hv-rec 1s steps(2) infinite;
+}
+
+/* ---- What is on screen while playing ------------------------------------- */
+
+.toast {
+	border: 0;
+	border-left: 6px solid var(--ui-accent);
+	border-radius: 0;
+	background: var(--tape-lines), var(--ui-bg);
+	padding: 5px 14px 5px 10px;
+	font-size: 21px;
+	line-height: 1.1;
+	text-align: left;
+}
+
+.prompt {
+	border: 2px solid var(--ui-fg);
+	border-radius: 0;
+	background: var(--tape-lines), var(--ui-bg);
+	box-shadow: inset 0 0 0 2px var(--tape-ink);
+	padding: 6px 14px 6px 8px;
+	font-size: 22px;
+	line-height: 1.1;
+}
+
+.prompt-key {
+	border: 0;
+	border-radius: 0;
+	background: var(--ui-fg);
+	color: var(--tape-ink);
+	font-size: 20px;
+	text-shadow: none;
+}
+
+.banner-title {
+	font-size: clamp(34px, 6vw, 58px);
+	line-height: 1;
+}
+
+.banner-sub {
+	display: inline-block;
+	margin-top: 6px;
+	padding: 2px 12px;
+	background: var(--ui-bg);
+	font-size: 22px;
+	line-height: 1.15;
+}
+
+.hud-bar .hud-label {
 	font-size: 18px;
-	color: #efe8d4;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+}
+
+.hud-track {
+	height: 16px;
+	border: 2px solid var(--ui-fg);
+	border-radius: 0;
+	background: var(--tape-ink);
+	box-sizing: border-box;
+}
+
+.hud-fill {
+	border-radius: 0;
+	background: repeating-linear-gradient(90deg, var(--ui-fg) 0 10px, var(--tape-ink) 10px 12px);
+}
+
+.hud-fill.is-low {
+	background: repeating-linear-gradient(90deg, var(--ui-danger) 0 10px, var(--tape-ink) 10px 12px);
+}
+
+.float-text {
+	font-family: var(--ui-font);
+}
+
+.prompt {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.prompt-key {
+	margin-right: 0;
+}
+
+.pack-stat-label,
+.inventory-detail-meta {
+	font-size: 15px;
+}
+
+.pack-section-label,
+.pack-hint,
+.inventory-footer,
+.inventory-resources,
+.list-panel-footer,
+.list-panel-empty {
+	font-size: 18px;
+	line-height: 1.1;
+}
+
+.inventory-detail {
+	border-radius: 0;
+	border-top: 2px dotted rgba(242, 242, 232, 0.35);
+	background: none;
+}
+
+.inventory-slot-icon {
+	font-size: 42px;
+}
+
+/* In a window the mark sits in the top corner, clear of the price and the count. */
+.inventory-slot .item-badge,
+.pack-slot .item-badge {
+	top: 3px;
+	bottom: auto;
+	font-size: 17px;
+}
+
+.hotbar-icon {
+	font-size: 26px;
 }
 
 footer { display: none; }
 
 @media (max-width: 700px) {
 	.menu-title {
-		font-size: 30px;
-		letter-spacing: 0.18em;
+		font-size: 44px;
 	}
 }
 
@@ -82,14 +532,24 @@ footer { display: none; }
 
 .hv-plate {
 	box-sizing: border-box;
-	border: 1px solid rgba(201, 183, 138, 0.45);
-	border-radius: 2px;
-	outline: 1px dashed rgba(201, 183, 138, 0.24);
-	outline-offset: -5px;
-	background: rgba(13, 11, 9, 0.86);
-	box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.5);
-	color: #efe8d4;
+	color: var(--ui-fg);
 	font-family: var(--ui-font);
+}
+
+/* The clock has a label hanging under it, so its frame is drawn behind it and not cut out of it. */
+.hv-clock {
+	isolation: isolate;
+}
+
+.hv-clock::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	border: 3px solid var(--ui-fg);
+	background: var(--tape-lines), var(--ui-bg);
+	box-shadow: inset 0 0 0 3px var(--tape-ink), inset 0 0 0 5px rgba(242, 242, 232, 0.4);
+	clip-path: var(--tape-nicks-small);
 }
 
 .hv-left {
@@ -105,13 +565,13 @@ footer { display: none; }
 /* What is carried that matters right now: dishes and how hot they are. */
 .hv-basket {
 	display: grid;
-	gap: 3px;
-	padding: 5px 10px 6px;
-	border: 1px solid rgba(201, 183, 138, 0.3);
-	border-radius: 2px;
-	background: rgba(13, 11, 9, 0.78);
-	color: #d8d0bc;
-	font-size: 12px;
+	gap: 1px;
+	padding: 4px 10px 4px 8px;
+	border-left: 6px solid var(--ui-fg);
+	background: var(--tape-lines), var(--ui-bg);
+	color: var(--ui-fg);
+	font-size: 18px;
+	line-height: 1.1;
 	white-space: nowrap;
 }
 
@@ -133,10 +593,10 @@ footer { display: none; }
 
 .hud-objective.hv-quest {
 	position: static;
-	max-width: 300px;
-	padding: 11px 16px 12px;
-	font-size: 14px;
-	line-height: 1.4;
+	max-width: 320px;
+	padding: 12px 18px 13px;
+	font-size: 21px;
+	line-height: 1.1;
 	transform: rotate(-0.6deg);
 	transform-origin: top left;
 }
@@ -146,17 +606,17 @@ footer { display: none; }
 	display: block;
 	margin-bottom: 4px;
 	color: var(--ui-accent);
-	font-size: 11px;
-	font-style: italic;
+	font-size: 17px;
 	letter-spacing: 0.08em;
+	text-transform: uppercase;
 }
 
 .hv-clock {
 	position: absolute;
 	top: 12px;
 	right: 60px;
-	min-width: 118px;
-	padding: 9px 15px 10px;
+	min-width: 124px;
+	padding: 11px 16px 11px;
 	text-align: right;
 	transform: rotate(0.5deg);
 	transform-origin: top right;
@@ -164,23 +624,23 @@ footer { display: none; }
 
 .hv-clock-day {
 	color: var(--ui-accent);
-	font-size: 13px;
+	font-size: 18px;
 	letter-spacing: 0.06em;
+	text-transform: uppercase;
 }
 
 .hv-clock-time {
-	font-family: 'Courier New', Courier, monospace;
-	font-size: 24px;
-	font-weight: 700;
-	line-height: 1.15;
+	font-size: 44px;
+	line-height: 0.95;
 	letter-spacing: 0.04em;
+	text-shadow: var(--tape-fringe-big);
 }
 
 .hv-clock-coins {
 	margin-top: 5px;
-	padding-top: 5px;
-	border-top: 1px dashed rgba(201, 183, 138, 0.3);
-	font-size: 14px;
+	padding-top: 4px;
+	border-top: 2px dotted rgba(242, 242, 232, 0.35);
+	font-size: 21px;
 }
 
 .hv-clock-coins::before {
@@ -188,10 +648,8 @@ footer { display: none; }
 	display: inline-block;
 	width: 9px;
 	height: 9px;
-	margin-right: 6px;
-	border: 1px solid #6e5a22;
-	border-radius: 50%;
-	background: #d6b24a;
+	margin-right: 7px;
+	background: var(--ui-accent);
 }
 
 .hv-clock-coins.is-bump {
@@ -205,8 +663,8 @@ footer { display: none; }
 
 .hv-clock-note {
 	margin-top: 3px;
-	color: #d0a8a0;
-	font-size: 12px;
+	color: #ffb0a4;
+	font-size: 17px;
 }
 
 /* For a moment it is not an hour at all. */
@@ -217,9 +675,8 @@ footer { display: none; }
 }
 
 /* By night the plate goes cold. */
-.hv-clock.is-night {
-	border-color: rgba(160, 170, 214, 0.5);
-	outline-color: rgba(160, 170, 214, 0.25);
+.hv-clock.is-night::after {
+	border-color: #aab2ec;
 }
 
 .hv-clock.is-night .hv-clock-day {
@@ -243,12 +700,12 @@ footer { display: none; }
 	top: 100%;
 	right: 6px;
 	margin-top: 7px;
-	padding: 3px 9px;
-	border: 1px solid rgba(232, 200, 120, 0.4);
-	border-radius: 2px;
-	background: rgba(13, 11, 9, 0.8);
-	color: #ecd9a4;
-	font-size: 12px;
+	padding: 1px 9px 2px;
+	background: var(--ui-accent);
+	color: var(--tape-ink);
+	font-size: 18px;
+	text-shadow: none;
+	text-transform: uppercase;
 	white-space: nowrap;
 }
 
@@ -257,45 +714,41 @@ footer { display: none; }
 	right: 12px;
 	width: 38px;
 	height: 38px;
-	border: 1px solid rgba(201, 183, 138, 0.45);
-	border-radius: 2px;
-	background: rgba(13, 11, 9, 0.86);
-	box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.5);
+	border: 2px solid var(--ui-fg);
+	border-radius: 0;
+	background: var(--ui-bg);
+	color: var(--ui-fg);
+	font-size: 20px;
 }
 
 .compass {
-	border: 1px solid rgba(201, 183, 138, 0.25);
-	border-radius: 2px;
-	background: rgba(13, 11, 9, 0.6);
+	border-radius: 0;
+	border-top: 2px solid var(--ui-fg);
+	border-bottom: 2px solid var(--ui-fg);
+	background: var(--tape-lines), var(--ui-bg-soft);
+	font-size: 18px;
 }
 
-.toast {
-	border: 1px solid rgba(201, 183, 138, 0.25);
-	border-radius: 2px;
-	text-align: center;
+.touch-stick,
+.touch-button {
+	border-radius: 0;
+	border: 2px solid rgba(242, 242, 232, 0.6);
+	background: rgba(5, 8, 6, 0.5);
+	font-weight: 400;
+	font-size: 28px;
 }
 
-.prompt {
-	border: 1px solid rgba(201, 183, 138, 0.3);
-	border-radius: 2px;
-}
-
-.hotbar {
-	border: 1px solid rgba(201, 183, 138, 0.2);
-	border-radius: 2px;
-	background: rgba(13, 11, 9, 0.7);
-}
-
-.hotbar-slot.is-selected {
-	border-color: var(--ui-accent);
+.touch-knob {
+	border-radius: 0;
 }
 
 .touch-stick.is-active {
-	background: rgba(201, 183, 138, 0.12);
+	background: rgba(255, 225, 74, 0.12);
 }
 
 .touch-button.is-primary {
-	background: rgba(201, 183, 138, 0.2);
+	border-color: var(--ui-accent);
+	color: var(--ui-accent);
 }
 
 .hv-held {
@@ -312,11 +765,6 @@ footer { display: none; }
 	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
 }
 
-.list-panel,
-.pack {
-	border-color: rgba(201, 183, 138, 0.25);
-	border-radius: 3px;
-}
 
 /* --------------------------------------------------------------------------
    Fingers: the pockets fold away behind one button, the health bar moves off
@@ -340,7 +788,7 @@ footer { display: none; }
 		padding: 8px;
 		box-sizing: border-box;
 		z-index: 5;
-		background: rgba(13, 11, 9, 0.94);
+		background: rgba(5, 8, 6, 0.95);
 		box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35);
 	}
 
@@ -366,8 +814,6 @@ footer { display: none; }
 
 	.hud-bar .hud-track {
 		height: 9px;
-		border: 1px solid rgba(201, 183, 138, 0.35);
-		border-radius: 2px;
 	}
 
 	.prompt {
@@ -404,13 +850,13 @@ footer { display: none; }
 	.hud-objective.hv-quest {
 		max-width: calc(100vw - 150px);
 		padding: 8px 12px 9px;
-		font-size: 12.5px;
-		line-height: 1.35;
+		font-size: 18px;
+		line-height: 1.05;
 	}
 
 	.hv-quest::before {
-		margin-bottom: 2px;
-		font-size: 10px;
+		margin-bottom: 0;
+		font-size: 14px;
 	}
 
 	.hv-clock {
@@ -421,17 +867,17 @@ footer { display: none; }
 	}
 
 	.hv-clock-day {
-		font-size: 11px;
+		font-size: 15px;
 	}
 
 	.hv-clock-time {
-		font-size: 18px;
+		font-size: 30px;
 	}
 
 	.hv-clock-coins {
 		margin-top: 3px;
 		padding-top: 3px;
-		font-size: 13px;
+		font-size: 18px;
 	}
 
 	.toast-stack {
@@ -464,13 +910,13 @@ footer { display: none; }
 	.hud-objective.hv-quest {
 		max-width: 27vw;
 		padding: 7px 11px 8px;
-		font-size: 12.5px;
-		line-height: 1.3;
+		font-size: 18px;
+		line-height: 1.05;
 	}
 
 	.hv-quest::before {
-		margin-bottom: 1px;
-		font-size: 10px;
+		margin-bottom: 0;
+		font-size: 14px;
 	}
 
 	.compass {
@@ -489,17 +935,17 @@ footer { display: none; }
 	}
 
 	.hv-clock-day {
-		font-size: 11px;
+		font-size: 15px;
 	}
 
 	.hv-clock-time {
-		font-size: 17px;
+		font-size: 26px;
 	}
 
 	.hv-clock-coins {
 		margin-top: 2px;
 		padding-top: 2px;
-		font-size: 13px;
+		font-size: 18px;
 	}
 
 	.toast-stack {
@@ -534,9 +980,18 @@ footer { display: none; }
 		font-size: 0;
 	}
 
+	.prompt-key {
+		background: none;
+	}
+
 	.prompt-key::before {
-		content: '✋';
-		font-size: 15px;
+		content: '';
+		display: inline-block;
+		width: 20px;
+		height: 20px;
+		vertical-align: -4px;
+		background: var(--ui-fg);
+		mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2'%3E%3Cpath d='M8 13V5.5a1.5 1.5 0 0 1 3 0V11V4a1.5 1.5 0 0 1 3 0v7V5.5a1.5 1.5 0 0 1 3 0V14c0 4-2 7-6 7-3 0-4.5-1.5-6-4l-2-4c1-1.5 2.500-1 3 0z'/%3E%3C/svg%3E") center / contain no-repeat;
 	}
 }
 
@@ -592,18 +1047,14 @@ footer { display: none; }
 
 /* Coarse, like everything else here: drawn small and blown up. */
 .ending-picture {
-	font-size: 26px;
+	font-size: 84px;
 	line-height: 1;
-	transform: scale(3.2);
-	margin: 34px 0 30px;
-	filter: saturate(0.55) contrast(0.9);
-	image-rendering: pixelated;
+	margin: 10px 0 6px;
 }
 
 .ending-title {
-	font-size: 15px;
-	font-style: italic;
-	letter-spacing: 0.34em;
+	font-size: 20px;
+	letter-spacing: 0.3em;
 	text-transform: uppercase;
 	opacity: 0.7;
 }

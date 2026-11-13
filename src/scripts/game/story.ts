@@ -38,7 +38,7 @@ export const INTRO = [
     'Last night I fell asleep in my own house. I am a farmer. That much I still know.',
     'Now there is fog up to the fence, and shapes standing in it that do not move like people.',
     'I see no road home. So: food first, answers later.',
-    'Let me look around. (Walk with WASD, look with the mouse, hold Shift to run. On the compass at the top, ➤ is where to go next.)',
+    'Let me look around. (Walk with WASD, look with the mouse, hold Shift to run. On the compass at the top, :arrow: is where to go next.)',
 ];
 
 export function setupStory(game: Game, narration: NarrationHandle, facts: StoryFacts): StorylineHandle {
@@ -52,7 +52,7 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
         {
             id: 'wake',
             objective: 'Look around the farm',
-            detail: 'Walk with WASD, look with the mouse. Hold Shift to run. The ➤ on the compass points at the next job.',
+            detail: 'Walk with WASD, look with the mouse. Hold Shift to run. The :arrow: on the compass points at the next job.',
             done: () => farFrom(FARM.door, 7),
         },
         {
@@ -101,10 +101,10 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
         {
             id: 'ride',
             objective: 'Ride the bicycle up the road to the village',
-            detail: 'Press E at the bicycle by the porch. W pedals, A and D steer, E gets off. Follow the brown road north east: the 🕯 on the compass is the village.',
+            detail: 'Press E at the bicycle by the porch. W pedals, A and D steer, E gets off. Follow the brown road north east: the :candle: on the compass is the village.',
             say: [
                 'Hot food, and more than I need. If anyone lives along that road, they might pay for it.',
-                'There is a bicycle by the porch. Faster than walking, and faster than whatever is in the fog. (Press E to get on. W pedals, A and D steer. Follow the brown road to the 🕯 on the compass.)',
+                'There is a bicycle by the porch. Faster than walking, and faster than whatever is in the fog. (Press E to get on. W pedals, A and D steer. Follow the brown road to the :candle: on the compass.)',
             ],
             done: () => !farFrom(VILLAGE.center, VILLAGE.wallRadius - 2),
         },
@@ -142,7 +142,7 @@ export function setupStory(game: Game, narration: NarrationHandle, facts: StoryF
         {
             id: 'mailbox',
             objective: 'Check the mailbox by the porch',
-            detail: 'A letter is waiting when the ✉ shows over the mailbox, beside the farmhouse door. One comes each morning for a while.',
+            detail: 'A letter is waiting when the :letter: shows over the mailbox, beside the farmhouse door. One comes each morning for a while.',
             say: ['Something is in the mailbox by the door. Nobody knows I am here. (Press E at the mailbox.)'],
             done: () => facts.lettersRead() >= 1,
         },

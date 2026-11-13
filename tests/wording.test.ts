@@ -10,6 +10,6 @@ for (const item of ITEMS) {
     assert.ok(!KEYS.test(line), `${item.id} still names a key on a phone: ${line}`);
 }
 
-assert.equal(forThumbs('Press E at a tree, or hold E and walk.'), 'Tap ✋ at a tree, or hold ✋ and walk.');
-assert.equal(forThumbs('Walk with WASD, look with the mouse. Hold Shift to run.'), 'Walk with the stick on the left, drag the screen to look, hold ≫ to run.');
+assert.equal(forThumbs('Press E at a tree, or hold E and walk.'), 'Tap :hand: at a tree, or hold :hand: and walk.');
+assert.equal(forThumbs('Walk with WASD, look with the mouse. Hold Shift to run.'), 'Walk with the stick on the left, drag the screen to look, hold :run: to run.');
 assert.equal(forThumbs('Nothing to press here.'), 'Nothing to press here.');

@@ -1,3 +1,5 @@
+import { iconElement } from '../ui/icons';
+
 /**
  * Fullscreen and orientation.
  *
@@ -85,13 +87,13 @@ export function addFullscreenButton(options: FullscreenButtonOptions): () => voi
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `fullscreen-button is-${options.corner ?? 'top-right'}`;
-    button.textContent = '⛶';
+    button.replaceChildren(iconElement('fullscreen'));
     button.title = 'Fullscreen';
     options.parent.appendChild(button);
 
     const update = (): void => {
         const active = isFullscreen();
-        button.textContent = active ? '⤡' : '⛶';
+        button.replaceChildren(iconElement(active ? 'shrink' : 'fullscreen'));
         button.title = active ? 'Leave fullscreen' : 'Fullscreen';
         if (options.hideWhenActive ?? true) button.classList.toggle('is-hidden', active);
         options.onChange?.(active);

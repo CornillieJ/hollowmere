@@ -19,7 +19,7 @@ export const ESCAPE = {
     fromDay: 3,
 };
 
-const PELL = '🕯';
+const PELL = ':face-pell:';
 
 export type EscapeHandle = {
     readonly pledge: PledgeHandle;

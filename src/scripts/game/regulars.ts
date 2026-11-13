@@ -178,7 +178,7 @@ export function setupRegulars(options: RegularsOptions): RegularsHandle {
                 const item = options.itemName(order.itemId).toLowerCase();
                 const next = taught.has(regular.id) ? (favours.has(regular.favour.id) ? `Favour: ${regular.favour.title}. ${regular.favour.text}` : hearts >= 3 ? 'Has a favour to offer: go and ask.' : 'At 3 hearts: a favour that lasts.') : hearts >= 2 ? 'Will teach you a dish: go and ask.' : 'At 2 hearts: teaches you a dish.';
                 rows.push({
-                    icon: order.open ? '❗' : '🧺',
+                    icon: order.open ? ':alert:' : ':basket:',
                     title: `${options.nameOf(regular.id)}: ${order.amount} ${item}`,
                     detail: `${order.open ? `Waiting for it now, until the end of day ${order.dueDay}. Hand it over when you talk.` : `Comes round again on day ${order.dueDay}.`} ${next}`,
                     meta: options.format(order.pay),

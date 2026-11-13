@@ -64,6 +64,8 @@ import { worded } from './wording';
 import { setupWeather } from './weather';
 import { setupWhispers } from './whispers';
 import { setupPool } from './pool';
+import { registerGameIcons } from '../content/icons';
+import { takePortrait } from './portraits';
 import { setupJournal } from './journal';
 import { setupLetters } from './letters';
 import { ESCAPE, setupEscape } from './escape';
@@ -86,6 +88,11 @@ const coin = (amount: number): string => `${amount}c`;
 export async function boot(): Promise<void> {
     const cat = createFolk({ species: 'cat', fur: 0x2b2522, accent: 0xd9b8a0, clothes: 0x6b4f3a });
 
+    registerGameIcons();
+    // The screen lettering. Loaded here and not from the stylesheet, so the path holds on GitHub Pages too.
+    const lettering = new FontFace('VT323', 'url(fonts/vt323.woff2)');
+    document.fonts.add(lettering);
+    void lettering.load().catch(() => undefined);
     const { game, world } = await createThirdPersonGame({
         title: 'Hollowveil Farm',
         autoStart: false,
@@ -101,11 +108,11 @@ export async function boot(): Promise<void> {
         enemies: { animate: animateHollow, onAttack: (hub) => hub.effects.flash(0.25, 0x220000, 0.35) },
         touch: {
             buttons: [
-                { action: 'interact', label: '✋', primary: true },
-                { action: 'use', label: '◉' },
-                { action: 'sprint', label: '≫', hold: true },
-                { action: 'inventory', label: '🎒' },
-                { action: 'journal', label: '📖' },
+                { action: 'interact', label: ':hand:', primary: true },
+                { action: 'use', label: ':use:' },
+                { action: 'sprint', label: ':run:', hold: true },
+                { action: 'inventory', label: ':bag:' },
+                { action: 'journal', label: ':notebook:' },
             ],
             // What is in the hand; it opens the pockets, which a phone otherwise keeps folded away.
             actions: [{ label: HELD_PLACEHOLDER, onClick: () => plates?.togglePockets() }],
@@ -114,7 +121,7 @@ export async function boot(): Promise<void> {
         game: { stats: false, exposeDebug: true },
     });
     let plates: PlatesHandle | undefined;
-    void dressFolk(game, cat, 'farmer');
+    void dressFolk(game, cat, 'farmer').then(() => takePortrait(game, 'farmer', cat));
     const body = new FolkAnimator(cat);
     // What is in the hand shows in the hand.
     const heldTools = new Map((['axe', 'watering-can', 'candle'] as const).map((kind) => [kind as string, createHeldTool(kind, game)]));
@@ -148,7 +155,7 @@ export async function boot(): Promise<void> {
 
     const dayCycle = new DayCycle(game, { dayLength: DAY_LENGTH, startHour: 7, stopAtHour: 3 });
     setupMood(game, { dayCycle, atmosphere, lighting: world.scene.lighting, lamps: refs.lamps });
-    const narration = addNarration(game, { speaker: 'You', portrait: '🐱' });
+    const narration = addNarration(game, { speaker: 'You', portrait: ':face-farmer:' });
 
     //#endregion Look and land
 
@@ -197,12 +204,12 @@ export async function boot(): Promise<void> {
         },
     });
     const stats = (): Array<{ icon: string; label: string; value: string }> => [
-        { icon: '❤', label: 'Health', value: `${Math.ceil(game.player?.health.current ?? 0)}/${game.player?.health.max ?? 100}` },
-        { icon: '🪙', label: 'Coins', value: coin(coins.value()) },
-        { icon: isNight(dayCycle) ? '☾' : '☀', label: dayCycle.clock, value: `Day ${dayCycle.day}` },
-        { icon: '❗', label: 'Requests filled', value: String(villagers.requests?.completed ?? 0) },
-        { icon: '♥', label: 'Hearts', value: String(VILLAGERS.reduce((total, villager) => total + villagers.relationships.hearts(villager.id), 0)) },
-        ...(escape.pledge.state === 'running' ? [{ icon: '🌅', label: `${escape.pledge.daysLeft} days to wake`, value: coin(escape.pledge.remaining) }] : []),
+        { icon: ':heart:', label: 'Health', value: `${Math.ceil(game.player?.health.current ?? 0)}/${game.player?.health.max ?? 100}` },
+        { icon: ':coin:', label: 'Coins', value: coin(coins.value()) },
+        { icon: isNight(dayCycle) ? ':moon:' : ':sun:', label: dayCycle.clock, value: `Day ${dayCycle.day}` },
+        { icon: ':alert:', label: 'Requests filled', value: String(villagers.requests?.completed ?? 0) },
+        { icon: ':heart:', label: 'Hearts', value: String(VILLAGERS.reduce((total, villager) => total + villagers.relationships.hearts(villager.id), 0)) },
+        ...(escape.pledge.state === 'running' ? [{ icon: ':dawn:', label: `${escape.pledge.daysLeft} days to wake`, value: coin(escape.pledge.remaining) }] : []),
     ];
     const pack = addPack(game, {
         title: 'Backpack',
@@ -505,11 +512,11 @@ export async function boot(): Promise<void> {
         },
         onTaught: (regular) => {
             const dish = pockets.inventory.registry.resolve(regular.teaches.output.itemId);
-            juice.banner(`${dish.icon ?? '🍲'} ${dish.name}`, `${VILLAGERS.find((villager) => villager.id === regular.id)?.name} taught you a dish. It is in the pot's list now.`, { color: '#b8f0a0', seconds: 4 });
+            juice.banner(`${dish.icon ?? ':pot:'} ${dish.name}`, `${VILLAGERS.find((villager) => villager.id === regular.id)?.name} taught you a dish. It is in the pot's list now.`, { color: '#b8f0a0', seconds: 4 });
             juice.chime('fanfare');
         },
         onFavour: (regular) => {
-            juice.banner(`♥ ${regular.favour.title}`, regular.favour.text, { color: '#ffc8d8', seconds: 5 });
+            juice.banner(`:heart: ${regular.favour.title}`, regular.favour.text, { color: '#ffc8d8', seconds: 5 });
             juice.chime('fanfare');
         },
         onDelivered: (regular, itemId, _amount, pay) => {
@@ -592,7 +599,7 @@ export async function boot(): Promise<void> {
         villagers: VILLAGERS.map((villager) => {
             const rig = createFolk(villager.look);
             folk.set(villager.id, { rig, animator: new FolkAnimator(rig) });
-            void dressFolk(game, rig, villager.id);
+            void dressFolk(game, rig, villager.id).then(() => takePortrait(game, villager.id, rig));
             const square = at({ x: VILLAGE.center.x + villager.spot.x, z: VILLAGE.center.z + villager.spot.z });
             const home = villager.home !== undefined ? homeOf(villager.home) : undefined;
             return {
@@ -739,7 +746,7 @@ export async function boot(): Promise<void> {
             {
                 id: 'field',
                 name: 'More land',
-                icon: '🌱',
+                icon: ':sprout:',
                 levels: [
                     { cost: 150, name: 'The east field', description: '12 more plots beside the first field.' },
                     { cost: 340, name: 'The long field', description: '18 more plots along the south fence.' },
@@ -749,7 +756,7 @@ export async function boot(): Promise<void> {
             {
                 id: 'pot',
                 name: 'A better pot',
-                icon: '🍲',
+                icon: ':pot:',
                 levels: [
                     { cost: 180, name: 'Iron pot', description: 'Cooks chowder, omelettes and pale broth.' },
                     { cost: 450, name: 'Cauldron', description: 'Cooks pumpkin pie and Hollowveil stew.' },
@@ -759,7 +766,7 @@ export async function boot(): Promise<void> {
             {
                 id: 'seeds',
                 name: 'Better seeds',
-                icon: '🌽',
+                icon: ':corn:',
                 levels: [
                     { cost: 80, name: 'Corn seeds', description: 'The store starts stocking corn.' },
                     { cost: 170, name: 'Pumpkin seeds', description: 'The store starts stocking pumpkins.' },
@@ -769,7 +776,7 @@ export async function boot(): Promise<void> {
             {
                 id: 'bag',
                 name: 'A bigger backpack',
-                icon: '🎒',
+                icon: ':bag:',
                 levels: [
                     { cost: 150, name: 'Stitched backpack', description: '6 slots instead of 3. Also on the store shelf.' },
                     { cost: 400, name: 'Leather backpack', description: '10 slots.' },
@@ -783,7 +790,7 @@ export async function boot(): Promise<void> {
             {
                 id: 'can',
                 name: 'A bigger watering can',
-                icon: '💧',
+                icon: ':drop:',
                 levels: [
                     { cost: 110, name: 'Two-gallon can', description: 'Holds 10 waterings instead of 5.' },
                     { cost: 280, name: 'Yoke and pails', description: 'Holds 20 waterings.' },
@@ -791,8 +798,8 @@ export async function boot(): Promise<void> {
                 // It comes full.
                 apply: () => (can.left = canSize()),
             },
-            { id: 'hen', name: 'Another hen', icon: '🐔', description: 'One more hen in the pen, laying eggs.', levels: [{ cost: 90 }, { cost: 120 }, { cost: 160 }], apply: (level) => setHerd('hen', 2 + level) },
-            { id: 'cow', name: 'Another cow', icon: '🐄', description: 'One more cow in the pen, giving milk.', levels: [{ cost: 260 }, { cost: 360 }], apply: (level) => setHerd('cow', 1 + level) },
+            { id: 'hen', name: 'Another hen', icon: ':hen:', description: 'One more hen in the pen, laying eggs.', levels: [{ cost: 90 }, { cost: 120 }, { cost: 160 }], apply: (level) => setHerd('hen', 2 + level) },
+            { id: 'cow', name: 'Another cow', icon: ':cow:', description: 'One more cow in the pen, giving milk.', levels: [{ cost: 260 }, { cost: 360 }], apply: (level) => setHerd('cow', 1 + level) },
         ],
     });
     setHerd('hen', 2);
@@ -1137,33 +1144,33 @@ export async function boot(): Promise<void> {
     const atHome = (): boolean => Math.hypot((game.player?.position.x ?? 0) - FARM.door.x, (game.player?.position.z ?? 0) - FARM.door.z) < 8;
     const deeds = addAchievements(game, {
         onEarned: (achievement) => {
-            juice.banner(`${achievement.icon ?? '★'} ${achievement.title}`, achievement.description, { color: '#ffe9a8', seconds: 3.2 });
+            juice.banner(`${achievement.icon ?? ':star:'} ${achievement.title}`, achievement.description, { color: '#ffe9a8', seconds: 3.2 });
             juice.chime('success');
         },
         achievements: [
-            { id: 'harvest', icon: '🌱', title: 'Soil is soil', description: 'Pick your first crop.', done: () => tally.harvested > 0 },
-            { id: 'dish', icon: '🍲', title: 'Something hot', description: 'Cook a dish.', done: () => tally.cooked > 0 },
-            { id: 'delivery', icon: '❗', title: 'Worth keeping', description: 'Fill a request.', done: () => (villagers.requests?.completed ?? 0) >= 1 },
-            { id: 'regular', icon: '🧺', title: 'Part of the village', description: 'Fill 10 requests.', done: () => (villagers.requests?.completed ?? 0) >= 10 },
-            { id: 'trusted', icon: '🤝', title: 'Money down', description: 'Take a job that wants a deposit, and deliver it.', done: () => tally.bigJobs > 0 },
-            { id: 'friend', icon: '♥', title: 'Easier to love', description: 'Reach 3 hearts with someone.', done: () => VILLAGERS.some((villager) => villagers.relationships.hearts(villager.id) >= 3) },
-            { id: 'cauldron', icon: '🫕', title: 'Funerals and weddings', description: 'Own the cauldron.', done: () => cookpot.station.tier >= 3 },
-            { id: 'land', icon: '🌾', title: 'All of it under seed', description: 'Buy both extra fields.', done: () => farm.activeFields >= 3 },
-            { id: 'places', icon: '🧭', title: 'What is in this valley with me', description: 'Find all 5 places off the road.', done: () => SIGHTS.every((sight) => thoughts.has(sight.id)) },
-            { id: 'wrap', icon: '🌫', title: 'There is no out', description: 'Walk out of the valley and come in by the other side.', done: () => tally.wrapped > 0 },
-            { id: 'candle', icon: '🕯', title: 'A little light', description: 'Light a grave candle.', done: () => thoughts.has('candle') },
-            { id: 'letters', icon: '✉', title: 'Your neighbour, Pell', description: 'Read every letter.', done: () => letters.read >= letters.total },
-            { id: 'bargain', icon: '🌅', title: 'A way home', description: 'Say yes to Pell.', done: () => escape.pledge.state !== 'idle' },
-            { id: 'halfway', icon: '🔥', title: 'It burns green', description: 'Burn half the price.', done: () => escape.pledge.paid >= ESCAPE.price / 2 },
-            { id: 'siege', icon: '🏘', title: 'Shoulder to shoulder', description: 'Be in the village square while they ring the wall.', hidden: true, done: () => happenings.active === 'siege' && inVillage() },
-            { id: 'overrun', icon: '🏚', title: 'Only the porch is mine', description: 'Stand on your porch while the farm is overrun.', hidden: true, done: () => happenings.active === 'overrun' && atHome() },
-            { id: 'dodge', icon: '💨', title: 'Close!', description: 'Step out from under a blow.', done: () => tally.dodged > 0 },
-            { id: 'streak', icon: '🔔', title: 'A good day', description: 'Fill 3 requests in one day.', done: () => tally.bestStreak >= 3 },
-            { id: 'noticing', icon: '✎', title: 'It is an ordinary valley', description: 'Notice 4 things that are not right.', done: () => wrongness.noticed.size >= 4 },
-            { id: 'all-wrong', icon: '🪞', title: 'Everybody says so', description: 'Notice all 7.', hidden: true, done: () => wrongness.noticed.size >= 7 },
-            { id: 'regulars', icon: '🧺', title: 'On the day', description: 'Fill 5 regular orders.', done: () => tally.regulars >= 5 },
-            { id: 'stayed', icon: '🌫', title: 'There are worse neighbours', description: 'Let the last day pass, and stay.', hidden: true },
-            { id: 'died', icon: '🛏', title: 'Clean sheets', description: 'Wake up in the infirmary.', hidden: true },
+            { id: 'harvest', icon: ':sprout:', title: 'Soil is soil', description: 'Pick your first crop.', done: () => tally.harvested > 0 },
+            { id: 'dish', icon: ':pot:', title: 'Something hot', description: 'Cook a dish.', done: () => tally.cooked > 0 },
+            { id: 'delivery', icon: ':alert:', title: 'Worth keeping', description: 'Fill a request.', done: () => (villagers.requests?.completed ?? 0) >= 1 },
+            { id: 'regular', icon: ':basket:', title: 'Part of the village', description: 'Fill 10 requests.', done: () => (villagers.requests?.completed ?? 0) >= 10 },
+            { id: 'trusted', icon: ':deposit:', title: 'Money down', description: 'Take a job that wants a deposit, and deliver it.', done: () => tally.bigJobs > 0 },
+            { id: 'friend', icon: ':heart:', title: 'Easier to love', description: 'Reach 3 hearts with someone.', done: () => VILLAGERS.some((villager) => villagers.relationships.hearts(villager.id) >= 3) },
+            { id: 'cauldron', icon: ':cauldron:', title: 'Funerals and weddings', description: 'Own the cauldron.', done: () => cookpot.station.tier >= 3 },
+            { id: 'land', icon: ':wheat:', title: 'All of it under seed', description: 'Buy both extra fields.', done: () => farm.activeFields >= 3 },
+            { id: 'places', icon: ':compass:', title: 'What is in this valley with me', description: 'Find all 5 places off the road.', done: () => SIGHTS.every((sight) => thoughts.has(sight.id)) },
+            { id: 'wrap', icon: ':fog:', title: 'There is no out', description: 'Walk out of the valley and come in by the other side.', done: () => tally.wrapped > 0 },
+            { id: 'candle', icon: ':candle:', title: 'A little light', description: 'Light a grave candle.', done: () => thoughts.has('candle') },
+            { id: 'letters', icon: ':letter:', title: 'Your neighbour, Pell', description: 'Read every letter.', done: () => letters.read >= letters.total },
+            { id: 'bargain', icon: ':dawn:', title: 'A way home', description: 'Say yes to Pell.', done: () => escape.pledge.state !== 'idle' },
+            { id: 'halfway', icon: ':fire:', title: 'It burns green', description: 'Burn half the price.', done: () => escape.pledge.paid >= ESCAPE.price / 2 },
+            { id: 'siege', icon: ':village:', title: 'Shoulder to shoulder', description: 'Be in the village square while they ring the wall.', hidden: true, done: () => happenings.active === 'siege' && inVillage() },
+            { id: 'overrun', icon: ':ruin:', title: 'Only the porch is mine', description: 'Stand on your porch while the farm is overrun.', hidden: true, done: () => happenings.active === 'overrun' && atHome() },
+            { id: 'dodge', icon: ':dash:', title: 'Close!', description: 'Step out from under a blow.', done: () => tally.dodged > 0 },
+            { id: 'streak', icon: ':bell:', title: 'A good day', description: 'Fill 3 requests in one day.', done: () => tally.bestStreak >= 3 },
+            { id: 'noticing', icon: ':pencil:', title: 'It is an ordinary valley', description: 'Notice 4 things that are not right.', done: () => wrongness.noticed.size >= 4 },
+            { id: 'all-wrong', icon: ':mirror:', title: 'Everybody says so', description: 'Notice all 7.', hidden: true, done: () => wrongness.noticed.size >= 7 },
+            { id: 'regulars', icon: ':basket:', title: 'On the day', description: 'Fill 5 regular orders.', done: () => tally.regulars >= 5 },
+            { id: 'stayed', icon: ':fog:', title: 'There are worse neighbours', description: 'Let the last day pass, and stay.', hidden: true },
+            { id: 'died', icon: ':bed:', title: 'Clean sheets', description: 'Wake up in the infirmary.', hidden: true },
         ],
     });
 
@@ -1297,7 +1304,7 @@ export async function boot(): Promise<void> {
         order: SYSTEM_ORDER.UI,
         update: () => {
             const { station } = cookpot;
-            const text = station.job ? `${Math.max(1, Math.ceil(station.job.recipe.seconds - station.job.elapsed))}s` : station.ready.length > 0 ? '✓ ready' : '';
+            const text = station.job ? `${Math.max(1, Math.ceil(station.job.recipe.seconds - station.job.elapsed))}s` : station.ready.length > 0 ? 'ready' : '';
             if (text !== potText) {
                 potText = text;
                 potLabel.text = text;
@@ -1371,7 +1378,7 @@ export async function boot(): Promise<void> {
             if (reached <= tally.burned || !game.state.is('playing') || pledge.state !== 'running') return;
             tally.burned = reached;
             const quarter = QUARTERS[reached - 1] as (typeof QUARTERS)[number];
-            juice.banner(`🔥 ${quarter.title}`, quarter.sub, { color: '#9af0a8', seconds: 4.5 });
+            juice.banner(`:fire: ${quarter.title}`, quarter.sub, { color: '#9af0a8', seconds: 4.5 });
             juice.chime('fanfare');
             juice.sparkle(treeGreen.position.clone().setY(treeGreen.position.y + 3), 0x86e89a, 30);
             void narration.speak(quarter.lines);
@@ -1432,10 +1439,10 @@ export async function boot(): Promise<void> {
             ...(escape.pledge.state === 'running'
                 ? [
                       { heading: true, title: 'Going home' },
-                      { icon: '🌅', title: `Burn ${coin(escape.pledge.remaining)} more at the old tree`, detail: `${escape.pledge.daysLeft} days left, to the end of day ${escape.pledge.deadline}. Paid so far: ${coin(escape.pledge.paid)}. Dying costs 3 days.`, progress: escape.pledge.paid / ESCAPE.price },
+                      { icon: ':dawn:', title: `Burn ${coin(escape.pledge.remaining)} more at the old tree`, detail: `${escape.pledge.daysLeft} days left, to the end of day ${escape.pledge.deadline}. Paid so far: ${coin(escape.pledge.paid)}. Dying costs 3 days.`, progress: escape.pledge.paid / ESCAPE.price },
                   ]
                 : escape.waiting
-                  ? [{ heading: true, title: 'Going home' }, { icon: '🕯', title: 'Pell is waiting on the hill', detail: 'Up the west path from the chapel, to the old tree on the lookout. He has something to say about going home.' }]
+                  ? [{ heading: true, title: 'Going home' }, { icon: ':candle:', title: 'Pell is waiting on the hill', detail: 'Up the west path from the chapel, to the old tree on the lookout. He has something to say about going home.' }]
                   : []),
         ],
     });
@@ -1463,12 +1470,12 @@ export async function boot(): Promise<void> {
             const step = dayCycle.stalled ? 'sleep' : story.story.current?.id;
             const target = step === 'deliver' ? villagerSpot(villagers.requests?.open[0]?.from) : step ? TARGETS[step] : undefined;
             return [
-                { glyph: '🏠', position: { x: FARM.door.x, y: 0, z: FARM.door.z }, hideWithin: 14 },
-                { glyph: '🕯', position: { x: VILLAGE.center.x, y: 0, z: VILLAGE.center.z }, hideWithin: 22 },
-                ...(escape.waiting ? [{ glyph: '⛰', position: { x: PELL_SPOT.x, y: 0, z: PELL_SPOT.z }, hideWithin: 4 }] : []),
+                { glyph: ':house:', position: { x: FARM.door.x, y: 0, z: FARM.door.z }, hideWithin: 14 },
+                { glyph: ':candle:', position: { x: VILLAGE.center.x, y: 0, z: VILLAGE.center.z }, hideWithin: 22 },
+                ...(escape.waiting ? [{ glyph: ':hill:', position: { x: PELL_SPOT.x, y: 0, z: PELL_SPOT.z }, hideWithin: 4 }] : []),
                 // Whoever can be paid a call right now, with what is being carried.
-                ...(story.finished ? VILLAGERS.filter((villager) => owed(villager.id)).flatMap((villager) => { const spot = villagerSpot(villager.id); return spot ? [{ glyph: '❗', position: { x: spot.x, y: 0, z: spot.z }, hideWithin: 6 }] : []; }) : []),
-                ...(target ? [{ glyph: '➤', position: { x: target.x, y: 0, z: target.z }, hideWithin: 3 }] : []),
+                ...(story.finished ? VILLAGERS.filter((villager) => owed(villager.id)).flatMap((villager) => { const spot = villagerSpot(villager.id); return spot ? [{ glyph: ':alert:', position: { x: spot.x, y: 0, z: spot.z }, hideWithin: 6 }] : []; }) : []),
+                ...(target ? [{ glyph: ':arrow:', position: { x: target.x, y: 0, z: target.z }, hideWithin: 3 }] : []),
             ];
         },
     });
@@ -1520,7 +1527,7 @@ export async function boot(): Promise<void> {
             if (thoughtTimer > 0 || !player) return;
             thoughtTimer = 0.5;
             rescue();
-            if (escape.waiting && letters.read >= 2) think('hill', ['Pell wants me up the hill, by the old tree. Something about going home.', '(The west path from the chapel. ⛰ on the compass.)']);
+            if (escape.waiting && letters.read >= 2) think('hill', ['Pell wants me up the hill, by the old tree. Something about going home.', '(The west path from the chapel. :hill: on the compass.)']);
             endQuiet();
             const sign = omens.near(player);
             if (sign) think(`omen-${sign}`, OMEN_THOUGHTS[sign]);
@@ -1546,17 +1553,17 @@ export async function boot(): Promise<void> {
     const morning = addPanel(game, {
         title: 'Morning',
         rows: () => [
-            { icon: '🌅', title: `Day ${dayCycle.day}`, detail: nightLine },
+            { icon: ':dawn:', title: `Day ${dayCycle.day}`, detail: nightLine },
             { heading: true, title: 'Yesterday' },
-            { icon: '🪙', title: today.earned > 0 && today.earned >= tally.bestDay ? 'Earned (your best day yet)' : 'Earned', meta: coin(today.earned), ...(tally.bestDay > 0 ? { detail: `Best day: ${coin(tally.bestDay)}. Most requests in a day: ${tally.bestStreak}.` } : {}) },
-            { icon: '❗', title: 'Requests filled', meta: String(today.delivered) },
-            { icon: '🍲', title: 'Dishes cooked', meta: String(today.cooked) },
-            { icon: '🌱', title: 'Crops picked', meta: String(today.picked) },
+            { icon: ':coin:', title: today.earned > 0 && today.earned >= tally.bestDay ? 'Earned (your best day yet)' : 'Earned', meta: coin(today.earned), ...(tally.bestDay > 0 ? { detail: `Best day: ${coin(tally.bestDay)}. Most requests in a day: ${tally.bestStreak}.` } : {}) },
+            { icon: ':alert:', title: 'Requests filled', meta: String(today.delivered) },
+            { icon: ':pot:', title: 'Dishes cooked', meta: String(today.cooked) },
+            { icon: ':sprout:', title: 'Crops picked', meta: String(today.picked) },
             ...nightRows,
             { heading: true, title: 'Today' },
             ...planRows(),
-            ...(letters.waiting ? [{ icon: '✉', title: 'There is a letter in the mailbox' }] : []),
-            ...(cookpot.station.ready.length > 0 ? [{ icon: '🍲', title: 'The pot finished overnight' }] : []),
+            ...(letters.waiting ? [{ icon: ':letter:', title: 'There is a letter in the mailbox' }] : []),
+            ...(cookpot.station.ready.length > 0 ? [{ icon: ':pot:', title: 'The pot finished overnight' }] : []),
             { title: 'Saved.', dim: true, action: { label: 'Get up', onPress: () => morning.close() } },
         ],
         onClose: () => Object.assign(today, { earned: 0, delivered: 0, cooked: 0, picked: 0 }),
@@ -1571,19 +1578,21 @@ export async function boot(): Promise<void> {
     ];
     let nightLine = NIGHTS[0] as string;
 
+    /** "2 eggs", but "2 wheat": only the things that are counted get an s. */
+    const several = (name: string, amount: number): string => (amount > 1 && /(turnip|pumpkin|egg|cap|omelette|pie)$/.test(name) ? `${name}s` : name);
     /** Plots the scarecrows left wet this morning. */
     let wept = 0;
     /** What the day ahead holds, for the morning panel: who is waiting, what is ready, what is owed. */
     const planRows = (): Array<{ icon: string; title: string; meta?: string; detail?: string }> => {
         const nameOf = (id: string): string => VILLAGERS.find((villager) => villager.id === id)?.name ?? '?';
-        const item = (itemId: string, amount: number): string => `${amount} ${pockets.inventory.registry.resolve(itemId).name.toLowerCase()}`;
+        const item = (itemId: string, amount: number): string => `${amount} ${several(pockets.inventory.registry.resolve(itemId).name.toLowerCase(), amount)}`;
         const due = (day: number): string => (day <= dayCycle.day ? 'Today is the last day' : day === dayCycle.day + 1 ? 'By the end of tomorrow' : `By the end of day ${day}`);
         const orders = REGULARS.flatMap((regular) => {
             const order = regulars.orderOf(regular.id);
-            return order?.open ? [{ icon: '🧺', title: `${nameOf(regular.id)}'s regular order: ${item(order.itemId, order.amount)}`, meta: coin(order.pay), detail: `${due(order.dueDay)}${have(order.itemId) >= order.amount ? '. You have it on you.' : ''}`, dueDay: order.dueDay }] : [];
+            return order?.open ? [{ icon: ':basket:', title: `${nameOf(regular.id)}'s regular order: ${item(order.itemId, order.amount)}`, meta: coin(order.pay), detail: `${due(order.dueDay)}${have(order.itemId) >= order.amount ? '. You have it on you.' : ''}`, dueDay: order.dueDay }] : [];
         });
         const asked = (villagers.requests?.open ?? []).map((request) => ({
-            icon: '❗',
+            icon: ':alert:',
             title: `${nameOf(request.from)} wants ${item(request.itemId, request.amount)}`,
             meta: coin(request.reward),
             detail: `${request.accepted ? due(request.dueDay) : `On offer, for ${coin(request.deposit)} down`}${have(request.itemId) >= request.amount ? '. You have it on you.' : ''}`,
@@ -1593,10 +1602,10 @@ export async function boot(): Promise<void> {
         const empty = farm.plots.filter((plot) => plot.active && !plot.crop).length;
         return [
             ...[...orders, ...asked].sort((a, b) => a.dueDay - b.dueDay).slice(0, 4).map(({ dueDay: _dueDay, ...row }) => row),
-            ...(ripe > 0 || empty > 0 ? [{ icon: '🌱', title: [ripe > 0 ? `${ripe} ${ripe === 1 ? 'crop is' : 'crops are'} ready to pick` : '', empty > 0 ? `${empty} ${empty === 1 ? 'plot is' : 'plots are'} empty` : ''].filter(Boolean).join(', '), ...(ripenedOvernight > 0 ? { detail: `${ripenedOvernight} ripened in the night.` } : {}) }] : []),
-            ...(wept > 0 ? [{ icon: '💧', title: `The scarecrows wept over ${wept} ${wept === 1 ? 'plot' : 'plots'}`, detail: 'Those are watered for the day.' }] : []),
-            ...(weather.line ? [{ icon: '☁', title: weather.line }] : []),
-            ...(escape.pledge.state === 'running' ? [{ icon: '🌅', title: `${coin(escape.pledge.remaining)} still to burn`, meta: `${escape.pledge.daysLeft}d`, ...(coins.value() >= 100 ? { detail: `You have ${coin(coins.value())}. Pell is on the hill.` } : {}) }] : []),
+            ...(ripe > 0 || empty > 0 ? [{ icon: ':sprout:', title: [ripe > 0 ? `${ripe} ${ripe === 1 ? 'crop is' : 'crops are'} ready to pick` : '', empty > 0 ? `${empty} ${empty === 1 ? 'plot is' : 'plots are'} empty` : ''].filter(Boolean).join(', '), ...(ripenedOvernight > 0 ? { detail: `${ripenedOvernight} ripened in the night.` } : {}) }] : []),
+            ...(wept > 0 ? [{ icon: ':drop:', title: `The scarecrows wept over ${wept} ${wept === 1 ? 'plot' : 'plots'}`, detail: 'Those are watered for the day.' }] : []),
+            ...(weather.line ? [{ icon: ':cloud:', title: weather.line }] : []),
+            ...(escape.pledge.state === 'running' ? [{ icon: ':dawn:', title: `${coin(escape.pledge.remaining)} still to burn`, meta: `${escape.pledge.daysLeft}d`, ...(coins.value() >= 100 ? { detail: `You have ${coin(coins.value())}. Pell is on the hill.` } : {}) }] : []),
         ];
     };
 
@@ -1685,11 +1694,11 @@ export async function boot(): Promise<void> {
                 ...warmth.carried().slice(0, 4).map((dish) => {
                     const name = pockets.inventory.registry.resolve(dish.itemId).name;
                     const left = dish.hoursLeft >= 1 ? `${Math.floor(dish.hoursLeft)}h` : `${Math.max(1, Math.round(dish.hoursLeft * 60))}m`;
-                    return { text: `${dish.heat === 'cold' ? '❄' : '♨'} ${name}${dish.amount > 1 ? ` ×${dish.amount}` : ''} · ${dish.heat}${dish.heat === 'cold' ? '' : ` ${left}`}`, tone: dish.heat };
+                    return { text: `${dish.heat === 'cold' ? ':cold:' : ':hot:'} ${name}${dish.amount > 1 ? ` ×${dish.amount}` : ''} · ${dish.heat}${dish.heat === 'cold' ? '' : ` ${left}`}`, tone: dish.heat };
                 }),
-                ...(bike.mounted && warmth.carried().some((dish) => dish.heat !== 'cold') ? [{ text: '🚲 In the basket: cooling half as fast', tone: 'warm' as const }] : []),
+                ...(bike.mounted && warmth.carried().some((dish) => dish.heat !== 'cold') ? [{ text: ':bike: In the basket: cooling half as fast', tone: 'warm' as const }] : []),
                 ...(weather.line ? [{ text: weather.line, tone: 'warm' as const }] : []),
-                ...(scentLevel() >= 0.5 ? [{ text: '☁ They smell this from far off', tone: 'bad' as const }] : scentLevel() >= 0.25 ? [{ text: '☁ The smell carries', tone: 'bad' as const }] : []),
+                ...(scentLevel() >= 0.5 ? [{ text: ':cloud: They smell this from far off', tone: 'bad' as const }] : scentLevel() >= 0.25 ? [{ text: ':cloud: The smell carries', tone: 'bad' as const }] : []),
             ],
     });
     // A phone has no J: the notebook is a button there.
