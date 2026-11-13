@@ -112,7 +112,10 @@ const HOUSE_SPOTS = [
     { x: 14, z: -26, yaw: 0.6 },
 ];
 
-export const SIGN_SPOT = { x: -44.5, z: 43.2 };
+/** A few steps up the road from the gate, on its left side. */
+const ROAD_OUT = { x: (ROAD[1]?.x ?? 0) - (ROAD[0]?.x ?? 0), z: (ROAD[1]?.z ?? 0) - (ROAD[0]?.z ?? 0) };
+const ROAD_YAW = Math.atan2(-ROAD_OUT.z, ROAD_OUT.x);
+export const SIGN_SPOT = { x: (ROAD[0]?.x ?? 0) + Math.cos(ROAD_YAW) * 4 - Math.sin(ROAD_YAW) * 2.6, z: (ROAD[0]?.z ?? 0) - Math.sin(ROAD_YAW) * 4 - Math.cos(ROAD_YAW) * 2.6 };
 const SCARECROW_POST = { x: -48, z: 40.2 };
 /** Meters nearer the door each night, and how near it will come: the edge of the porch light. */
 const SCARECROW_STEP = 3.4;
@@ -205,9 +208,10 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
     board.position.set(0, 2.1, 0.1);
     board.castShadow = true;
     signpost.add(post, board);
-    // Where the road leaves the yard, turned to be read from the house.
+    // Beside the road and along it, so the arrow on the board points up the road at the village.
+    // Turned a little towards the yard, or it is edge-on from the house.
     signpost.position.copy(terrain.point(SIGN_SPOT.x, SIGN_SPOT.z, 0));
-    signpost.rotation.y = Math.atan2(FARM.door.x - SIGN_SPOT.x, FARM.door.z - SIGN_SPOT.z);
+    signpost.rotation.y = ROAD_YAW - 0.35;
     game.scene.add(signpost);
     paintSign();
     let signRead = 0;
@@ -220,7 +224,8 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
             const first = signRead === 0 && signLevel() === 0;
             signRead = signLevel();
             const way = top.includes('>') ? 'It points up the road. ' : top.includes('<') ? 'It points back at the farm. ' : '';
-            game.toasts.push(`The signpost reads: "${top.replace(/[<>]/g, '').trim()}, ${bottom}". ${way}`.trim(), { color: '#e8e0c8' });
+            const wonder = signLevel() === 0 && !settled() ? "Hollowveil? What's that? A village?" : '';
+            game.toasts.push(`The signpost reads: "${top.replace(/[<>]/g, '').trim()}, ${bottom}". ${way}${wonder}`.trim(), { color: '#e8e0c8' });
             if (changed && !first && signLevel() > 0) notice('sign', [`"${bottom}." It did not say that. It said a mile.`, 'Nobody has painted it. The paint is old and cracked right through the letters.']);
         },
     });

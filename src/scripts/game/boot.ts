@@ -102,7 +102,7 @@ export async function boot(): Promise<void> {
         // The valley brings its own ground.
         scene: { preset: 'outdoor-dusk', groundSize: 0, fog: false },
         player: { lives: Infinity, maxHealth: 100, regenPerSecond: 2, regenDelay: 6, respawnDelay: 2.5 },
-        spawnPoint: { x: FARM.door.x, y: 0.2, z: FARM.door.z },
+        spawnPoint: { x: FARM.start.x, y: 0.2, z: FARM.start.z },
         playerObject: () => cat.root,
         controls: { distance: 4.6, targetHeight: 1.3, shoulderOffset: 0.35, walkSpeed: 4.5, sprintSpeed: 6.8, cameraCollision: true },
         enemies: { animate: animateHollow, onAttack: (hub) => hub.effects.flash(0.25, 0x220000, 0.35) },
@@ -146,7 +146,13 @@ export async function boot(): Promise<void> {
     const ground = (x: number, z: number): number => terrain.heightAt(x, z);
     const at = (spot: { x: number; z: number }, lift = 0): THREE.Vector3 => terrain.point(spot.x, spot.z, lift);
     // The ground arrived after the player did.
-    world.player.body.teleport(at(FARM.door, 0.2));
+    world.player.body.teleport(at(FARM.start, 0.2));
+    // Looking at the house, so the camera stands in the open yard and not in a wall.
+    const faceHome = (): void => {
+        world.controls.look.yaw = Math.PI / 2;
+        world.controls.snap();
+    };
+    faceHome();
 
     useHollowModels(game, world.enemies);
     const yard = buildFarmyard(game, game.scene, terrain, refs.solids);
@@ -1757,7 +1763,10 @@ export async function boot(): Promise<void> {
         subtitle: 'A farm for the hollow, behind the veil.',
         hint: say('WASD to walk, E to interact, F to use what you hold, 1 to 8 to pick it, Tab for the bag, J for the notebook'),
         describe: (save) => `day ${(save.data.hollowveil as Saved | undefined)?.day ?? 1}`,
-        onNewGame: () => void narration.speak(INTRO.map(say)),
+        onNewGame: () => {
+            faceHome();
+            void narration.speak(INTRO.map(say));
+        },
         onContinue: () => villagers.snapToSchedule(),
         buttons: [settings.button],
     });

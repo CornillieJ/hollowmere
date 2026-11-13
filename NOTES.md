@@ -244,3 +244,10 @@ orders (`PREMIUM` 1.7, every 3 days, 3 days' patience); `WRONG_FROM` days.
 - No emoji anywhere. Text on screen may hold `:name:` tokens, which the template (`ui/icons.ts`, watching the UI root) draws as icons. The game's set is `content/icons.ts`. Text that is not in the DOM (3D labels, `data-label`) cannot use tokens.
 - Faces in the talk box are photographs of the models (`game/portraits.ts`), registered as `face-<id>` when a model arrives.
 - Not checked on a real phone or in Safari: `font-size-adjust` (needs Safari 16.4 or newer; older ones show smaller letters) and CSS masks for the icons.
+
+## Batch 16: windows that fit, start spot, signpost
+
+- Menus are never taller than 90% of the screen. The buttons scroll between the title and "Back", which stays at the bottom. Sizes in menus follow the window height (`clamp` with `vh`). Template: `.menu-panel` is a flex column, `.menu-actions` scrolls.
+- The inventory panel scrolls as a whole on very low screens.
+- A new game starts at `FARM.start`, out in the yard, looking at the house.
+- The signpost stands beside the road and along it, so its arrow points up the road at the village. First read adds "Hollowveil? What's that? A village?".
