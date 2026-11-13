@@ -77,6 +77,8 @@ import { setupHappenings } from './happenings';
 const SAVE_SLOT = 'hollowveil-farm';
 /** Real seconds per in-game day. */
 const DAY_LENGTH = 600;
+/** Real seconds in one hour on the clock. */
+const HOUR_SECONDS = DAY_LENGTH / 24;
 const LOOK_BASE = 0.0012;
 const coin = (amount: number): string => `${amount}c`;
 
@@ -265,8 +267,9 @@ export async function boot(): Promise<void> {
     const thoughts = new Set<string>();
 
     /** The watering can holds this many waterings, and is filled at the well. */
-    const CAN_SIZE = 5;
-    const can = { left: CAN_SIZE };
+    const CAN_SIZES = [5, 10, 20];
+    const canSize = (): number => CAN_SIZES[upgrades.level('can')] ?? 5;
+    const can = { left: 5 };
     const farm = new Farm(game, {
         columns: FARM.field.columns,
         rows: FARM.field.rows,
@@ -289,8 +292,15 @@ export async function boot(): Promise<void> {
             const name = pockets.inventory.registry.resolve(itemId).name.toLowerCase();
             juice.reward(plot.position.clone().setY(1.1), `+${amount} ${name}${seeds > 0 ? `  +${seeds} seed${seeds > 1 ? 's' : ''}` : ''}`, { color: seeds > 1 ? 0xb8f0a0 : 0xffe9a8 });
         },
+        secondsPerHour: HOUR_SECONDS,
         onWork: (kind, plot) => {
             body.play(kind === 'water' ? 'pour' : 'reach');
+            // Working down a row climbs a scale: each plot within a breath of the last is a note higher.
+            const now = game.time.elapsed;
+            row.count = kind === row.kind && now - row.at < 1.4 ? row.count + 1 : 0;
+            row.kind = kind;
+            row.at = now;
+            if (row.count > 0) synth.tone({ frequency: 392 * 2 ** (ROW_SCALE[Math.min(row.count, ROW_SCALE.length) - 1] as number / 12), duration: 0.12, type: 'triangle', gain: 0.06 });
             if (kind === 'plant') {
                 juice.chime('plant');
                 juice.pop(plot.plant, 0.6);
@@ -304,10 +314,23 @@ export async function boot(): Promise<void> {
         },
     });
 
+    const row = { kind: '', count: 0, at: 0 };
+    /** Semitones above G: a major scale over 2 octaves, so a long row keeps rising. */
+    const ROW_SCALE = [2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24];
+
+    /** Hours that go by at once (a night, a visit) pass over the field too. Returns how many crops ripened. */
+    let skipping = false;
+    const growFor = (hours: number): number => {
+        skipping = true;
+        const ripened = farm.advance(hours * HOUR_SECONDS);
+        skipping = false;
+        return ripened;
+    };
+
     // Crops hop when they grow a stage, and a ripe one glints until it is picked.
     const stages = new Map<object, number>();
     farm.onChange((plot) => {
-        if (plot.crop && stages.get(plot) !== plot.stage && plot.stage > 0) {
+        if (!skipping && plot.crop && stages.get(plot) !== plot.stage && plot.stage > 0) {
             juice.pop(plot.plant, 0.35);
             if (plot.ripe) {
                 juice.sparkle(plot.position.clone().setY(0.9), 0xfff0b0, 14);
@@ -456,6 +479,7 @@ export async function boot(): Promise<void> {
             const heat = warmth.heatOf(itemId);
             const heatBonus = Math.round(pay * warmth.bonus(itemId));
             dayCycle.advance(visitHours());
+            growFor(visitHours());
             coins.add(pay + heatBonus);
             villagers.relationships.add(regular.id, heat === 'hot' ? 45 : 35);
             tally.bestStreak = Math.max(tally.bestStreak, today.delivered);
@@ -572,6 +596,7 @@ export async function boot(): Promise<void> {
             const heatBonus = Math.round(request.reward * warmth.bonus(request.itemId));
             // A delivery is a visit: hours go by.
             dayCycle.advance(visitHours());
+            growFor(visitHours());
             game.toasts.push(`${visitHours()} hours pass. It is ${dayCycle.clock}.`, { color: '#c8c0b0' });
             // Each further delivery on the same day pays a little more, up to half as much again.
             const streak = Math.min(5, today.delivered - 1);
@@ -713,6 +738,17 @@ export async function boot(): Promise<void> {
                     restock();
                 },
             },
+            {
+                id: 'can',
+                name: 'A bigger watering can',
+                icon: '💧',
+                levels: [
+                    { cost: 110, name: 'Two-gallon can', description: 'Holds 10 waterings instead of 5.' },
+                    { cost: 280, name: 'Yoke and pails', description: 'Holds 20 waterings.' },
+                ],
+                // It comes full.
+                apply: () => (can.left = canSize()),
+            },
             { id: 'hen', name: 'Another hen', icon: '🐔', description: 'One more hen in the pen, laying eggs.', levels: [{ cost: 90 }, { cost: 120 }, { cost: 160 }], apply: (level) => setHerd('hen', 2 + level) },
             { id: 'cow', name: 'Another cow', icon: '🐄', description: 'One more cow in the pen, giving milk.', levels: [{ cost: 260 }, { cost: 360 }], apply: (level) => setHerd('cow', 1 + level) },
         ],
@@ -772,12 +808,12 @@ export async function boot(): Promise<void> {
     well.position.copy(at(FARM.well));
     game.scene.add(well);
     game.interactions.add(well, {
-        prompt: () => `Fill the watering can (${can.left}/${CAN_SIZE})`,
+        prompt: () => `Fill the watering can (${can.left}/${canSize()})`,
         blockedPrompt: () => (have('watering-can') === 0 ? 'A well. You have no can to fill' : 'The watering can is full'),
         range: 2.8,
-        canInteract: () => can.left < CAN_SIZE && have('watering-can') > 0,
+        canInteract: () => can.left < canSize() && have('watering-can') > 0,
         onInteract: () => {
-            can.left = CAN_SIZE;
+            can.left = canSize();
             body.play('reach');
             juice.chime('water');
             synth.noise({ duration: 0.9, gain: 0.08, filter: 2600 });
@@ -1337,10 +1373,18 @@ export async function boot(): Promise<void> {
                 { glyph: '🏠', position: { x: FARM.door.x, y: 0, z: FARM.door.z }, hideWithin: 14 },
                 { glyph: '🕯', position: { x: VILLAGE.center.x, y: 0, z: VILLAGE.center.z }, hideWithin: 22 },
                 ...(escape.waiting ? [{ glyph: '⛰', position: { x: PELL_SPOT.x, y: 0, z: PELL_SPOT.z }, hideWithin: 4 }] : []),
+                // Whoever can be paid a call right now, with what is being carried.
+                ...(story.finished ? VILLAGERS.filter((villager) => owed(villager.id)).flatMap((villager) => { const spot = villagerSpot(villager.id); return spot ? [{ glyph: '❗', position: { x: spot.x, y: 0, z: spot.z }, hideWithin: 6 }] : []; }) : []),
                 ...(target ? [{ glyph: '➤', position: { x: target.x, y: 0, z: target.z }, hideWithin: 3 }] : []),
             ];
         },
     });
+    /** True when what this villager is waiting for is in the pockets or the backpack. */
+    const owed = (id: string): boolean => {
+        const order = regulars.orderOf(id);
+        if (order?.open && have(order.itemId) >= order.amount) return true;
+        return (villagers.requests?.open ?? []).some((request) => request.from === id && request.accepted && have(request.itemId) >= request.amount);
+    };
     const villagerSpot = (id: string | undefined): { x: number; z: number } | undefined => (id ? game.scene.getObjectByName(`villager-${id}`)?.position : undefined);
 
     /** Something the farmer thinks once, the first time it comes up. */
@@ -1416,6 +1460,7 @@ export async function boot(): Promise<void> {
             { icon: '🍲', title: 'Dishes cooked', meta: String(today.cooked) },
             { icon: '🌱', title: 'Crops picked', meta: String(today.picked) },
             ...nightRows,
+            ...(ripenedOvernight > 0 ? [{ icon: '✨', title: ripenedOvernight === 1 ? '1 crop ripened in the night' : `${ripenedOvernight} crops ripened in the night` }] : []),
             ...(letters.waiting ? [{ icon: '✉', title: 'There is a letter in the mailbox' }] : []),
             ...(cookpot.station.ready.length > 0 ? [{ icon: '🍲', title: 'The pot finished overnight' }] : []),
             { title: 'Saved.', dim: true, action: { label: 'Get up', onPress: () => morning.close() } },
@@ -1434,7 +1479,10 @@ export async function boot(): Promise<void> {
 
     /** What was done in the night, for the morning to mention. */
     let nightRows: ReturnType<typeof wrongness.newDay> = [];
+    let ripenedOvernight = 0;
     function sleep(message?: string): void {
+        // The field has the night as well, watered or not, before the morning dries it.
+        ripenedOvernight = growFor((30 - dayCycle.hour) % 24);
         dayCycle.sleep();
         nightRows = wrongness.newDay();
         // A night is long enough for anything left on the fire or the bench.
@@ -1545,7 +1593,7 @@ export async function boot(): Promise<void> {
             omens.setDay(dayCycle.day);
             if (saved.field) farm.fromJSON(saved.field);
             Object.assign(tally, saved.tally);
-            can.left = saved.can ?? CAN_SIZE;
+            can.left = saved.can ?? canSize();
             thoughts.clear();
             for (const id of saved.thoughts ?? []) thoughts.add(id);
         },

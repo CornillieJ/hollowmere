@@ -1044,6 +1044,30 @@
         dayCycle.setHour(10);
     }
 
+    // 14j. The loop: the field has the night too, the can grows, and the plot to be worked is framed.
+    {
+        const { farm, dayCycle } = world;
+        const plot = farm.plots.find((candidate) => candidate.active && !candidate.crop);
+        farm.plant(plot, 'turnip', false);
+        farm.water(plot);
+        dayCycle.setHour(21);
+        world.goToBedNow();
+        await sleep(500);
+        expect(plot.ripe, `a watered turnip planted at 9 in the evening is ripe by morning, stage ${plot.stage}`);
+        expect(/ripened in the night/.test(document.querySelector('.panel:not(.is-hidden)')?.textContent ?? document.body.textContent), 'and the morning says so');
+        if (world.morning.isOpen) world.morning.close();
+        await quiet();
+        world.coins.add(500);
+        expect(world.upgrades.buy('can') && world.can.left === 10, `a bigger can holds 10 and comes full, got ${world.can.left}`);
+        await go(plot.position.x, plot.position.z + 0.2);
+        await sleep(300);
+        const marker = game.scene.getObjectByName('plot-marker');
+        expect(marker.visible && Math.abs(marker.position.x - plot.position.x) < 0.01, 'the plot in reach is framed');
+        await go(-58, 54);
+        await sleep(300);
+        expect(!marker.visible, 'and the frame goes away off the field');
+    }
+
     // 15. Back at the title screen there is a save to continue.
     world.flow.quit();
     await sleep(300);

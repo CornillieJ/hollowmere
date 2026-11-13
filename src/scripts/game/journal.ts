@@ -26,7 +26,7 @@ export type JournalOptions = {
 
 const GUIDE: Array<[string, string, string]> = [
     ['🌱', 'Farming', 'Press E at a plot and the right thing happens: an empty plot is planted, a dry one watered, a ripe one picked. Hold E and walk to work down a row. The seeds in your hand are planted, or else the first in your pockets. Watered crops grow twice as fast that day, ripe ones glint, and every harvest gives a seed back, sometimes two.'],
-    ['💧', 'Water', 'The watering can holds 5 waterings. Press E at the well by the farmhouse to fill it.'],
+    ['💧', 'Water', 'The watering can holds 5 waterings. Press E at the well by the farmhouse to fill it. Barnaby can order a bigger one. Crops also grow while you sleep and while you pay a call.'],
     ['🕒', 'Time', 'A day is 10 minutes. Filling a request takes 3 hours. At 3 in the morning the clock stops and nothing can be done but go home to bed.'],
     ['🪓', 'Wood', 'Press E at a dead tree, four times; the axe comes to hand by itself. Trees grow back after 2 or 3 days. Every cooked dish burns 1 wood, and 3 wood make a fence kit at the bench.'],
     ['🍲', 'Cooking', 'Press E at the pot by the farmhouse, choose a recipe, wait, then take the dish. Cooked food pays far better than raw crops. Better pots cook better dishes. A dish is hot for 4 hours out of the pot and warm for 6 more: delivered hot it pays 30% more, warm 12% more. The list under your task shows what you carry and how long it has. A delivery takes 3 hours, so think about who goes first.'],

@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 import { SYSTEM_ORDER } from '../core/systems';
 import type { Farm, PlotState } from '../game/farm';
 import type { BarriersHandle, HotbarHandle, InventoryHandle, ResourceNodesHandle } from '../kit';
@@ -27,6 +29,8 @@ export type FarmingOptions = {
     water: { left: () => number; use: () => void };
     /** False when the farmer is too tired to work. */
     enabled?: () => boolean;
+    /** Real seconds in an hour on the clock, so a growing crop can say when it will be ripe. */
+    secondsPerHour?: number;
     onHarvest?: (itemId: string, amount: number, seeds: number, plot: PlotState) => void;
     /** Called when the farmer does something at a plot, for the motion and the splash. */
     onWork?: (kind: 'plant' | 'water' | 'pick', plot: PlotState) => void;
@@ -38,7 +42,7 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
     const nearestPlot = (): PlotState | undefined => (game.player ? farm.nearestPlot(game.player.position, 1.7) : undefined);
 
     /** What the held item would do at this plot, if anything. */
-    function plotAction(plot: PlotState): { label: string; run: () => void } | undefined {
+    function plotAction(plot: PlotState): { label: string; color: number; run: () => void } | undefined {
         const held = hotbar.selectedId;
         /** Bring a pocket item to hand, so the farmer is seen holding what they use. */
         const take = (itemId: string): void => hotbar.select(pockets.inventory.slots.findIndex((slot) => slot.itemId === itemId));
@@ -47,6 +51,7 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
         if (plot.ripe) {
             return {
                 label: `Pick the ${(plot.crop?.name ?? 'crop').toLowerCase()}`,
+                color: 0xffe08a,
                 run: () => {
                     const harvest = farm.harvest(plot);
                     if (!harvest) return;
@@ -62,6 +67,7 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
             const cropId = SEED_TO_CROP[seeds] as string;
             return {
                 label: `Plant ${pockets.inventory.registry.resolve(seeds).name.toLowerCase()}`,
+                color: 0x9ad07a,
                 run: () => {
                     if (pockets.remove(seeds, 1) && farm.plant(plot, cropId, false)) options.onWork?.('plant', plot);
                 },
@@ -69,7 +75,8 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
         }
         if (plot.crop && !plot.watered && pockets.count('watering-can') > 0 && options.water.left() > 0) {
             return {
-                label: `Water (${options.water.left()} left in the can)`,
+                label: `Water (${options.water.left()} left in the can). ${ripeIn(plot)}`,
+                color: 0x8fb8c8,
                 run: () => {
                     take('watering-can');
                     if (!farm.water(plot)) return;
@@ -81,11 +88,42 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
         return undefined;
     }
 
+    /** How long the crop on a plot still needs, in hours on the clock, at the speed it is growing now. */
+    function ripeIn(plot: PlotState): string {
+        const crop = plot.crop;
+        if (!crop) return '';
+        const stages = Math.max(2, crop.stages ?? 3);
+        const perStage = crop.stageSeconds ?? [12];
+        let seconds = -plot.elapsed;
+        for (let stage = plot.stage; stage < stages - 1; stage += 1) seconds += perStage[Math.min(stage, perStage.length - 1)] ?? 12;
+        const speed = crop.needsWater !== false && !plot.watered ? 0.45 : 1;
+        const hours = Math.max(0, seconds) / speed / (options.secondsPerHour ?? 60);
+        const when = hours < 1 ? 'within the hour' : `in about ${Math.round(hours)} hour${Math.round(hours) === 1 ? '' : 's'}`;
+        return plot.watered ? `Ripe ${when}` : `Dry: ripe ${when}`;
+    }
+
     function plotHint(plot: PlotState): string {
         if (!plot.crop) return 'Empty plot (no seeds in your pockets)';
-        if (!plot.watered) return pockets.count('watering-can') > 0 ? 'Dry. The can is empty: fill it at the well' : 'Dry (the watering can is not in your pockets)';
-        return `${plot.crop.name}, growing`;
+        if (!plot.watered) return `${ripeIn(plot)}. ${pockets.count('watering-can') > 0 ? 'The can is empty: fill it at the well' : 'The watering can is not in your pockets'}`;
+        return `${plot.crop.name}, watered. ${ripeIn(plot)}`;
     }
+
+    // A frame on the plot the next press will work, in the colour of what it will do.
+    const side = (farm.plots[0]?.soil.geometry as THREE.BoxGeometry | undefined)?.parameters.width ?? 1;
+    // A ring of 4 segments is a square frame; its radius is measured to the corners.
+    const marker = new THREE.Mesh(new THREE.RingGeometry((side / Math.SQRT2) * 0.88, side / Math.SQRT2, 4, 1, Math.PI / 4), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, depthWrite: false }));
+    marker.rotation.x = -Math.PI / 2;
+    marker.visible = false;
+    marker.name = 'plot-marker';
+    game.scene.add(marker);
+    const mark = (plot: PlotState | undefined, color = 0x8a8478): void => {
+        marker.visible = plot !== undefined;
+        if (!plot) return;
+        marker.position.set(plot.position.x, plot.position.y + 0.075, plot.position.z);
+        const material = marker.material as THREE.MeshBasicMaterial;
+        material.color.setHex(color);
+        material.opacity = 0.55 + Math.sin(game.time.elapsed * 5) * 0.2;
+    };
 
     let lastPlot: PlotState | undefined;
     let sinceWork = 0;
@@ -95,10 +133,11 @@ export function setupFarming(game: Game, options: FarmingOptions): { useHeld: (s
         // After the interaction registry, which owns the prompt whenever it has a target.
         order: SYSTEM_ORDER.GAMEPLAY + 3,
         update: () => {
-            if (game.interactions.focused || !game.state.is('playing') || options.enabled?.() === false) return;
-            const plot = nearestPlot();
+            const idle = Boolean(game.interactions.focused) || !game.state.is('playing') || options.enabled?.() === false;
+            const plot = idle ? undefined : nearestPlot();
+            const action = plot ? plotAction(plot) : undefined;
+            mark(plot, action?.color);
             if (!plot) return;
-            const action = plotAction(plot);
             if (!action) {
                 game.prompts.show(plotHint(plot), '');
                 return;

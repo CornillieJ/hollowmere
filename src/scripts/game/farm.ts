@@ -283,6 +283,18 @@ export class Farm {
         return crop.seed && seedCount > 0 ? { itemId, amount, seeds: { itemId: crop.seed, amount: seedCount } } : { itemId, amount };
     }
 
+    /**
+     * Let time pass over the field at once, e.g. for a night in bed or a long
+     * journey. Each plot grows as it would have in that many seconds.
+     * @returns How many plots became ripe.
+     */
+    advance(seconds: number): number {
+        const ripeBefore = this.ripeCount;
+        // In steps no longer than the shortest stage, so a long skip can cross several stages.
+        for (let left = seconds; left > 0; left -= 5) this.update(Math.min(5, left), true);
+        return this.ripeCount - ripeBefore;
+    }
+
     /** Mark every plot dry again, e.g. when a new day starts. */
     newDay(): void {
         for (const plot of this.plots) {
@@ -362,7 +374,7 @@ export class Farm {
 
     //#region Internals
 
-    private update(delta: number): void {
+    private update(delta: number, silent = false): void {
         for (const plot of this.plots) {
             const crop = plot.crop;
             if (!crop) continue;
@@ -389,7 +401,7 @@ export class Farm {
             this.dress(plot);
             if (plot.stage >= stages - 1) {
                 plot.ripe = true;
-                this.say(`${crop.name ?? crop.id} is ready`, { color: '#ffe08a' });
+                if (!silent) this.say(`${crop.name ?? crop.id} is ready`, { color: '#ffe08a' });
             }
             this.notify(plot);
         }
