@@ -83,6 +83,10 @@ export type FarmOptions = {
      * A model for a crop, in place of the plain cone. It stands on the soil at
      * full size and is scaled as the crop grows. A child named `ripe` (the
      * turnip, the ears, the pumpkin) is shown only once the crop can be picked.
+     * Set `userData.staged = true` on it for a model with a part per growth
+     * stage instead: children named `stage-0`, `stage-1` and so on, of which
+     * only the current one is shown, at full size. A model that loads later can
+     * call `showStage(model, model.userData.stage)` when it arrives.
      * Return `undefined` to keep the cone.
      */
     createPlant?: (crop: CropDefinition) => THREE.Object3D | undefined;
@@ -435,8 +439,13 @@ export class Farm {
         holder.material = this.hiddenMaterial;
         holder.position.y = plot.position.y + 0.06;
         visual.userData.ripe = plot.ripe;
+        visual.userData.stage = plot.stage;
         const ripe = visual.getObjectByName('ripe');
         if (ripe) ripe.visible = plot.ripe;
+        if (visual.userData.staged !== true) return;
+        // A model with a part per stage is shown at its own size: the part says how far along it is.
+        holder.scale.setScalar(1);
+        showStage(visual, plot.stage);
     }
 
     /** A toast, unless the game asked for quiet because it gives its own feedback. */
@@ -449,6 +458,13 @@ export class Farm {
     }
 
     //#endregion Internals
+}
+
+/** Show the `stage-N` child for a growth stage and hide the others. The last one stands in for any later stage. */
+export function showStage(model: THREE.Object3D, stage: number): void {
+    const parts = model.children.filter((child) => child.name.startsWith('stage-'));
+    const last = Math.max(-1, ...parts.map((part) => Number(part.name.slice(6))));
+    for (const part of parts) part.visible = Number(part.name.slice(6)) === Math.min(stage, last);
 }
 
 /** A couple of crops that look right without any assets. */
