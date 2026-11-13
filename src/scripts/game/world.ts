@@ -186,7 +186,7 @@ export async function buildWorld(game: Game): Promise<WorldRefs> {
     };
 
     // The farm.
-    add(MODELS.cottage, () => boxHouse(0x8a7a66, 0x4a3a32), FARM.house);
+    solid(game, place(modelled(game, 'farmhouse', boxHouse(0x8a7a66, 0x4a3a32, 6.5)), FARM.house, root), { solids });
     add(MODELS.barn, () => boxHouse(0x6a3a2e, 0x3a2a24, 7), FARM.barn);
     add(MODELS.coop, () => boxHouse(0x8a6a4a, 0x4a3a2a, 2.5), FARM.coop);
     add(MODELS.well, () => stoneWell(), FARM.well);

@@ -30,3 +30,7 @@ The Hollow and Pell (`folk/hollow-*.glb`, `folk/pell.glb`) and the props listed 
 `tools/blender/build_props.py` (hearth, workbench, chest, mailbox, postcrate, stall, lectern,
 chapel, shrine, scarecrow, crate, woodpile, trough, stone, mushrooms, shed, the 4 crops and the
 3 held tools) are original work for this game as well.
+
+## Font
+
+`static/fonts/vt323.woff2` is VT323 by Peter Hull, from Google Fonts, under the SIL Open Font License 1.1.

@@ -1,3 +1,4 @@
+import { watchIcons } from './ui/icons';
 import * as THREE from 'three';
 import Stats from 'stats.js';
 
@@ -59,6 +60,8 @@ export async function createGame(options: GameOptions = {}): Promise<Game> {
 
     const canvas = resolveCanvas(options.canvas);
     const uiRoot = resolveUiRoot(options.uiRoot);
+    // `:name:` in any UI text is drawn as a registered icon.
+    watchIcons(uiRoot);
     const sizes: Sizes = { width: window.innerWidth, height: window.innerHeight };
     // A phone at device pixel ratio 3 has nine times the pixels of a 1080p
     // desktop. Everything below is sized from this profile instead of assuming.

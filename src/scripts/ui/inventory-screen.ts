@@ -79,7 +79,7 @@ export class InventoryScreen {
         this.titleElement = div('inventory-title', options.title ?? (this.mode === 'shop' ? 'Shop' : 'Inventory'), header);
         this.resources = div('inventory-resources', '', header);
         // A way out for a finger: no touch screen has an Escape key.
-        button('✕', () => this.close(), { className: 'inventory-close', parent: header });
+        button(':close:', () => this.close(), { className: 'inventory-close', parent: header });
         this.root.addEventListener('pointerdown', (event) => {
             if (event.target === this.root) this.close();
         });

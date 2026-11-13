@@ -51,7 +51,7 @@ export class DialogueBox {
         this.speaker = div('dialogue-speaker', '', body);
         this.text = div('dialogue-text', '', body);
         this.choices = div('dialogue-choices', undefined, body);
-        this.hint = div('dialogue-hint', '▼', body);
+        this.hint = div('dialogue-hint', ':more:', body);
         card.addEventListener('pointerdown', (event) => {
             event.stopPropagation();
             this.next();

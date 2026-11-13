@@ -66,7 +66,7 @@ export function setupCrate(game: Game, options: CrateOptions): CrateHandle {
         for (const handle of carried) {
             for (const slot of handle.inventory.slots) {
                 if (!SHIPPABLE.has(slot.itemId)) continue;
-                const line = lines.get(slot.itemId) ?? { itemId: slot.itemId, name: slot.definition.name, icon: slot.definition.icon ?? '📦', amount: 0, wanted: options.wantedBy(slot.itemId) };
+                const line = lines.get(slot.itemId) ?? { itemId: slot.itemId, name: slot.definition.name, icon: slot.definition.icon ?? ':box:', amount: 0, wanted: options.wantedBy(slot.itemId) };
                 line.amount += slot.amount;
                 lines.set(slot.itemId, line);
             }
@@ -103,7 +103,7 @@ export function setupCrate(game: Game, options: CrateOptions): CrateHandle {
             const total = spare.reduce((sum, line) => sum + priceOf(line.itemId) * line.amount, 0);
             return [
                 {
-                    icon: '📦',
+                    icon: ':box:',
                     title: options.intro?.title ?? 'Sell from home, for a little less',
                     detail: options.intro?.detail ?? (shareNow() < 1 ? 'For crops, food and wood you have too much of. Barnaby pays at once, but less than at his stall. A villager who asked for something pays far more.' : 'For crops, food and wood you have too much of. You are in the green book: Barnaby pays the full stall price here. A villager who asked for something still pays far more.'),
                 },

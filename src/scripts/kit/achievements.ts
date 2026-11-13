@@ -49,7 +49,7 @@ export function addAchievements(game: Game, options: AddAchievementsOptions): Ac
         const achievement = options.achievements.find((entry) => entry.id === id);
         if (!achievement || earned.has(id)) return false;
         earned.add(id);
-        game.toasts.push(`${achievement.icon ?? '★'} ${achievement.title}`, { color: '#ffe08a' });
+        game.toasts.push(`${achievement.icon ?? ':star:'} ${achievement.title}`, { color: '#ffe08a' });
         options.onEarned?.(achievement);
         return true;
     };
@@ -86,7 +86,7 @@ export function addAchievements(game: Game, options: AddAchievementsOptions): Ac
                 .map((achievement) => {
                     const got = earned.has(achievement.id);
                     const secret = achievement.hidden && !got;
-                    return { icon: got ? (achievement.icon ?? '★') : '·', title: secret ? '???' : achievement.title, detail: secret ? 'Not found yet.' : achievement.description, dim: !got, ...(got ? { meta: 'Done' } : {}) };
+                    return { icon: got ? (achievement.icon ?? ':star:') : '·', title: secret ? '???' : achievement.title, detail: secret ? 'Not found yet.' : achievement.description, dim: !got, ...(got ? { meta: 'Done' } : {}) };
                 }),
         dispose: () => {
             removeSystem();

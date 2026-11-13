@@ -229,3 +229,18 @@ orders (`PREMIUM` 1.7, every 3 days, 3 days' patience); `WRONG_FROM` days.
 - `scarecrows.ts`: a weeping scarecrow (260c) on a plot corner waters up to 12 plots each morning. Save key `scarecrows`.
 - Quarters of the price (`QUARTERS` in `boot.ts`): banner, lines and leaves on the old tree. `tally.burned` holds how many were announced.
 - The gameplay probe crashed the headless browser ("Target crashed") in 2 of about 10 runs on this batch. Cause not found; reruns pass.
+
+## Batch 14: house and signs, on `dev`
+
+- The farmhouse is our own model (`farmhouse` in `tools/blender/build_props.py`), no longer the downloaded cottage.
+- Safe places show as lamplight on the ground (`ringStyle: 'glow'` in the template's `addSafeZones`), not a drawn circle.
+- Going into and out of the barn snaps the camera (`controls.snap()`) under a longer black.
+- The farm's collection crate stands apart from the mailbox and the bench.
+- Sign boards hang in front of their posts, are larger, and use block letters. The pool sign says plainly what the pool does.
+
+## Batch 15: the screens, on `dev`
+
+- The look is "found tape": VT323 lettering (loaded in `boot.ts` from `static/fonts`), white frames with nicks, scan lines, a rolling tracking band, colour fringes. All of it is in `src/css/hollowveil.css`; the variables at its top set the palette and the frame shapes.
+- No emoji anywhere. Text on screen may hold `:name:` tokens, which the template (`ui/icons.ts`, watching the UI root) draws as icons. The game's set is `content/icons.ts`. Text that is not in the DOM (3D labels, `data-label`) cannot use tokens.
+- Faces in the talk box are photographs of the models (`game/portraits.ts`), registered as `face-<id>` when a model arrives.
+- Not checked on a real phone or in Safari: `font-size-adjust` (needs Safari 16.4 or newer; older ones show smaller letters) and CSS masks for the icons.

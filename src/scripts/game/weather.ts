@@ -18,9 +18,9 @@ import type { LoopHandle, Synth } from '../audio/synth';
 export type WeatherId = 'rain' | 'thick' | 'clear';
 
 export const WEATHER: Record<WeatherId, { title: string; effect: string; line: string; hours: [number, number]; fog: number; cooling: number; hollow: number }> = {
-    rain: { title: 'Rain', effect: 'It waters the field. Food cools faster.', line: '🌧 Rain: the field is watered, food cools faster', hours: [3, 7], fog: 1.1, cooling: 1.5, hollow: 1 },
-    thick: { title: 'The Veil is thick', effect: 'The compass is no use until it thins.', line: '🌫 Thick Veil: no compass', hours: [4, 8], fog: 1.45, cooling: 1, hollow: 1 },
-    clear: { title: 'A clear night', effect: 'Fewer of them walk. A good night for a long round.', line: '✨ Clear night: fewer of them walk', hours: [9, 10], fog: 0.6, cooling: 1, hollow: 0.5 },
+    rain: { title: 'Rain', effect: 'It waters the field. Food cools faster.', line: ':rain: Rain: the field is watered, food cools faster', hours: [3, 7], fog: 1.1, cooling: 1.5, hollow: 1 },
+    thick: { title: 'The Veil is thick', effect: 'The compass is no use until it thins.', line: ':fog: Thick Veil: no compass', hours: [4, 8], fog: 1.45, cooling: 1, hollow: 1 },
+    clear: { title: 'A clear night', effect: 'Fewer of them walk. A good night for a long round.', line: ':sparkle: Clear night: fewer of them walk', hours: [9, 10], fog: 0.6, cooling: 1, hollow: 0.5 },
 };
 
 export type WeatherOptions = {

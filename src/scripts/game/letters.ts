@@ -4,6 +4,7 @@ import { SYSTEM_ORDER } from '../core/systems';
 import { createBillboardLabel, faceCamera } from '../helpers/text';
 import { DialogueBox } from '../ui/dialogue-box';
 import { createHollow, dressFolk, FolkAnimator } from '../content/folk';
+import { takePortrait } from './portraits';
 import { modelled } from './models';
 import { LETTERS, PELL_SPEAKS } from '../content/letters';
 import type { NarrationHandle } from '../kit';
@@ -73,7 +74,7 @@ export function setupLetters(game: Game, options: LettersOptions): LettersHandle
     post.position.y = 0.55;
     const tin = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.24, 0.46), new THREE.MeshStandardMaterial({ color: 0x5a6058, roughness: 0.7, flatShading: true }));
     tin.position.y = 1.2;
-    const flag = createBillboardLabel('✉', { x: 0, y: 1.8, z: 0 }, { fontSize: 0.4, color: 0xffe2a0 });
+    const flag = createBillboardLabel('!', { x: 0, y: 1.8, z: 0 }, { fontSize: 0.4, color: 0xffe2a0 });
     mailbox.add(post, tin, flag);
     modelled(game, 'mailbox', mailbox);
     mailbox.position.copy(options.mailbox);
@@ -82,7 +83,7 @@ export function setupLetters(game: Game, options: LettersOptions): LettersHandle
     async function readNext(): Promise<void> {
         const letter = LETTERS[read];
         if (!letter || !waiting()) return;
-        await show(letter.lines, `A letter (${read + 1} of ${LETTERS.length})`, '✉');
+        await show(letter.lines, `A letter (${read + 1} of ${LETTERS.length})`, ':letter:');
         read += 1;
         if (read === 1) void options.narration.speak(['No stamp. And it knows which bed I woke in.']);
     }
@@ -109,14 +110,14 @@ export function setupLetters(game: Game, options: LettersOptions): LettersHandle
     rig.root.rotation.y = options.hillYaw;
     rig.root.name = 'pell';
     game.scene.add(rig.root);
-    void dressFolk(game, rig, 'pell');
+    void dressFolk(game, rig, 'pell').then(() => takePortrait(game, 'pell', rig));
     const animator = new FolkAnimator(rig, { stutter: 3, armSwing: 0.1 });
     const head = rig.head;
 
     async function greetPell(): Promise<void> {
         // After the last letter he hands over what he kept, once.
         if (read >= LETTERS.length && !metPell) {
-            await show(PELL_SPEAKS, 'Pell', '🕯');
+            await show(PELL_SPEAKS, 'Pell', ':face-pell:');
             metPell = true;
             options.onGift();
             return;

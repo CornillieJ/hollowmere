@@ -33,10 +33,11 @@ export type PoolHandle = {
     readonly reachSpot: THREE.Vector3;
 };
 
-const SIGN_LINES: Array<[string, string]> = [
-    ['WHAT THEY TAKE', 'bold 25px Georgia, serif'],
-    ['THE WATER KEEPS', 'bold 25px Georgia, serif'],
-    ['it is not at home by day', 'italic 17px Georgia, serif'],
+/** Heavy block letters: thin ones are lost at the picture's low resolution. */
+const SIGN_LINES: Array<[string, string, number]> = [
+    ['LOST THINGS', '900 38px Arial Black, Impact, sans-serif', 44],
+    ['ARE IN THE POOL', '900 27px Arial Black, Impact, sans-serif', 80],
+    ['TAKE THEM BACK AFTER DARK', 'bold 15px Arial, sans-serif', 108],
 ];
 
 export function setupPool(game: Game, options: PoolOptions): PoolHandle {
@@ -45,27 +46,19 @@ export function setupPool(game: Game, options: PoolOptions): PoolHandle {
 
     const canvas = document.createElement('canvas');
     canvas.width = 256;
-    canvas.height = 112;
+    canvas.height = 120;
     const context = canvas.getContext('2d');
     if (context) {
-        context.fillStyle = '#7c7462';
-        context.fillRect(0, 0, 256, 112);
-        context.fillStyle = '#625a4a';
-        for (let y = 0; y < 112; y += 14) context.fillRect(0, y, 256, 1);
+        context.fillStyle = '#b4a888';
+        context.fillRect(0, 0, 256, 120);
+        context.fillStyle = '#978b6c';
+        for (let y = 0; y < 120; y += 15) context.fillRect(0, y, 256, 1);
         context.fillStyle = '#16140f';
         context.textAlign = 'center';
-        SIGN_LINES.forEach(([text, font], index) => {
+        for (const [text, font, y] of SIGN_LINES) {
             context.font = font;
-            context.fillText(text, 128, 34 + index * 30);
-        });
-        // Scratched in afterwards, by somebody in a hurry, not quite level.
-        context.save();
-        context.translate(196, 104);
-        context.rotate(-0.06);
-        context.font = '11px Georgia, serif';
-        context.fillStyle = '#2c2418';
-        context.fillText('bring your own hands', 0, 0);
-        context.restore();
+            context.fillText(text, 128, y);
+        }
     }
     const texture = new THREE.CanvasTexture(canvas);
     texture.magFilter = THREE.NearestFilter;
@@ -74,11 +67,12 @@ export function setupPool(game: Game, options: PoolOptions): PoolHandle {
     const wood = new THREE.MeshStandardMaterial({ color: 0x2e2a24, roughness: 1, flatShading: true });
     const face = new THREE.MeshStandardMaterial({ map: texture, roughness: 1, emissive: 0xffffff, emissiveMap: texture, emissiveIntensity: 0.6 });
     const sign = new THREE.Group();
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.2, 0.14), wood);
-    post.position.y = 1.1;
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 3.1, 0.14), wood);
+    post.position.y = 1.55;
     // It leans towards the water, as everything on this bank does.
-    const board = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.85, 0.06), [wood, wood, wood, wood, face, face]);
-    board.position.y = 1.8;
+    // Nailed to the front of the post, so the post does not stand through the words.
+    const board = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.17, 0.06), [wood, wood, wood, wood, face, wood]);
+    board.position.set(0, 2.55, 0.1);
     sign.add(post, board);
     const { x, z } = PLACES.pool;
     const jetty = { x: x - 9, z: z - 13 };
@@ -91,8 +85,8 @@ export function setupPool(game: Game, options: PoolOptions): PoolHandle {
         prompt: 'Read the sign',
         range: 2.6,
         onInteract: () => {
-            options.say('"What they take, the water keeps. It is not at home by day."');
-            options.think('pool-sign', ['Underneath, scratched with a nail: "bring your own hands".', 'What they take. Everything I had on me, the time they got me, was gone when I woke.', 'So it is in there. And it can be asked for, after dark, by hand.']);
+            options.say('The sign reads: "Lost things are in the pool. Take them back after dark."');
+            options.think('pool-sign', ['So that is where it all went. Whatever I am carrying when they get me ends up in this water.', 'I can take it back from the end of the jetty. But only at night.']);
         },
     });
 

@@ -968,7 +968,7 @@
         world.morning.close();
         await sleep(200);
         expect(world.tally.stayed > 0 && world.deeds.has('stayed'), 'staying is kept');
-        expect(wrongness.sign.text()[1] === 'home' && wrongness.questLabel() === '✦ Today' && wrongness.scarecrowSteps === 0, 'nothing is wrong any more');
+        expect(wrongness.sign.text()[1] === 'home' && wrongness.questLabel() === 'Today' && wrongness.scarecrowSteps === 0, 'nothing is wrong any more');
         dayCycle.setHour(22);
         world.goToBedNow();
         await sleep(300);

@@ -97,11 +97,11 @@ const SIGNS: Array<[string, string]> = [
 ];
 
 const NIGHT_ROWS: Array<{ icon: string; title: string }> = [
-    { icon: '🍽', title: 'There were 2 plates on the table' },
-    { icon: '🛏', title: 'The bed was made. You were in it' },
-    { icon: '🚪', title: 'The door was bolted from the outside' },
-    { icon: '🧥', title: 'Your coat was wet. It did not rain' },
-    { icon: '🕯', title: 'A candle had burned down on the sill. You own no such candle' },
+    { icon: ':plate:', title: 'There were 2 plates on the table' },
+    { icon: ':bed:', title: 'The bed was made. You were in it' },
+    { icon: ':door:', title: 'The door was bolted from the outside' },
+    { icon: ':coat:', title: 'Your coat was wet. It did not rain' },
+    { icon: ':candle:', title: 'A candle had burned down on the sill. You own no such candle' },
 ];
 
 /** Spots off the road where the house that is not there stands, one a day. */
@@ -180,27 +180,29 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
         const context = canvas.getContext('2d');
         if (!context) return;
         const [top, bottom] = signText();
-        context.fillStyle = '#8a7a5e';
+        context.fillStyle = '#b4a888';
         context.fillRect(0, 0, 256, 96);
-        context.fillStyle = '#6e6048';
+        context.fillStyle = '#978b6c';
         for (let y = 0; y < 96; y += 12) context.fillRect(0, y, 256, 1);
         context.fillStyle = '#1e1a14';
         context.textAlign = 'center';
-        context.font = 'bold 30px Georgia, serif';
-        context.fillText(top, 128, 44);
-        context.font = 'italic 20px Georgia, serif';
-        context.fillText(bottom, 128, 76);
+        // Heavy block letters: thin ones are lost at the picture's low resolution.
+        context.font = '900 31px Arial Black, Impact, sans-serif';
+        context.fillText(top, 128, 44, 244);
+        context.font = 'bold 22px Arial, sans-serif';
+        context.fillText(bottom.toUpperCase(), 128, 78, 244);
         texture.needsUpdate = true;
     };
     const signpost = new THREE.Group();
     const wood = new THREE.MeshStandardMaterial({ color: 0x3e3226, roughness: 1, flatShading: true });
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.3, 0.14), wood);
-    post.position.y = 1.15;
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.6, 0.14), wood);
+    post.position.y = 1.3;
     post.castShadow = true;
     // Lit a little from within, or the letters are lost in the Veil at any distance.
     const face = new THREE.MeshStandardMaterial({ map: texture, roughness: 1, emissive: 0xffffff, emissiveMap: texture, emissiveIntensity: 0.45 });
-    const board = new THREE.Mesh(new THREE.BoxGeometry(2, 0.75, 0.06), [wood, wood, wood, wood, face, face]);
-    board.position.y = 1.9;
+    // Nailed to the front of the post, so the post does not stand through the words.
+    const board = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.98, 0.06), [wood, wood, wood, wood, face, wood]);
+    board.position.set(0, 2.1, 0.1);
     board.castShadow = true;
     signpost.add(post, board);
     // Where the road leaves the yard, turned to be read from the house.
@@ -217,7 +219,8 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
             const changed = signLevel() !== signRead;
             const first = signRead === 0 && signLevel() === 0;
             signRead = signLevel();
-            game.toasts.push(`"${top.replace(/[<>]/g, '').trim()}: ${bottom}"`, { color: '#e8e0c8' });
+            const way = top.includes('>') ? 'It points up the road. ' : top.includes('<') ? 'It points back at the farm. ' : '';
+            game.toasts.push(`The signpost reads: "${top.replace(/[<>]/g, '').trim()}, ${bottom}". ${way}`.trim(), { color: '#e8e0c8' });
             if (changed && !first && signLevel() > 0) notice('sign', [`"${bottom}." It did not say that. It said a mile.`, 'Nobody has painted it. The paint is old and cracked right through the letters.']);
         },
     });
@@ -379,7 +382,7 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
             if (active('night')) {
                 // Every third night it is the field: watered, properly, by nobody.
                 const watered = day % 3 === 1 ? options.waterField() : 0;
-                if (watered > 0) rows.push({ icon: '💧', title: 'The field was watered before you woke', detail: `${watered} plot${watered > 1 ? 's' : ''}. The can is where you left it, and dry.` });
+                if (watered > 0) rows.push({ icon: ':drop:', title: 'The field was watered before you woke', detail: `${watered} plot${watered > 1 ? 's' : ''}. The can is where you left it, and dry.` });
                 else rows.push(NIGHT_ROWS[day % NIGHT_ROWS.length] as PanelRow);
                 if (!noticed.has('night')) {
                     noticed.add('night');
@@ -391,14 +394,14 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
         denial,
         talked: (id) => lastTalk.set(id, options.day()),
         clock: () => (slipLeft > 0 ? slipText : undefined),
-        questLabel: () => (settled() ? '✦ Today' : level() >= 4 ? '✦ You forgot something' : level() >= 3 ? "✦ Don't forget who you are" : "✦ Don't forget"),
+        questLabel: () => (settled() ? 'Today' : level() >= 4 ? 'You forgot something' : level() >= 3 ? "Don't forget who you are" : "Don't forget"),
         rows: () => {
             const ids = Object.keys(NOTES) as WrongId[];
             const seen = ids.filter((id) => noticed.has(id));
             return [
                 { heading: true, title: `Things that are not right (${seen.length} of ${ids.length})` },
                 ...(seen.length === 0 ? [{ title: 'Nothing yet.', detail: 'It is an ordinary valley. Everybody says so.', dim: true }] : []),
-                ...seen.map((id) => ({ icon: '✎', title: NOTES[id].title, detail: NOTES[id].text })),
+                ...seen.map((id) => ({ icon: ':pencil:', title: NOTES[id].title, detail: NOTES[id].text })),
                 ...(seen.length > 0 && seen.length < ids.length ? [{ title: 'There will be more. There is always a little more.', dim: true }] : []),
             ];
         },

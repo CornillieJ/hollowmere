@@ -314,6 +314,99 @@ def shrine():
     return paint, build
 
 
+def farmhouse():
+    """The farmer's own house: plaster and black timber on a stone foot, under a roof that is too tall for it."""
+    WALL, ROOF, FRONT = cell(0, 0, 2, 2), cell(2, 0, 2, 2), cell(0, 2, 2, 2)
+    LIT, TIMBER, FOOT, DARK = cell(2, 2), cell(3, 2), cell(2, 3), cell(3, 3)
+    plaster, beam, slate = (150, 140, 118), (40, 32, 28), (52, 50, 58)
+
+    def framing(atlas, x0, y0):
+        for x in (x0, x0 + 21, x0 + 42, x0 + 62):
+            for dx in (0, 1):
+                atlas.line(x + dx, y0, x + dx, y0 + 63, beam)
+        for y in (y0, y0 + 1, y0 + 30, y0 + 31, y0 + 62, y0 + 63):
+            atlas.line(x0, y, x0 + 63, y, beam)
+        atlas.line(x0 + 2, y0 + 30, x0 + 20, y0 + 2, beam)
+        atlas.line(x0 + 61, y0 + 30, x0 + 43, y0 + 2, beam)
+
+    def paint(atlas):
+        atlas.fill(WALL, plaster, 0.3)
+        framing(atlas, 0, 0)
+        # Slates, each row a little out of step with the last.
+        atlas.fill(ROOF, slate, 0.3)
+        for row, y in enumerate(range(0, 64, 8)):
+            atlas.line(64, y, 127, y, shade(slate, 0.55))
+            for x in range(64 + (row % 2) * 5, 128, 10):
+                atlas.line(x, y, x, y + 7, shade(slate, 0.7))
+        # The front: the door a hand open on the dark, and one window with a lamp behind it.
+        atlas.fill(FRONT, plaster, 0.3)
+        framing(atlas, 0, 64)
+        for y in range(90, 128):
+            atlas.line(24, y, 40, y, (70, 50, 36))
+        for x in (24, 40):
+            atlas.line(x, 90, x, 127, beam)
+        atlas.line(24, 90, 40, 90, beam)
+        for y in range(92, 128):
+            atlas.line(37, y, 39, y, (8, 6, 6))
+        atlas.oval(27, 110, 1, 1, (190, 160, 90), FRONT)
+        for y in range(98, 114):
+            atlas.line(47, y, 58, y, beam)
+        atlas.line(52, 98, 52, 113, beam)
+        atlas.line(53, 98, 53, 113, beam)
+        atlas.line(47, 105, 58, 105, beam)
+        for x in (46, 59):
+            atlas.line(x, 97, x, 114, beam)
+        atlas.line(46, 97, 59, 97, beam)
+        atlas.line(46, 114, 59, 114, beam)
+        glow(atlas, LIT)
+        atlas.wood(TIMBER, (50, 40, 34), 3)
+        atlas.stone(FOOT, (88, 86, 82))
+        atlas.fill(DARK, (14, 12, 12), 0.2)
+
+    def prism(part, x0, x1, half, base, rise, region):
+        """A gable end to end: a triangle of wall under the roof, from x0 to x1."""
+        made = [part.bm.verts.new(co) for x in (x0, x1) for co in ((x, -half, base), (x, half, base), (x, 0, base + rise))]
+        a, b = made[:3], made[3:]
+        part.bm.faces.new((a[0], a[2], a[1]))
+        part.bm.faces.new((b[0], b[1], b[2]))
+        for i in range(3):
+            part.bm.faces.new((a[i], a[(i + 1) % 3], b[(i + 1) % 3], b[i]))
+        part._finish(made, region)
+
+    def build():
+        wide, deep, tall, rise = 7.0, 4.6, 2.9, 3.9
+        half = deep / 2
+        house = Part("farmhouse", (0, 0, 0))
+        house.box((0, 0, 0.25), (wide + 0.3, deep + 0.3, 0.5), FOOT)
+        house.box((0, 0, 0.5 + tall / 2), (wide, deep, tall), WALL)
+        prism(house, -wide / 2, wide / 2, half, 0.5 + tall, rise, WALL)
+        # Two slopes, steeper than they need to be, one of them slipped a little.
+        pitch = math.atan2(rise, half)
+        slope = math.hypot(rise, half) + 0.9
+        for side, slip in ((-1, 0.0), (1, 0.035)):
+            house.box((0, side * (half / 2 + 0.22), 0.5 + tall + rise / 2 - 0.12), (wide + 0.9, slope, 0.16), ROOF, rotate=(-side * pitch + slip, 0, 0))
+        house.box((0, 0, 0.5 + tall + rise + 0.05), (wide + 1.0, 0.22, 0.22), TIMBER)
+        # A chimney that has started to lean, and the cowl on it.
+        house.box((2.1, 0.9, 0.5 + tall + rise * 0.75), (0.7, 0.7, 2.6), FOOT, rotate=(0.05, 0.07, 0))
+        house.box((2.2, 0.86, 0.5 + tall + rise * 0.75 + 1.4), (0.9, 0.9, 0.16), DARK, rotate=(0.05, 0.07, 0))
+        front = Part("front", (0, -half, 0))
+        front.box((0, -half - 0.012, 0.5 + tall / 2), (wide, 0.02, tall), FRONT)
+        # The porch: a step, a floor, 2 posts and a lean-to over the door.
+        porch = Part("porch", (0, -half - 0.7, 0))
+        porch.box((-0.6, -half - 0.75, 0.2), (3.4, 1.5, 0.4), TIMBER)
+        porch.box((-0.6, -half - 1.7, 0.1), (1.4, 0.45, 0.2), FOOT)
+        for x in (-2.15, 0.95):
+            porch.box((x, -half - 1.36, 1.5), (0.16, 0.16, 2.3), TIMBER, rotate=(0, 0.03 if x > 0 else -0.02, 0))
+        porch.box((-0.6, -half - 0.8, 2.86), (3.9, 1.8, 0.12), ROOF, rotate=(0.24, 0, 0))
+        window = Part("glow-window", (2.24, -half - 0.03, 1.5))
+        for x in (1.93, 2.55):
+            for z in (1.33, 1.68):
+                window.box((x, -half - 0.03, z), (0.5, 0.02, 0.28), LIT)
+        return [house, front, porch, window]
+
+    return paint, build
+
+
 def scarecrow():
     def paint(atlas):
         atlas.wood(A, OLD_WOOD, 2)
@@ -628,6 +721,7 @@ PROPS = {
     "chapel": chapel(),
     "shrine": shrine(),
     "scarecrow": scarecrow(),
+    "farmhouse": farmhouse(),
     "crate": crate(),
     "woodpile": woodpile(),
     "trough": trough(),

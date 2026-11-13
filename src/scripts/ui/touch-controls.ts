@@ -39,9 +39,9 @@ export type TouchControlsOptions = {
 };
 
 const DEFAULT_BUTTONS: TouchButton[] = [
-    { action: 'jump', label: '⤒', primary: true, hold: true },
-    { action: 'sprint', label: '≫', hold: true },
-    { action: 'interact', label: '✋' },
+    { action: 'jump', label: ':jump:', primary: true, hold: true },
+    { action: 'sprint', label: ':run:', hold: true },
+    { action: 'interact', label: ':hand:' },
 ];
 
 export class TouchControls {
