@@ -35,12 +35,15 @@ export const ITEMS: ItemDefinition[] = [
     { id: 'wood', name: 'Wood', icon: ':wood:', category: 'material', price: 6, description: 'Dead wood burns well. Every dish needs one piece for the fire.' },
     { id: 'mushroom', name: 'Pale cap', icon: ':mushroom:', category: 'treasure', price: 24, description: 'Grows by the black pool and among the standing stones. Faintly warm.' },
 
+    { id: 'veilbloom', name: 'Veilbloom', icon: ':bloom:', category: 'treasure', price: 120, description: 'Opens only after dark, far from any lamp. Barnaby pays well and does not ask where you were.' },
+
     { id: 'turnip-soup', name: 'Turnip soup', icon: ':pot:', badge: ':turnip:', category: 'consumable', price: 70, description: 'Restores 35 health.', use: food(35) },
     { id: 'boiled-egg', name: 'Boiled egg', icon: ':egg:', badge: ':hot:', category: 'consumable', price: 54, description: 'Restores 25 health.', use: food(25) },
     { id: 'bread', name: 'Bread', icon: ':bread:', category: 'consumable', price: 64, description: 'Restores 30 health.', use: food(30) },
     { id: 'corn-chowder', name: 'Corn chowder', icon: ':bowl:', badge: ':corn:', category: 'consumable', price: 180, description: 'Restores 60 health.', use: food(60) },
     { id: 'omelette', name: 'Omelette', icon: ':pan:', category: 'consumable', price: 160, description: 'Restores 55 health.', use: food(55) },
     { id: 'pale-broth', name: 'Pale broth', icon: ':bowl:', badge: ':mushroom:', category: 'consumable', price: 150, description: 'Restores 50 health. Glows a little.', use: food(50) },
+    { id: 'bloom-tea', name: 'Bloom tea', icon: ':cup:', badge: ':bloom:', category: 'consumable', price: 340, description: 'Restores 70 health. It tastes of a night you got away with.', use: food(70) },
     { id: 'pumpkin-pie', name: 'Pumpkin pie', icon: ':pie:', category: 'consumable', price: 300, description: 'Restores 80 health.', use: food(80) },
     { id: 'hollow-stew', name: 'Hollowveil stew', icon: ':pot:', badge: ':pumpkin:', category: 'consumable', price: 420, description: 'Restores all health. The village eats it at funerals and at weddings.', use: food(100) },
 
@@ -86,6 +89,7 @@ export const COOKING: Recipe[] = [
     { id: 'corn-chowder', output: { itemId: 'corn-chowder' }, ingredients: [{ itemId: 'corn', amount: 2 }, { itemId: 'milk', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 30, tier: 2 },
     { id: 'omelette', output: { itemId: 'omelette' }, ingredients: [{ itemId: 'egg', amount: 2 }, { itemId: 'milk', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 22, tier: 2 },
     { id: 'pale-broth', output: { itemId: 'pale-broth' }, ingredients: [{ itemId: 'mushroom', amount: 2 }, { itemId: 'turnip', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 28, tier: 2 },
+    { id: 'bloom-tea', output: { itemId: 'bloom-tea' }, ingredients: [{ itemId: 'veilbloom', amount: 1 }, { itemId: 'milk', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 24, tier: 2 },
     { id: 'pumpkin-pie', output: { itemId: 'pumpkin-pie' }, ingredients: [{ itemId: 'pumpkin', amount: 1 }, { itemId: 'egg', amount: 1 }, { itemId: 'wheat', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 40, tier: 3 },
     { id: 'hollow-stew', output: { itemId: 'hollow-stew' }, ingredients: [{ itemId: 'pumpkin', amount: 1 }, { itemId: 'corn', amount: 1 }, { itemId: 'mushroom', amount: 2 }, { itemId: 'milk', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 50, tier: 3 },
 ];

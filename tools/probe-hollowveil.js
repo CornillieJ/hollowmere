@@ -767,6 +767,32 @@
         dayCycle.setHour(10);
     }
 
+    // 14e3. Veilblooms: shut by day, open at night, 1 flower a night each.
+    {
+        const { blooms, dayCycle } = world;
+        dayCycle.setHour(12);
+        await sleep(1800);
+        expect(blooms.blooms.length >= 8 && blooms.blooms.every((bloom) => !bloom.open), 'the veilblooms are shut by day');
+        dayCycle.setHour(22);
+        world.population.clear();
+        const spot = blooms.blooms[2].position;
+        await go(spot.x + 0.9, spot.z + 0.6);
+        await sleep(1800);
+        const before = have('veilbloom');
+        await press('KeyE');
+        await sleep(300);
+        await quiet();
+        expect(have('veilbloom') === before + 1, `a veilbloom is picked at night, got ${have('veilbloom') - before}`);
+        await sleep(1500);
+        await press('KeyE');
+        await sleep(200);
+        expect(have('veilbloom') === before + 1 && !blooms.blooms[2].open, 'and that plant gives no more that night');
+        world.pockets.remove('veilbloom', have('veilbloom'));
+        world.bag.remove('veilbloom', 9);
+        dayCycle.setHour(10);
+        world.population.clear();
+    }
+
     // 14e4. The Veil thickens far from light and late; a lantern makes a hole in it and a ring they keep out of.
     {
         const { lanterns, dayCycle } = world;

@@ -40,7 +40,7 @@ import { createFolk, createHeldTool, dressFolk, FolkAnimator, type FolkRig } fro
 import { createBike } from '../content/bike';
 import { COOKING, CROPS, ITEMS, NEEDS_CROP, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
 import { REQUESTS, VILLAGERS } from '../content/villagers';
-import { FARM, HAUNTS, POOL_LEVEL, PELL_SPOT, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF, WRAP_AT, homeOf } from '../content/world';
+import { BLOOMS, FARM, HAUNTS, POOL_LEVEL, PELL_SPOT, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF, WRAP_AT, homeOf } from '../content/world';
 import { buildWorld, solid, stump } from './world';
 import { setupMood } from './mood';
 import { setupFarming } from './farming';
@@ -69,6 +69,7 @@ import { takePortrait } from './portraits';
 import { setupJournal } from './journal';
 import { setupLetters } from './letters';
 import { DAYS_LOST, ESCAPE, setupEscape } from './escape';
+import { setupBlooms } from './blooms';
 import { setupHappenings } from './happenings';
 
 /**
@@ -475,6 +476,22 @@ export async function boot(): Promise<void> {
             if (node.kindId === 'tree') synth.tone({ frequency: 60, duration: 0.5, type: 'triangle', gain: 0.2, sweep: 0.5 });
         },
         persist: 'nodes',
+    });
+
+    // The best pay in the valley only opens after dark, out where the lamps do not reach.
+    const blooms = setupBlooms(game, {
+        spots: BLOOMS.filter((spot) => !SAFE_ZONES.some((zone) => Math.hypot(zone.position.x - spot.x, zone.position.z - spot.z) < zone.radius + 6)),
+        ground,
+        night: () => isNight(dayCycle),
+        day: () => dayCycle.day,
+        hour: () => dayCycle.hour,
+        give: () => give('veilbloom', 1),
+        onPicked: (position) => {
+            juice.reward(position, '+1 veilbloom');
+            juice.sparkle(position, 0xbfe8e0, 14);
+            synth.tone({ frequency: 880, duration: 0.5, type: 'sine', gain: 0.08, sweep: 1.5 });
+            think('bloom', ["It came away in my hand like it wanted to. Still glowing.", "They only open in the dark, away from the lamps. Of course they do. Barnaby will pay for this, and I'll have earned it."]);
+        },
     });
 
     // Dishes are hot out of the pot and cool by the hour; hot ones pay more.
@@ -1882,7 +1899,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
+    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, blooms, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         weather,
