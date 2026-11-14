@@ -69,18 +69,18 @@ export function setupWhispers(game: Game, options: WhispersOptions): WhispersHan
             following = between(8, 14);
             beat = 0.25;
             trailing = 2;
-            options.think('whisper-steps', ['There is a second set of steps. A little behind mine.', 'When I stop, they take 2 more. Then they stop too.', 'I am not going to turn round. There is never anything when I turn round.']);
+            options.think('whisper-steps', ["There's a second set of steps. A little behind mine.", "When I stop, they take 2 more. Then they stop too.", "I'm not turning round. There's never anything there when I turn round."]);
         },
         knock: () => {
             for (const delay of [0, 0.5, 1]) synth.tone({ frequency: 92, duration: 0.14, type: 'triangle', gain: 0.3, sweep: 0.6, delay });
-            options.think('whisper-knock', ['Three knocks on the barn door. Slow, and polite.', 'Nothing that walks out there has knuckles.', 'I will not open it. Nobody asked me to, exactly.']);
+            options.think('whisper-knock', ["3 knocks on the barn door. Slow, and polite.", "Nothing that walks out there has knuckles.", "I'm not opening it. Nobody asked me to, exactly."]);
         },
         voice: () => {
             const line = VOICES[Math.floor(Math.random() * VOICES.length)] as string;
             synth.tone({ frequency: 233, duration: 0.5, type: 'sine', gain: 0.05, sweep: 0.86 });
             synth.tone({ frequency: 196, duration: 0.7, type: 'sine', gain: 0.045, sweep: 0.9, delay: 0.45 });
             options.say(line);
-            options.think('whisper-voice', ['That was a voice from the village. Out there, in the Veil, off the road.', 'Everybody from the village is behind their door at this hour. I have seen the doors.', 'So it was not for me. Or it was, and that is worse. I keep walking.']);
+            options.think('whisper-voice', ["That was a voice from the village. Out there, in the Veil, off the road.", "Everybody from the village is behind a door at this hour. I've seen the doors.", "So it wasn't meant for me. Or it was, and that's worse. I keep walking."]);
         },
     };
     const play = (id: WhisperId): void => {

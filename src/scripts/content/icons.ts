@@ -40,7 +40,7 @@ const ICONS: Record<string, string> = {
     drop: '<path d="M12 3C8 9 6 12 6 15a6 6 0 0 0 12 0c0-3-2-6-6-12z"/>',
     pencil: '<path d="M4 20l1-5L16 4l4 4L9 19zM14 6l4 4"/>',
     box: '<path d="M3 8l9-5 9 5v9l-9 5-9-5zM3 8l9 5 9-5M12 13v9"/>',
-    arrow: '<path d="M4 4l17 8-17 8 4-8z" fill="#000"/>',
+    arrow: '<path d="M12 22 6 12a7 7 0 1 1 12 0zM12 5a3.200 3.200 0 1 0 0 6.400 3.200 3.200 0 1 0 0-6.400z" fill="#000" fill-rule="evenodd" stroke-width="1"/>',
     use: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="#000"/>',
     bag: '<path d="M6 9h12l1 12H5zM9 9V6a3 3 0 0 1 6 0v3M9 14h6"/>',
     notebook: '<path d="M3 5h8l1 2 1-2h8v14h-8l-1 2-1-2H3zM12 7v12"/>',

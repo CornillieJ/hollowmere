@@ -86,7 +86,7 @@ export function setupPool(game: Game, options: PoolOptions): PoolHandle {
         range: 2.6,
         onInteract: () => {
             options.say('The sign reads: "Lost things are in the pool. Take them back after dark."');
-            options.think('pool-sign', ['So that is where it all went. Whatever I am carrying when they get me ends up in this water.', 'I can take it back from the end of the jetty. But only at night.']);
+            options.think('pool-sign', ["So that's where it all went. Whatever I'm carrying when they get me ends up in this water.", "I can take it back from the end of the jetty. But only at night."]);
         },
     });
 
