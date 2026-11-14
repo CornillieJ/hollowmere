@@ -503,6 +503,10 @@
     expect(!document.querySelector('.inventory:not(.is-hidden) [data-item="axe"]'), 'the store does not offer to buy your axe');
     world.shop.close();
 
+    // 13h2. What the village wants today pays double at the stall, and the chalkboard says so.
+    expect(world.scales.priceOf(world.craving()) === world.shop.inventory.sellPrice(world.craving()) * 2, `today's craving (${world.craving()}) pays double at the stall`);
+    expect(game.scene.getObjectByName('chalkboard') !== undefined, 'a chalkboard stands by the store');
+
     // 13i. A farmer with nothing left is given seeds, once a day.
     const stash = { coins: world.coins.value(), field: world.farm.toJSON() };
     for (const inventory of [world.pockets, world.bag]) for (const slot of [...inventory.inventory.slots]) if (/seed|turnip|wheat/.test(slot.itemId)) inventory.remove(slot.itemId, slot.amount);

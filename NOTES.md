@@ -273,3 +273,4 @@ Work on branch `fun-iteration`, one addition per commit.
 
 1. Veilblooms (`blooms.ts`, `BLOOMS` in `content/world.ts`): open at night only, 1 flower a night each, item `veilbloom` 120c, `bloom-tea` in the iron pot.
 2. Bicycle lamp: order book entry `bikelamp` 240c. A spot light while riding, and `veilAt` thins to 35% of its extra thickness.
+3. The day's craving: `craving()` in `boot.ts` picks 1 thing the farm can make each day. The stall and the crate pay double for it, a request for it pays 50% more. Chalkboard by the store and a row in the morning panel.

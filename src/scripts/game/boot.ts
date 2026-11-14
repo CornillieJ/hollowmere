@@ -693,8 +693,11 @@ export async function boot(): Promise<void> {
             // Read before the visit takes its hours: it is as hot as it was when it was handed over.
             const heat = warmth.heatOf(request.itemId);
             const heatBonus = Math.round(request.reward * warmth.bonus(request.itemId));
-            const nightBonus = isNight(dayCycle) ? Math.round(request.reward * NIGHT_PAY) : 0;
-            if (nightBonus > 0) lateCall();
+            const craveBonus = request.itemId === craving() ? Math.round(request.reward * CRAVE.request) : 0;
+            if (craveBonus > 0) game.toasts.push(`The whole village wanted that today: +${coin(craveBonus)}`, { color: '#ffe14a' });
+            const nightPay = isNight(dayCycle) ? Math.round(request.reward * NIGHT_PAY) : 0;
+            if (nightPay > 0) lateCall();
+            const nightBonus = nightPay + craveBonus;
             // A delivery is a visit: hours go by.
             dayCycle.advance(visitHours());
             growFor(visitHours());
@@ -756,6 +759,78 @@ export async function boot(): Promise<void> {
         juice.chime('fanfare');
     });
     const shop = addInventory(game, { items: ITEMS, mode: 'shop', title: "Barnaby's store", catalogue: stock, primary: false, customer: pockets, currency: { resource: coins, label: 'purse', format: coin }, filters: false });
+    /**
+     * What the village cannot get enough of today. Barnaby chalks it up and pays double for it at
+     * the stall and in the crate, and whoever asked for it pays half as much again. It changes each
+     * morning, and it is only ever something the farm can make, so every day has its own best plan.
+     */
+    const CRAVE = { stall: 2, request: 0.5 };
+    let craved = { day: 0, itemId: '' };
+    const craving = (): string => {
+        if (craved.day === dayCycle.day) return craved.itemId;
+        const pool = [...CROPS.filter((crop) => canGrow(crop.id)).map((crop) => crop.produce as string), 'egg', 'milk', ...potRecipes.filter((recipe) => (recipe.tier ?? 1) <= cookpot.station.tier).map((recipe) => recipe.output.itemId)];
+        // Never the same thing 2 days running.
+        let pick = pool[(dayCycle.day * 7 + 3) % pool.length] as string;
+        if (pick === craved.itemId) pick = pool[(dayCycle.day * 7 + 4) % pool.length] as string;
+        craved = { day: dayCycle.day, itemId: pick };
+        return pick;
+    };
+    const stallPrice = (itemId: string): number => shop.inventory.sellPrice(itemId) * (itemId === craving() ? CRAVE.stall : 1);
+    const nameOf = (itemId: string): string => pockets.inventory.registry.resolve(itemId).name;
+
+    // The chalkboard by the counter says what it is.
+    const chalkCanvas = document.createElement('canvas');
+    chalkCanvas.width = 128;
+    chalkCanvas.height = 96;
+    const chalkTexture = new THREE.CanvasTexture(chalkCanvas);
+    chalkTexture.magFilter = THREE.NearestFilter;
+    chalkTexture.colorSpace = THREE.SRGBColorSpace;
+    let chalked = '';
+    const chalk = (): void => {
+        const itemId = craving();
+        if (chalked === itemId) return;
+        chalked = itemId;
+        const context = chalkCanvas.getContext('2d');
+        if (!context) return;
+        context.fillStyle = '#1c2420';
+        context.fillRect(0, 0, 128, 96);
+        context.fillStyle = '#e8e4d0';
+        context.textAlign = 'center';
+        context.font = 'bold 15px Arial, sans-serif';
+        context.fillText('TODAY', 64, 22);
+        context.font = '900 19px Arial Black, Impact, sans-serif';
+        const words = nameOf(itemId).toUpperCase().split(' ');
+        const lines = words.length > 1 ? [words.slice(0, Math.ceil(words.length / 2)).join(' '), words.slice(Math.ceil(words.length / 2)).join(' ')] : words;
+        lines.forEach((line, index) => context.fillText(line, 64, (lines.length > 1 ? 44 : 54) + index * 20, 120));
+        context.fillStyle = '#ffe14a';
+        context.font = 'bold 15px Arial, sans-serif';
+        context.fillText('PAYS DOUBLE', 64, 88);
+        chalkTexture.needsUpdate = true;
+    };
+    const chalkboard = new THREE.Group();
+    chalkboard.name = 'chalkboard';
+    const chalkWood = new THREE.MeshStandardMaterial({ color: 0x4a3a2a, roughness: 1, flatShading: true });
+    const chalkFace = new THREE.MeshStandardMaterial({ map: chalkTexture, roughness: 1, emissive: 0xffffff, emissiveMap: chalkTexture, emissiveIntensity: 0.85 });
+    const slate = new THREE.Mesh(new THREE.BoxGeometry(2, 1.5, 0.08), [chalkWood, chalkWood, chalkWood, chalkWood, chalkFace, chalkWood]);
+    slate.position.y = 1.75;
+    slate.rotation.x = -0.14;
+    for (const x of [-0.86, 0.86]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.5, 0.08), chalkWood);
+        leg.position.set(x, 1.2, -0.1);
+        leg.rotation.x = -0.14;
+        chalkboard.add(leg);
+    }
+    chalkboard.add(slate);
+    chalkboard.position.copy(at({ x: VILLAGE.store.x + 0.6, z: VILLAGE.store.z + 9.4 }));
+    chalkboard.rotation.y = VILLAGE.store.yaw;
+    game.scene.add(chalkboard);
+    game.systems.add({ name: 'chalkboard', update: chalk });
+    game.interactions.add(chalkboard, {
+        prompt: 'Read the chalkboard',
+        range: 2.4,
+        onInteract: () => game.toasts.push(`Today the village wants ${nameOf(craving()).toLowerCase()}. Barnaby pays double for it, and whoever asked for it pays half as much again.`, { color: '#ffe14a' }),
+    });
+
     const counter = modelled(game, 'stall', storeFurniture(false));
     counter.position.copy(at({ x: VILLAGE.store.x + 3, z: VILLAGE.store.z + 6 }));
     counter.rotation.y = VILLAGE.store.yaw;
@@ -773,7 +848,7 @@ export async function boot(): Promise<void> {
         solids: refs.solids,
         carried,
         coins,
-        stallPrice: (itemId) => shop.inventory.sellPrice(itemId),
+        stallPrice,
         share: 1,
         title: 'Sell to Barnaby',
         intro: { title: 'Half price, counted twice', detail: 'Barnaby buys crops, food and wood out of your pockets and your backpack. A villager who asked for something pays far more.' },
@@ -879,7 +954,7 @@ export async function boot(): Promise<void> {
         coins,
         // In Barnaby's green book the crate pays what the stall does.
         share: () => (regulars.has('ledger') ? 1 : 0.8),
-        stallPrice: (itemId) => shop.inventory.sellPrice(itemId),
+        stallPrice,
         wantedBy: (itemId) => wantedBy(itemId),
         format: coin,
     });
@@ -1707,6 +1782,7 @@ export async function boot(): Promise<void> {
             { icon: ':sprout:', title: 'Crops picked', meta: String(today.picked) },
             ...nightRows,
             { heading: true, title: 'Today' },
+            { icon: ':star:', title: `The village wants ${nameOf(craving()).toLowerCase()}`, detail: 'Barnaby pays double for it today, at the stall and in the crate. Whoever asked for it pays half as much again.' },
             ...planRows(),
             ...(letters.waiting ? [{ icon: ':letter:', title: 'There is a letter in the mailbox' }] : []),
             ...(cookpot.station.ready.length > 0 ? [{ icon: ':pot:', title: 'The pot finished overnight' }] : []),
@@ -1936,7 +2012,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, blooms, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
+    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, blooms, craving, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         weather,
