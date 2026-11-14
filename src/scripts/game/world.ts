@@ -190,7 +190,7 @@ export async function buildWorld(game: Game): Promise<WorldRefs> {
     add(MODELS.barn, () => boxHouse(0x6a3a2e, 0x3a2a24, 7), FARM.barn);
     add(MODELS.coop, () => boxHouse(0x8a6a4a, 0x4a3a2a, 2.5), FARM.coop);
     add(MODELS.well, () => stoneWell(), FARM.well);
-    add(MODELS.hay, () => haystack(), { x: -33, z: 44 }, false);
+    add(MODELS.hay, () => haystack(), { x: -38.6, z: 41.6 }, false);
     add(MODELS.cart, () => haystack(), { x: -44, z: 58, yaw: 0.6 }, true);
     penFence(game, root);
     const hearth = place(modelled(game, 'hearth', buildHearth()), FARM.hearth, root);
