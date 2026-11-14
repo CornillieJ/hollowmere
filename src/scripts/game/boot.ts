@@ -278,7 +278,7 @@ export async function boot(): Promise<void> {
 
     /** A call paid after dark is worth this much more: nobody expects the door to be knocked on then. */
     const NIGHT_PAY = 0.5;
-    const lateCall = (): void => think('late', ['They did not expect anybody at the door after dark. They paid half as much again, and did not count it.', '(Every delivery made at night pays 50% more. The road there is the price.)']);
+    const lateCall = (): void => think('late', ["They weren't expecting anybody at the door after dark. They paid half as much again and didn't count it.", '(Every delivery made at night pays 50% more. The road there is the price.)']);
 
     /** Counted for the story and the journal, and saved with the day. */
     const tally = { harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0, bestStreak: 0, bestDay: 0, dodged: 0, regulars: 0, stayed: 0, burned: 0 };
@@ -316,7 +316,7 @@ export async function boot(): Promise<void> {
             body.play('reach');
             juice.chime('plant');
             game.effects.particles.burst(position.clone().setY(position.y + 0.2), { count: 10, color: 0x4a3a2a, size: 0.06, speed: 1.6, lifetime: 0.4 });
-            think('scarecrow', ['There. It does not look at the field. It looks at the house.', 'Barnaby says they weep in the small hours, and that I should not go and ask one why.']);
+            think('scarecrow', ["There. It isn't looking at the field. It's looking at the house.", "Barnaby says they weep in the small hours, and that I shouldn't go and ask one why."]);
         },
     });
     game.save.register('scarecrows', { save: () => scarecrows.toJSON(), load: (data) => scarecrows.fromJSON(data) });
@@ -497,7 +497,7 @@ export async function boot(): Promise<void> {
             basketClock = now;
             if (!bike.mounted || passed <= 0 || passed > 1) return;
             warmth.spare(passed * 0.5);
-            if (warmth.carried().some((dish) => dish.heat !== 'cold')) think('basket', ['The basket on the handlebars has a cloth in it. Somebody rode hot food about before I did.', '(A dish cools half as fast while you ride.)']);
+            if (warmth.carried().some((dish) => dish.heat !== 'cold')) think('basket', ["There's a cloth in the basket on the handlebars. Somebody was riding hot food about before I was.", '(A dish cools half as fast while you ride.)']);
         },
     });
 
@@ -579,7 +579,7 @@ export async function boot(): Promise<void> {
             tally.cooked += 1;
             today.cooked += 1;
             warmth.collected(itemId, amount);
-            think('hot', [`Hot from the pot. It will not stay that way: ${HOT_HOURS} hours, perhaps, and then it is only warm, and then it is cold.`, 'They pay more for hot food. And every visit takes hours of the day. So who gets theirs first is worth a thought.']);
+            think('hot', [`Hot from the pot. It won't stay that way: ${HOT_HOURS} hours, maybe, then it's only warm, then it's cold.`, "They pay more for hot food, and every visit eats hours. So who gets theirs first is worth a thought."]);
         },
     });
     const bench = addCraftingStation(game, { id: 'bench', title: 'Workbench', object: refs.spots.workbench, recipes: WOODWORK, sources: carried, give: stow, prompt: 'Use the workbench', verb: 'Build' });
@@ -851,7 +851,7 @@ export async function boot(): Promise<void> {
         canEnter: () => (bike.mounted ? 'The bicycle stays outside' : dayCycle.stalled ? 'You need to sleep. Go home to bed.' : undefined),
         onEnter: () => {
             plates?.setPlace('The barn');
-            think('barn', ['Straw, old wood, one lamp. And quiet: the first real quiet since I woke up here.', 'Nothing has ever come in after me. They do not seem to know it has an inside.']);
+            think('barn', ["Straw, old wood, one lamp. And quiet. The first real quiet since I woke up here.", "Nothing's ever followed me in. I don't think they know it has an inside."]);
         },
         onLeave: () => plates?.setPlace(safeZones.zoneAt(game.player?.position ?? barn.floor)?.name),
     });
@@ -894,7 +894,6 @@ export async function boot(): Promise<void> {
         zones: SAFE_ZONES.map((zone) => ({ ...zone, position: { ...zone.position, y: ground(zone.position.x, zone.position.z) } })),
         onEnter: (zone) => {
             plates?.setPlace(zone.name ?? 'Safe');
-            think('safe', ['They stop at the light. Remember that.']);
         },
         onLeave: () => plates?.setPlace(undefined),
     });
@@ -924,7 +923,7 @@ export async function boot(): Promise<void> {
             },
         });
         synth.tone({ frequency: 880, duration: 0.15, type: 'sine', gain: 0.06 });
-        think('candle', ['A little light, and they keep off. It will not burn long.']);
+        think('candle', ["A little light, and they keep off. It won't burn long."]);
         return true;
     };
 
@@ -941,7 +940,7 @@ export async function boot(): Promise<void> {
             body.play('reach');
             synth.tone({ frequency: 660, duration: 0.2, type: 'sine', gain: 0.07 });
             juice.chime('success');
-            think('lantern', ['There. A ring of light they will not step into, and the Veil draws back from it a little.', `It has a day of oil in it. A flask buys another day. If I let it go dark it is only a post.`]);
+            think('lantern', ["There. A ring of light they won't step into, and the Veil pulls back from it a little.", "It's got a day of oil in it. A flask buys another day. If I let it go dark it's only a post."]);
         },
         onFilled: (lantern) => {
             body.play('pour');
@@ -970,7 +969,7 @@ export async function boot(): Promise<void> {
         dragAt: (position) => (POOL_LEVEL - position.y) / 0.6,
         onEnter: () => {
             synth.noise({ duration: 0.4, gain: 0.1, filter: 1200 });
-            think('wade', ['Cold. And it pulls at the legs. I will not get anywhere fast in this.']);
+            think('wade', ["Cold. And it drags at my legs. I'm not getting anywhere fast in this."]);
         },
     });
 
@@ -1001,7 +1000,7 @@ export async function boot(): Promise<void> {
             if (!hunting()) return;
             game.toasts.push(night ? 'Night. The fog is full of them now.' : 'Dawn. Most of them drift back into the fog.', { color: night ? '#c8a0a0' : '#e8e0c8' });
             if (night) synth.tone({ frequency: 46, duration: 3, type: 'sawtooth', gain: 0.16, sweep: 0.7 });
-            if (night) think('night', ['Night. There are 3 of them now for every one I saw by day, and they are not wandering any more.', 'A lamp, a candle, a door. Or the bicycle, and do not stop.']);
+            if (night) think('night', ["Night. There are 3 of them now for every one I saw by day, and they've stopped wandering.", "A lamp, a candle, a door. Or the bicycle, and I don't stop."]);
         },
     });
 
@@ -1018,7 +1017,7 @@ export async function boot(): Promise<void> {
             scentTimer = 0.5;
             const level = scentLevel();
             setScent(level);
-            if (level >= 0.25) think('scent', ['They turned their heads. All of them, the same way, as I came past with the basket.', 'It is the food. They can smell it while it is hot. The more I carry, the further off they notice, and the more of them come.']);
+            if (level >= 0.25) think('scent', ["They turned their heads. All of them, the same way, as I came past with the basket.", "It's the food. They can smell it while it's hot. The more I carry, the further off they notice, and the more of them come."]);
         },
     });
 
@@ -1035,7 +1034,7 @@ export async function boot(): Promise<void> {
         quietFarm = undefined;
         // The ones already out there were made harmless; let them go and the real ones come.
         population.clear();
-        think('yard', ['Tracks in the yard this morning. Right up to the field.', 'They come onto the farm now. Only the porch and the barn lamp keep them off.']);
+        think('yard', ["Tracks in the yard this morning. Right up to the field.", "So they come onto the farm now. Only the porch light and the barn lamp keep them off."]);
     }
 
     // They kill. The farmer is found, days later, and wakes in the infirmary with nothing but their tools.
@@ -1069,7 +1068,7 @@ export async function boot(): Promise<void> {
         const bed = homeOf(VILLAGE.infirmary);
         world.player.body.teleport(at({ x: bed.x + 0.4, z: bed.z + 0.8 }, 0.2));
         narration.clear();
-        void narration.speak(['The infirmary. Clean sheets. Nobody about.', `${DAYS_LOST} days gone, and my pockets with them. Whoever was waiting on me has stopped waiting.`, 'They left my tools by the cot. Back to the farm, then. More carefully.']);
+        void narration.speak(["The infirmary. Clean sheets. Nobody about.", `${DAYS_LOST} days gone, and my pockets with them. Whoever was waiting on me has given up.`, "They left my tools by the cot. Back to the farm, then. And I'll be more careful."]);
         saves.save();
     }
 
@@ -1094,7 +1093,7 @@ export async function boot(): Promise<void> {
             const out = Math.max(Math.abs(x), Math.abs(z));
             // Thicker away from any light and late in the day, and thicker still at the edge of the valley.
             veilFactor += (veilAt(player.position) - veilFactor) * Math.min(1, game.time.delta * 0.8);
-            if (veilFactor > 1.55) think('thick', ['I can hardly see my own hands. It was not like this at noon, or near the lamps.', 'The Veil is thickest late in the day and far from any light. A lantern on the way would make a hole in it.']);
+            if (veilFactor > 1.55) think('thick', ["I can hardly see my own hands. It wasn't like this at noon, or near the lamps.", "The Veil's thickest late in the day and far from any light. A lantern on the way would make a hole in it."]);
             atmosphere.setDensity(atmosphere.fog.density * veilFactor * weather.fog * (1 + (1 - THREE.MathUtils.smoothstep(WRAP_AT - out, 0, 24)) * 4));
 
             if (!crossing) {
@@ -1120,7 +1119,7 @@ export async function boot(): Promise<void> {
                 crossing = undefined;
                 tally.wrapped += 1;
                 // Only once the far side can be seen does the farmer remark on it.
-                think('wrap', ['The Veil went solid white, and then thinned again.', 'I am on the far side of the valley. I walked out of it one way and came in by the other. There is no out.']);
+                think('wrap', ["The Veil went solid white, and then it thinned again.", "I'm on the far side of the valley. I walked out one way and came back in by the other. There's no out."]);
             }
         },
     });
@@ -1223,7 +1222,7 @@ export async function boot(): Promise<void> {
             }
             synth.tone({ frequency: 70, duration: 1.6, type: 'sine', gain: 0.18, sweep: 1.6 });
             juice.banner('The water gives it back', left > 0 ? `${count} things. ${left} more are still down there.` : `${count} things, cold and wet, and all yours.`, { color: '#a8c8d0' });
-            think('pool-back', ['Cold, right up to the shoulder. And then a strap, in my hand. Mine.', 'Everything I was carrying when they got me. It was all laid out down there, in a row.', 'I did not feel the bottom. I felt it being handed up.']);
+            think('pool-back', ["Cold, right up to the shoulder. And then a strap in my hand. Mine.", "Everything I was carrying when they got me. All laid out down there, in a row.", "I never felt the bottom. I felt it being handed up."]);
             saves.save();
         },
     });
@@ -1422,6 +1421,7 @@ export async function boot(): Promise<void> {
         potTier: () => cookpot.station.tier,
         bestHearts: () => Math.max(...VILLAGERS.map((villager) => villagers.relationships.hearts(villager.id))),
         metPell: () => letters.metPell,
+        noteRead: () => thoughts.has('note'),
         reward: (amount) => {
             coins.add(amount);
             game.toasts.push(`+${coin(amount)}`, { color: '#ffe08a' });
@@ -1453,6 +1453,7 @@ export async function boot(): Promise<void> {
     });
 
     // The compass: home, the village, and wherever the current task is.
+    const NOTE_SPOT = { x: FARM.field.x + 2.4, z: FARM.field.z + 5.4 };
     const fieldCentre = { x: FARM.field.x + 2.4, z: FARM.field.z + 1.6 };
     const mailboxSpot = { x: FARM.door.x + 1.5, z: FARM.door.z + 3.2 };
     const TARGETS: Record<string, { x: number; z: number }> = {
@@ -1460,6 +1461,7 @@ export async function boot(): Promise<void> {
         plant: fieldCentre,
         water: fieldCentre,
         harvest: fieldCentre,
+        note: NOTE_SPOT,
         chop: FARM.orchard[0] as { x: number; z: number },
         cook: FARM.hearth,
         ride: VILLAGE.center,
@@ -1499,11 +1501,11 @@ export async function boot(): Promise<void> {
         void narration.speak(lines);
     }
     const SIGHTS: Array<{ id: string; spot: { x: number; z: number }; within: number; lines: string[] }> = [
-        { id: 'pool', spot: PLACES.pool, within: 26, lines: ['Still water. No wind on it at all.', 'Black, and it does not show the sky. I do not think I will drink from it.'] },
-        { id: 'lookout', spot: PLACES.lookout, within: 8, lines: ['Above the mist, at last.', 'From up here it almost looks like home. Almost.'] },
+        { id: 'pool', spot: PLACES.pool, within: 26, lines: ["Still water. Not a breath of wind on it.", "Black, and it doesn't show the sky. I don't think I'll drink from it."] },
+        { id: 'lookout', spot: PLACES.lookout, within: 8, lines: ["Above the fog, at last.", "From up here it nearly looks like home. Nearly."] },
         { id: 'stones', spot: PLACES.stones, within: 11, lines: ['Somebody stood these up. Somebody still keeps the candle lit.'] },
-        { id: 'ruin', spot: PLACES.ruin, within: 12, lines: ['Another farm. Another farmer.', 'The scarecrow is facing the house.'] },
-        { id: 'graveyard', spot: PLACES.graveyard, within: 11, lines: ['One of these is open. And empty.'] },
+        { id: 'ruin', spot: PLACES.ruin, within: 12, lines: ["Another farm. So there was another farmer.", "The scarecrow's facing the house."] },
+        { id: 'graveyard', spot: PLACES.graveyard, within: 11, lines: ["One of these is open. And there's nobody in it."] },
     ];
     /**
      * Nobody can get stuck. A farmer with no seeds, nothing growing and no money
@@ -1520,7 +1522,7 @@ export async function boot(): Promise<void> {
         const broke = coins.value() < 4 && farm.plantedCount === 0 && SEEDS.every((seed) => have(seed) === 0) && have('turnip') === 0 && have('wheat') === 0;
         if (!broke || !give('turnip-seed', 3)) return;
         rescuedOn = dayCycle.day;
-        void narration.speak(['A paper twist of turnip seeds on the doorstep.', 'Barnaby has written on it: "On account. Do not let it happen twice."']);
+        void narration.speak(["A paper twist of turnip seeds on the doorstep.", 'Barnaby has written on it: "On account. Do not let it happen twice."']);
     }
     let thoughtTimer = 0;
     game.systems.add({
@@ -1532,15 +1534,100 @@ export async function boot(): Promise<void> {
             if (thoughtTimer > 0 || !player) return;
             thoughtTimer = 0.5;
             rescue();
-            if (escape.waiting && letters.read >= 2) think('hill', ['Pell wants me up the hill, by the old tree. Something about going home.', '(The west path from the chapel. :hill: on the compass.)']);
+            if (escape.waiting && letters.read >= 2) think('hill', ["Pell's note says to come up the hill, to the old tree. And the days are counting whether I go or not.", '(The west path from the chapel. :hill: on the compass.)']);
             endQuiet();
             const sign = omens.near(player);
             if (sign) think(`omen-${sign}`, OMEN_THOUGHTS[sign]);
-            if (Math.max(Math.abs(player.x), Math.abs(player.z)) > WRAP_AT - 26) think('edge', ['The fog is getting thicker out here. I cannot see the ground ahead. This must be what they mean by the Veil.']);
+            if (Math.max(Math.abs(player.x), Math.abs(player.z)) > WRAP_AT - 26) think('edge', ["The fog's getting thicker out here. I can't see the ground in front of me. This must be what they mean by the Veil."]);
             for (const sight of SIGHTS) if (Math.hypot(player.x - sight.spot.x, player.z - sight.spot.z) < sight.within) think(sight.id, sight.lines);
-            if (dayCycle.hour >= 18 && dayCycle.hour < 21) think('dusk', ['The light is going. There will be more of them soon.', 'A lamp, a door, or the bicycle. Not the open road.']);
+            if (dayCycle.hour >= 18 && dayCycle.hour < 21) think('dusk', ["The light's going. There'll be more of them soon.", "A lamp, a door, or the bicycle. Not the open road."]);
             const nearest = world.enemies.nearest(player);
-            if (nearest && nearest.root.position.distanceTo(player) < 9 && !safeZones.playerSafe) think('hollow', ['It has seen me.', 'It is slow. I am not. Walk away and it loses interest.']);
+            if (nearest && nearest.root.position.distanceTo(player) < 9 && !safeZones.playerSafe) think('hollow', ["It's seen me.", "It's slow. I'm not. If I walk away it loses interest."]);
+            if (!thoughts.has('first-hollow') && hollowInView()) think('first-hollow', ["There. Out past the trees. That's not a person. It stands like a coat on a hook.", "It isn't coming any closer. Something about the lamps, I think. It stays where the light stops."]);
+            safeLight.visible = thoughts.has('first-hollow');
+            note.visible = noteOut();
+        },
+    });
+
+    /**
+     * The lit ground round every lamp is not drawn until the farmer has seen what it is for.
+     * The places are as safe as ever; there is only nothing yet to be safe from.
+     */
+    const safeLight = game.scene.getObjectByName('safe-zones') ?? new THREE.Group();
+    const seen = new THREE.Vector3();
+    const hollowInView = (): boolean =>
+        world.enemies.all.some((enemy) => {
+            if (enemy.root.position.distanceTo(game.camera.position) > 34) return false;
+            seen.copy(enemy.root.position).setY(enemy.root.position.y + 1.2).project(game.camera);
+            return seen.z < 1 && Math.abs(seen.x) < 0.85 && Math.abs(seen.y) < 0.85;
+        });
+
+    /**
+     * A sheet of paper by the field, written in something that was not ink. It is there once
+     * the first crop is in, and it is the last lesson: until it is read, the farm is all there is.
+     */
+    const noteCanvas = document.createElement('canvas');
+    noteCanvas.width = 64;
+    noteCanvas.height = 80;
+    const notePaint = noteCanvas.getContext('2d');
+    if (notePaint) {
+        notePaint.fillStyle = '#cfc6a8';
+        notePaint.fillRect(0, 0, 64, 80);
+        notePaint.fillStyle = '#5c1410';
+        for (const [x, y, w] of [[8, 14, 46], [10, 26, 38], [8, 38, 30], [9, 54, 44], [12, 66, 26]] as Array<[number, number, number]>) notePaint.fillRect(x, y, w, 4);
+        notePaint.fillStyle = '#7a1a12';
+        for (const [x, y, r] of [[50, 60, 9], [14, 72, 6], [56, 8, 4], [40, 46, 3]] as Array<[number, number, number]>) {
+            notePaint.beginPath();
+            notePaint.arc(x, y, r, 0, Math.PI * 2);
+            notePaint.fill();
+        }
+    }
+    const noteTexture = new THREE.CanvasTexture(noteCanvas);
+    noteTexture.magFilter = THREE.NearestFilter;
+    noteTexture.colorSpace = THREE.SRGBColorSpace;
+    const note = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1), new THREE.MeshStandardMaterial({ map: noteTexture, roughness: 1, emissive: 0xffffff, emissiveMap: noteTexture, emissiveIntensity: 0.35, side: THREE.DoubleSide }));
+    note.name = 'bloody-note';
+    note.rotation.set(-Math.PI / 2 + 0.06, 0, 0.5);
+    note.position.copy(at(NOTE_SPOT, 0.07));
+    note.visible = false;
+    game.scene.add(note);
+    const noteOut = (): boolean => !thoughts.has('note') && tally.harvested >= 2;
+    game.interactions.add(note, {
+        prompt: 'Read the paper',
+        range: 2.2,
+        canInteract: noteOut,
+        onInteract: () => {
+            juice.chime('tick');
+            synth.tone({ frequency: 70, duration: 1.4, type: 'sawtooth', gain: 0.1, sweep: 0.6 });
+            think('note', [
+                "A sheet of paper under a stone, at the end of the row. It wasn't there when I planted.",
+                'Brown, dry letters, done with a finger: "THEY STOP AT THE LIGHT. REMEMBER THAT."',
+                "That isn't ink. Somebody wanted me to know this badly enough to bleed for it. Fine. Lamps, candles, a lit porch. I'll remember.",
+            ]);
+        },
+    });
+
+    /** Until the note is read nobody leaves the farm: the lessons come first. */
+    const FARM_EDGE = 27;
+    let turnedBack = 0;
+    game.systems.add({
+        name: 'farm-edge',
+        order: SYSTEM_ORDER.GAMEPLAY + 9,
+        update: (delta) => {
+            turnedBack -= delta;
+            const player = game.player;
+            if (!player || thoughts.has('note')) return;
+            const x = player.position.x - FARM.centre.x;
+            const z = player.position.z - FARM.centre.z;
+            const out = Math.hypot(x, z);
+            if (out <= FARM_EDGE) return;
+            if (bike.mounted) bike.dismount();
+            const pull = (FARM_EDGE - 0.6) / out;
+            player.body.teleport({ x: FARM.centre.x + x * pull, y: player.position.y, z: FARM.centre.z + z * pull });
+            if (turnedBack > 0) return;
+            turnedBack = 5;
+            think('fenced', ["No. I can't see ten steps into that, and I've got an empty stomach and empty pockets.", "First I get something out of this field and into a pot. Then I'll go and see where the road goes."]);
+            game.toasts.push(tally.harvested >= 2 ? 'There is a paper lying by the field' : 'Not yet. Grow something first', { color: '#e8e0c8' });
         },
     });
 

@@ -111,7 +111,33 @@
     expect(log.turnips === 3, `picked 3 turnips, got ${log.turnips}`);
     expect(log.seedsBack >= 3 && log.seedsBack <= 6, `each harvest gives 1 or 2 seeds, got ${log.seedsBack}`);
     await sleep(300);
-    expect(step() === 'cook', `the story moved on to cooking, got ${step()}`);
+    await quiet();
+    expect(step() === 'note', `the story points at the paper by the field, got ${step()}`);
+    // 3a. Nobody leaves the farm before the paper is read, and the lamplight is not drawn before a Hollow is seen.
+    const paper = game.scene.getObjectByName('bloody-note');
+    await sleep(700);
+    expect(paper.visible, 'the paper lies by the field once the first crop is in');
+    await go(-20, 30);
+    await sleep(400);
+    await quiet();
+    expect(Math.hypot(game.player.position.x + 47, game.player.position.z - 46) < 27.5, `the farm cannot be left yet, at ${game.player.position.x.toFixed(1)}, ${game.player.position.z.toFixed(1)}`);
+    expect(!game.scene.getObjectByName('safe-zones').visible, 'no lamplight on the ground before a Hollow has been seen');
+    await go(paper.position.x + 0.5, paper.position.z + 0.5);
+    await press('KeyE');
+    await sleep(400);
+    await quiet();
+    await sleep(700);
+    expect(step() === 'cook' && !paper.visible, `reading it moves the story on to cooking, got ${step()}`);
+    {
+        const spot = game.player.position;
+        const forward = new (game.camera.position.constructor)(0, 0, -1).applyQuaternion(game.camera.quaternion);
+        const shown = world.spawnKind(spot.x + forward.x * 14, spot.z + forward.z * 14, 'walker');
+        await sleep(1200);
+        await quiet();
+        expect(game.scene.getObjectByName('safe-zones').visible, 'seeing the first Hollow brings the lamplight out');
+        world.population.clear();
+        world.enemies.despawn(shown);
+    }
 
     // 3b. Holding E works down a row, with whatever is in hand: the seeds are found by themselves.
     hold('axe');
@@ -893,7 +919,7 @@
         await sleep(200);
         expect(wrongness.scarecrowSteps === 0, 'E carries it back to its post');
         // The signpost.
-        await go(-41.9, 42.3);
+        await go(-28.5, 30.3);
         await press('KeyE');
         await sleep(400);
         await quiet();

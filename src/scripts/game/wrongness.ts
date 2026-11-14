@@ -112,10 +112,10 @@ const HOUSE_SPOTS = [
     { x: 14, z: -26, yaw: 0.6 },
 ];
 
-/** A few steps up the road from the gate, on its left side. */
+/** Up the road past the pen and the barn, where the farm stops, on the road's left side. */
 const ROAD_OUT = { x: (ROAD[1]?.x ?? 0) - (ROAD[0]?.x ?? 0), z: (ROAD[1]?.z ?? 0) - (ROAD[0]?.z ?? 0) };
 const ROAD_YAW = Math.atan2(-ROAD_OUT.z, ROAD_OUT.x);
-export const SIGN_SPOT = { x: (ROAD[0]?.x ?? 0) + Math.cos(ROAD_YAW) * 4 - Math.sin(ROAD_YAW) * 2.6, z: (ROAD[0]?.z ?? 0) - Math.sin(ROAD_YAW) * 4 - Math.cos(ROAD_YAW) * 2.6 };
+export const SIGN_SPOT = { x: (ROAD[0]?.x ?? 0) + Math.cos(ROAD_YAW) * 22 - Math.sin(ROAD_YAW) * 2.6, z: (ROAD[0]?.z ?? 0) - Math.sin(ROAD_YAW) * 22 - Math.cos(ROAD_YAW) * 2.6 };
 const SCARECROW_POST = { x: -48, z: 40.2 };
 /** Meters nearer the door each night, and how near it will come: the edge of the porch light. */
 const SCARECROW_STEP = 3.4;
@@ -318,7 +318,7 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
 
             if (steps > 0 && active('scarecrow') && player.position.distanceTo(options.scarecrow.position) < 11) {
                 notice('scarecrow', ['The scarecrow is not where it was. It is nearer the house.', 'I must have moved it. I must have.']);
-                if (steps * SCARECROW_STEP >= toDoor - SCARECROW_STOPS) options.think('wrong-scarecrow-door', ['The scarecrow is at the edge of the porch light. Facing the door.', 'I did not put it there. I am going to carry it back, and I am not going to think about it.']);
+                if (steps * SCARECROW_STEP >= toDoor - SCARECROW_STOPS) options.think('wrong-scarecrow-door', ["The scarecrow's standing at the edge of the porch light. Facing the door.", "I didn't put it there. I'm going to carry it back, and I'm not going to think about it."]);
             }
 
             if (pendingDenial && !game.screens.blocksInput) {

@@ -258,3 +258,11 @@ orders (`PREMIUM` 1.7, every 3 days, 3 days' patience); `WRONG_FROM` days.
 - Dying costs 2 days (was 3). `DAYS_LOST` lives in `escape.ts`.
 - Template: mouse movement is ignored for 150 ms after pointer lock and single jumps over 500 px are dropped (Wayland reports a huge first movement). A camera ray that hits at 0 distance is ignored.
 - The scarecrow by the field only offers "carry it back" when it has moved.
+
+## Batch 18: the tutorial holds the farm
+
+- Nobody leaves the farm (27 m round `FARM.centre`) until the paper by the field is read. The paper (`bloody-note`) appears after 2 crops are picked and is story step `note`, between `harvest` and `cook`. It carries "They stop at the light".
+- The lamplight on the ground (`safe-zones` group) is hidden until a Hollow has been on screen (`first-hollow` thought). The zones are safe all along.
+- Signpost moved 22 m up the road, past the pen and the barn.
+- Compass task marker is a map pin (icon name is still `arrow`).
+- Intro, story lines and thoughts rewritten with contractions and a drier voice.

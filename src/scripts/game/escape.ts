@@ -47,12 +47,12 @@ export function setupEscape(game: Game, options: { coins: ResourceHandle; day: (
         currency: coins,
         day: options.day,
         format,
-        onKept: () => void narration.speak(['That is all of it. Burned.', 'Pell says the rest is simple: go home, lie down in that bed, and mean it. (Sleep at the farmhouse door.)']),
+        onKept: () => void narration.speak(["That's all of it. Burned.", 'Pell says the rest is simple: go home, lie down in that bed, and mean it. (Sleep at the farmhouse door.)']),
         onMissed: () =>
             void narration.speak([
                 'The last day came and went.',
                 'I tried to say the name of my own street this morning. I said "Hollowveil". It felt true.',
-                'So I am not going home. I think I will know it properly when I have slept on it. (Go to bed.)',
+                "So I'm not going home. I expect I'll know it properly once I've slept on it. (Go to bed.)",
             ]),
     });
     let met = false;
@@ -88,8 +88,8 @@ export function setupEscape(game: Game, options: { coins: ResourceHandle; day: (
         );
         met = true;
         void narration.speak([
-            `${format(pledge.remaining)} in ${pledge.daysLeft} days. That is a great deal of soup.`,
-            'Hollowveil Farm. So that is what I have been calling home: a farm for the hollow, on the wrong side of the veil.',
+            `${format(pledge.remaining)} in ${pledge.daysLeft} days. That's a lot of soup.`,
+            "Hollowveil Farm. So that's what I've been calling home: a farm for the hollow, on the wrong side of the veil.",
             'But there is a way back through. (Bring coins to Pell on the hill whenever there are some to spare. What is left, and the days, show under the clock.)',
         ]);
     }
