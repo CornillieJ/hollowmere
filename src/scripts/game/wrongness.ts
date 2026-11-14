@@ -112,10 +112,11 @@ const HOUSE_SPOTS = [
     { x: 14, z: -26, yaw: 0.6 },
 ];
 
-/** Up the road past the pen and the barn, where the farm stops, on the road's left side. */
-const ROAD_OUT = { x: (ROAD[1]?.x ?? 0) - (ROAD[0]?.x ?? 0), z: (ROAD[1]?.z ?? 0) - (ROAD[0]?.z ?? 0) };
+/** Just past the barn, where the road turns north east and the farm stops, on the road's left side, clear of the barn. */
+const ROAD_FROM = ROAD[2] ?? { x: 0, z: 0 };
+const ROAD_OUT = { x: (ROAD[3]?.x ?? 0) - ROAD_FROM.x, z: (ROAD[3]?.z ?? 0) - ROAD_FROM.z };
 const ROAD_YAW = Math.atan2(-ROAD_OUT.z, ROAD_OUT.x);
-export const SIGN_SPOT = { x: (ROAD[0]?.x ?? 0) + Math.cos(ROAD_YAW) * 21 - Math.sin(ROAD_YAW) * 5, z: (ROAD[0]?.z ?? 0) - Math.sin(ROAD_YAW) * 21 - Math.cos(ROAD_YAW) * 5 };
+export const SIGN_SPOT = { x: ROAD_FROM.x + Math.cos(ROAD_YAW) * 11 - Math.sin(ROAD_YAW) * 4.5, z: ROAD_FROM.z - Math.sin(ROAD_YAW) * 11 - Math.cos(ROAD_YAW) * 4.5 };
 const SCARECROW_POST = { x: -48, z: 40.2 };
 /** Meters nearer the door each night, and how near it will come: the edge of the porch light. */
 const SCARECROW_STEP = 3.4;
@@ -213,7 +214,7 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
     // Beside the road and along it, so the arrow on the board points up the road at the village.
     // Turned a little towards the yard, or it is edge-on from the house.
     signpost.position.copy(terrain.point(SIGN_SPOT.x, SIGN_SPOT.z, 0));
-    signpost.rotation.y = ROAD_YAW - 0.6;
+    signpost.rotation.y = ROAD_YAW - 0.5;
     game.scene.add(signpost);
     paintSign();
     let signRead = 0;
