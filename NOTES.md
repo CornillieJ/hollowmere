@@ -278,3 +278,9 @@ Work on branch `fun-iteration`, one addition per commit.
 5. Finds: 7% of harvests (after the 6th crop) turn up 1 of 8 buried things (`FINDS` in `content/items.ts`, `dig()` in `boot.ts`), unseen ones first. Worth 100 to 320c, listed in the notebook, deed `finds` for all 8. Probes set `world.finds.chance = 0`.
 6. The dog brings a gift the first time it is petted each day: 2 wood, a pale cap, an egg, or (12%) a find.
 7. Fishing (`fishing.ts`): a rod on the jetty at the pool, by day. Cast with E, press E within 0.85 s of the float going under. 5 bites a day. Pale fish (80c), eel (150c), a boot (1 wood) or a find; `fish-supper` in any pot.
+
+## Batch 19: the tutorial in its own file
+
+- `tutorial.ts` replaces `story.ts`: wake, plant, water (the can starts empty), chop (crops wait 1 stage short of ripe until wood is cut), harvest, cook, note (the paper appears in front of the scarecrow while the pot is on), take, sign, ride, meet, deliver. The farm can be left after `take`; before that the farmer is turned back and told the current step, and a bicycle is put back 6 m inside. The Hollow start hunting after `deliver` (`story.over`), not after the first night.
+- Yard: tool shed and its woodpile moved behind the west end of the north fence, the crate by the road is gone, the boot omen moved up the road, signpost 5 m off the road, darker ruts on the road through the yard.
+- Barn inside is 16 by 12 m with hay heaps, round bales and 2 horses in stalls.

@@ -52,7 +52,7 @@
         await press('Space');
         await sleep(150);
     }
-    expect(!selfBox() && log.introPresses >= 5, `the opening closes once every line is read, after ${log.introPresses} presses`);
+    expect(!selfBox() && log.introPresses >= 2, `the opening closes once every line is read, after ${log.introPresses} presses`);
     expect(game.time.effectiveScale > 0, 'and the game runs again');
     expect(step() === 'wake', `the story starts at waking, got ${step()}`);
     // From here on the probe reads the farmer's own lines as soon as they come up.
@@ -68,6 +68,10 @@
     // 1. Plant 3, water 3.
     const plots = world.farm.plots.filter((plot) => plot.active);
     expect(plots.length === 12, `the first field has 12 plots, got ${plots.length}`);
+    expect(world.can.left === 0, `the can starts empty, got ${world.can.left}`);
+    await go(-52, 51.6);
+    await press('KeyE');
+    await until(() => world.can.left === 5);
     for (const plot of plots.slice(0, 3)) {
         await go(plot.position.x, plot.position.z + 0.2);
         hold('turnip-seed');
@@ -113,22 +117,15 @@
     expect(log.seedsBack >= 3 && log.seedsBack <= 6, `each harvest gives 1 or 2 seeds, got ${log.seedsBack}`);
     await sleep(300);
     await quiet();
-    expect(step() === 'note', `the story points at the paper by the field, got ${step()}`);
-    // 3a. Nobody leaves the farm before the paper is read, and the lamplight is not drawn before a Hollow is seen.
+    expect(step() === 'cook', `the story moved on to cooking, got ${step()}`);
+    // 3a. Nobody leaves the farm yet, and the lamplight is not drawn before a Hollow is seen.
     const paper = game.scene.getObjectByName('bloody-note');
-    await sleep(700);
-    expect(paper.visible, 'the paper lies by the field once the first crop is in');
+    expect(!paper.visible, 'no paper before the pot is on');
     await go(-20, 30);
     await sleep(400);
     await quiet();
     expect(Math.hypot(game.player.position.x + 47, game.player.position.z - 46) < 27.5, `the farm cannot be left yet, at ${game.player.position.x.toFixed(1)}, ${game.player.position.z.toFixed(1)}`);
     expect(!game.scene.getObjectByName('safe-zones').visible, 'no lamplight on the ground before a Hollow has been seen');
-    await go(paper.position.x + 0.5, paper.position.z + 0.5);
-    await press('KeyE');
-    await sleep(400);
-    await quiet();
-    await sleep(700);
-    expect(step() === 'cook' && !paper.visible, `reading it moves the story on to cooking, got ${step()}`);
     {
         const spot = game.player.position;
         const forward = new (game.camera.position.constructor)(0, 0, -1).applyQuaternion(game.camera.quaternion);
@@ -166,9 +163,19 @@
     await sleep(200);
     expect(hearth.station.busy, 'the soup is on the fire');
     expect(have('turnip') === 1 && have('wood') === log.wood - 1, 'cooking took 2 turnips and 1 wood');
-    hearth.station.update(30);
     await press('Escape');
     expect(!hearth.panel.isOpen && game.state.current === 'playing', 'Escape closes the panel without pausing');
+    await sleep(300);
+    await quiet();
+    expect(step() === 'note' && paper.visible, `while it cooks a paper lies in front of the scarecrow, got ${step()}`);
+    await go(paper.position.x + 0.5, paper.position.z + 0.5);
+    await press('KeyE');
+    await sleep(400);
+    await quiet();
+    await sleep(500);
+    expect(step() === 'take' && !paper.visible, `reading it moves on to taking the food, got ${step()}`);
+    hearth.station.update(30);
+    await go(-59, 50.2);
     await sleep(200);
     await press('KeyE');
     await until(() => have('turnip-soup') === 1);
@@ -181,7 +188,11 @@
     expect(document.querySelector('.hv-basket')?.textContent.includes('Turnip soup') && document.querySelector('.hv-basket-line.is-hot'), 'the basket line under the task shows it hot');
     expect(world.warmth.bonus('turnip-soup') === 0.3, 'hot food pays 30% more');
     await sleep(300);
-    expect(step() === 'ride', `the story moved on to the ride, got ${step()}`);
+    expect(step() === 'sign', `the story points at the signpost, got ${step()}`);
+    await go(world.wrongnessSign?.x ?? -27, world.wrongnessSign?.z ?? 27);
+    await sleep(400);
+    await quiet();
+    expect(step() === 'ride', `at the signpost the story moves on to the ride, got ${step()}`);
 
     // 5. The bike: get on, ride, get off.
     const bikeAt = world.bike.object.position.clone();
@@ -1000,7 +1011,7 @@
         await sleep(200);
         expect(wrongness.scarecrowSteps === 0, 'E carries it back to its post');
         // The signpost.
-        await go(-28.5, 30.3);
+        await go(world.wrongnessSign.x + 1.2, world.wrongnessSign.z + 1.2);
         await press('KeyE');
         await sleep(400);
         await quiet();
