@@ -23,7 +23,7 @@ export const ORDER_BOOK = [
         name: 'A better pot',
         icon: ':pot:',
         levels: [
-            { cost: 180, name: 'Iron pot', description: 'Cooks chowder, omelettes and pale broth.' },
+            { cost: 180, name: 'Iron pot', description: 'Cooks chowder, omelettes, pale broth and bloom tea.' },
             { cost: 450, name: 'Cauldron', description: 'Cooks pumpkin pie and Hollowveil stew.' },
         ],
     },
