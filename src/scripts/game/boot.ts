@@ -54,12 +54,12 @@ import { LANTERN, setupLanterns } from './lanterns';
 import { setupScarecrows } from './scarecrows';
 import { setupRegulars } from './regulars';
 import { REGULARS } from '../content/regulars';
-import { setupWrongness } from './wrongness';
+import { SIGN_SPOT, setupWrongness } from './wrongness';
 import { STAY_SLIDES, WAKE_SLIDES, setupEnding } from './ending';
 import { HELD_PLACEHOLDER, setupPlates, type PlatesHandle } from './plates';
 import { OMEN_THOUGHTS, setupOmens } from './omens';
 import { setupDread } from './dread';
-import { INTRO, setupStory } from './story';
+import { INTRO, setupTutorial } from './tutorial';
 import { worded } from './wording';
 import { setupWeather } from './weather';
 import { setupWhispers } from './whispers';
@@ -1007,12 +1007,12 @@ export async function boot(): Promise<void> {
         canEnter: () => (bike.mounted ? 'The bicycle stays outside' : dayCycle.stalled ? 'You need to sleep. Go home to bed.' : undefined),
         onEnter: () => {
             plates?.setPlace('The barn');
-            think('barn', ["Straw, old wood, one lamp. And quiet. The first real quiet since I woke up here.", "Nothing's ever followed me in. I don't think they know it has an inside."]);
+            think('barn', ["Straw, horses, one lamp. This place seems safe."]);
         },
         onLeave: () => plates?.setPlace(safeZones.zoneAt(game.player?.position ?? barn.floor)?.name),
     });
-    chestMesh.position.set(3.6, 0, 2.2);
-    chestMesh.rotation.y = -Math.PI / 2;
+    chestMesh.position.set(-5.6, 0, 4.9);
+    chestMesh.rotation.y = Math.PI;
     barn.room.add(chestMesh);
     game.interactions.add(chestMesh, { prompt: 'Open the chest', range: 2.4, onInteract: () => chestPack.open() });
 
@@ -1179,11 +1179,11 @@ export async function boot(): Promise<void> {
     });
 
     /**
-     * Until the first night is behind the farmer, the Hollow keep their distance:
+     * Until the first day's lessons are over, the Hollow keep their distance:
      * a few wander the valley and can be met, but none come looking, and the
      * whole farm is ground they stay off. After that only the lit places are.
      */
-    const hunting = (): boolean => story.story.completed.some((step) => step.id === 'sleep');
+    const hunting = (): boolean => story.over;
     let quietFarm: (() => void) | undefined = safeZones.add({ position: { x: FARM.centre.x, y: 0, z: FARM.centre.z }, radius: 31, name: 'The farm', ring: false });
     function endQuiet(): void {
         if (!quietFarm || !hunting()) return;
@@ -1191,7 +1191,7 @@ export async function boot(): Promise<void> {
         quietFarm = undefined;
         // The ones already out there were made harmless; let them go and the real ones come.
         population.clear();
-        think('yard', ["Tracks in the yard this morning. Right up to the field.", "So they come onto the farm now. Only the porch light and the barn lamp keep them off."]);
+        think('yard', ["The fog's moving differently now. Closer. As if it's stopped waiting to see what I'd do.", "From here on they'll come looking. The porch light, the barn lamp, the village lamps: that's where I'm safe."]);
     }
 
     // They kill. The farmer is found, days later, and wakes in the infirmary with nothing but their tools.
@@ -1597,7 +1597,26 @@ export async function boot(): Promise<void> {
         },
     });
 
-    const story = setupStory(game, narration, {
+    // The paper lies in front of the scarecrow by the field, a little clear of everything else.
+    const NOTE_SPOT = { x: -49.3, z: 42 };
+    const story = setupTutorial(game, {
+        narration,
+        farm,
+        bike,
+        noteSpot: at(NOTE_SPOT, 0.07),
+        signSpot: SIGN_SPOT,
+        think,
+        say: (line) => game.toasts.push(line, { color: '#e8e0c8' }),
+        onNote: () => {
+            juice.chime('tick');
+            synth.tone({ frequency: 70, duration: 1.4, type: 'sawtooth', gain: 0.1, sweep: 0.6 });
+            think('note', [
+                "A sheet of paper, weighed down with a stone. Brown, dry letters, done with a finger:",
+                '"THEY STOP AT THE LIGHT. REMEMBER THAT."',
+                "That isn't ink. Somebody wanted me to know it badly enough to bleed for it. Lamps, candles, a lit porch. I'll remember.",
+            ]);
+        },
+        facts: {
         planted: () => farm.plantedCount + tally.harvested,
         watered: () => farm.plots.filter((plot) => plot.watered || plot.ripe).length + tally.harvested,
         wood: () => tally.wood,
@@ -1613,9 +1632,11 @@ export async function boot(): Promise<void> {
         bestHearts: () => Math.max(...VILLAGERS.map((villager) => villagers.relationships.hearts(villager.id))),
         metPell: () => letters.metPell,
         noteRead: () => thoughts.has('note'),
+        potBusy: () => cookpot.station.busy || cookpot.station.ready.length > 0,
         reward: (amount) => {
             coins.add(amount);
             game.toasts.push(`+${coin(amount)}`, { color: '#ffe08a' });
+        },
         },
     });
     const journal = setupJournal(game, {
@@ -1645,17 +1666,18 @@ export async function boot(): Promise<void> {
     });
 
     // The compass: home, the village, and wherever the current task is.
-    const NOTE_SPOT = { x: FARM.field.x + 2.4, z: FARM.field.z + 5.4 };
     const fieldCentre = { x: FARM.field.x + 2.4, z: FARM.field.z + 1.6 };
     const mailboxSpot = { x: FARM.door.x + 1.5, z: FARM.door.z + 3.2 };
     const TARGETS: Record<string, { x: number; z: number }> = {
         wake: fieldCentre,
         plant: fieldCentre,
-        water: fieldCentre,
+        water: FARM.well,
         harvest: fieldCentre,
         note: NOTE_SPOT,
         chop: FARM.orchard[0] as { x: number; z: number },
         cook: FARM.hearth,
+        take: FARM.hearth,
+        sign: SIGN_SPOT,
         ride: VILLAGE.center,
         meet: { x: VILLAGE.center.x - 6, z: VILLAGE.center.z + 4 },
         sleep: FARM.door,
@@ -1737,7 +1759,6 @@ export async function boot(): Promise<void> {
             if (nearest && nearest.root.position.distanceTo(player) < 9 && !safeZones.playerSafe) think('hollow', ["It's seen me.", "It's slow. I'm not. If I walk away it loses interest."]);
             if (!thoughts.has('first-hollow') && hollowInView()) think('first-hollow', ["There. Out past the trees. That's not a person. It stands like a coat on a hook.", "It isn't coming any closer. Something about the lamps, I think. It stays where the light stops."]);
             safeLight.visible = thoughts.has('first-hollow');
-            note.visible = noteOut();
         },
     });
 
@@ -1784,75 +1805,6 @@ export async function boot(): Promise<void> {
             seen.copy(enemy.root.position).setY(enemy.root.position.y + 1.2).project(game.camera);
             return seen.z < 1 && Math.abs(seen.x) < 0.85 && Math.abs(seen.y) < 0.85;
         });
-
-    /**
-     * A sheet of paper by the field, written in something that was not ink. It is there once
-     * the first crop is in, and it is the last lesson: until it is read, the farm is all there is.
-     */
-    const noteCanvas = document.createElement('canvas');
-    noteCanvas.width = 64;
-    noteCanvas.height = 80;
-    const notePaint = noteCanvas.getContext('2d');
-    if (notePaint) {
-        notePaint.fillStyle = '#cfc6a8';
-        notePaint.fillRect(0, 0, 64, 80);
-        notePaint.fillStyle = '#5c1410';
-        for (const [x, y, w] of [[8, 14, 46], [10, 26, 38], [8, 38, 30], [9, 54, 44], [12, 66, 26]] as Array<[number, number, number]>) notePaint.fillRect(x, y, w, 4);
-        notePaint.fillStyle = '#7a1a12';
-        for (const [x, y, r] of [[50, 60, 9], [14, 72, 6], [56, 8, 4], [40, 46, 3]] as Array<[number, number, number]>) {
-            notePaint.beginPath();
-            notePaint.arc(x, y, r, 0, Math.PI * 2);
-            notePaint.fill();
-        }
-    }
-    const noteTexture = new THREE.CanvasTexture(noteCanvas);
-    noteTexture.magFilter = THREE.NearestFilter;
-    noteTexture.colorSpace = THREE.SRGBColorSpace;
-    const note = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1), new THREE.MeshStandardMaterial({ map: noteTexture, roughness: 1, emissive: 0xffffff, emissiveMap: noteTexture, emissiveIntensity: 0.35, side: THREE.DoubleSide }));
-    note.name = 'bloody-note';
-    note.rotation.set(-Math.PI / 2 + 0.06, 0, 0.5);
-    note.position.copy(at(NOTE_SPOT, 0.07));
-    note.visible = false;
-    game.scene.add(note);
-    const noteOut = (): boolean => !thoughts.has('note') && tally.harvested >= 2;
-    game.interactions.add(note, {
-        prompt: 'Read the paper',
-        range: 2.2,
-        canInteract: noteOut,
-        onInteract: () => {
-            juice.chime('tick');
-            synth.tone({ frequency: 70, duration: 1.4, type: 'sawtooth', gain: 0.1, sweep: 0.6 });
-            think('note', [
-                "A sheet of paper under a stone, at the end of the row. It wasn't there when I planted.",
-                'Brown, dry letters, done with a finger: "THEY STOP AT THE LIGHT. REMEMBER THAT."',
-                "That isn't ink. Somebody wanted me to know this badly enough to bleed for it. Fine. Lamps, candles, a lit porch. I'll remember.",
-            ]);
-        },
-    });
-
-    /** Until the note is read nobody leaves the farm: the lessons come first. */
-    const FARM_EDGE = 27;
-    let turnedBack = 0;
-    game.systems.add({
-        name: 'farm-edge',
-        order: SYSTEM_ORDER.GAMEPLAY + 9,
-        update: (delta) => {
-            turnedBack -= delta;
-            const player = game.player;
-            if (!player || thoughts.has('note')) return;
-            const x = player.position.x - FARM.centre.x;
-            const z = player.position.z - FARM.centre.z;
-            const out = Math.hypot(x, z);
-            if (out <= FARM_EDGE) return;
-            if (bike.mounted) bike.dismount();
-            const pull = (FARM_EDGE - 0.6) / out;
-            player.body.teleport({ x: FARM.centre.x + x * pull, y: player.position.y, z: FARM.centre.z + z * pull });
-            if (turnedBack > 0) return;
-            turnedBack = 5;
-            think('fenced', ["No. I can't see ten steps into that, and I've got an empty stomach and empty pockets.", "First I get something out of this field and into a pot. Then I'll go and see where the road goes."]);
-            game.toasts.push(tally.harvested >= 2 ? 'There is a paper lying by the field' : 'Not yet. Grow something first', { color: '#e8e0c8' });
-        },
-    });
 
     //#endregion Story, notebook and thoughts
 
@@ -2075,6 +2027,8 @@ export async function boot(): Promise<void> {
         describe: (save) => `day ${(save.data.hollowveil as Saved | undefined)?.day ?? 1}`,
         onNewGame: () => {
             faceHome();
+            // The can comes empty: filling it at the well is the first thing it teaches.
+            can.left = 0;
             void narration.speak(INTRO.map(say));
         },
         onContinue: () => villagers.snapToSchedule(),
@@ -2106,7 +2060,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, blooms, craving, dog, fishing, dig, found, finds, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
+    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, wrongnessSign: SIGN_SPOT, blooms, craving, dog, fishing, dig, found, finds, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         weather,

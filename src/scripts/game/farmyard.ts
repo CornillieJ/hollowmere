@@ -28,15 +28,15 @@ export function buildFarmyard(game: Game, root: THREE.Object3D, terrain: Terrain
         return object;
     };
 
-    // A tool shed north of the fields, and an outhouse nobody has opened in a while.
-    put(modelled(game, 'shed', boxHouse(0x4a3e34, 0x2a2420, 3.2)), -39, 27, 0.2);
+    // A tool shed behind the west end of the field fence, out of the way of the road, and an outhouse nobody has opened in a while.
+    put(modelled(game, 'shed', boxHouse(0x4a3e34, 0x2a2420, 3.2)), -61.5, 22.5, 0.2);
     // The outhouse is the same shed at half the size.
     const outhouse = modelled(game, 'shed', boxHouse(0x54463a, 0x2a2420, 3));
     outhouse.scale.set(0.5, 0.8, 0.55);
     put(outhouse, -67, 62.5, 0.4);
 
     put(modelled(game, 'woodpile', woodpile()), -63.5, 43.5, 0.3);
-    put(modelled(game, 'woodpile', woodpile()), -41.5, 26.2, 1.7);
+    put(modelled(game, 'woodpile', woodpile()), -58.5, 22.6, 1.7);
     for (const [x, z, yaw] of [
         [-33, 46.2, 0.2],
         [-31.4, 47.6, 1.1],
@@ -50,7 +50,7 @@ export function buildFarmyard(game: Game, root: THREE.Object3D, terrain: Terrain
         [-45, 60.2],
         [-46.1, 61],
         [-45.4, 61.4],
-        [-36.5, 33],
+        [-44.2, 61.6],
     ] as Array<[number, number]>) {
         put(modelled(game, 'crate', crate()), x, z, x * 0.7);
     }

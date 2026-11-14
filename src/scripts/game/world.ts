@@ -245,6 +245,7 @@ const ROCK = new THREE.Color(0x56534e);
 const ROAD_DIRT = new THREE.Color(0x6a5640);
 const COBBLE = new THREE.Color(0x8b8780);
 const YARD = new THREE.Color(0x7a6a4c);
+const RUTS = new THREE.Color(0x3a2c1e);
 const SHORE = new THREE.Color(0x2c302a);
 const scratch = new THREE.Color();
 
@@ -263,7 +264,10 @@ function paint(x: number, z: number, height: number, slope: number): THREE.Color
     const yard = Math.hypot(x - FARM.centre.x, z - FARM.centre.z);
     scratch.lerp(YARD, (1 - THREE.MathUtils.smoothstep(yard, 21, 26)) * 0.8);
     scratch.lerp(ROAD_DIRT, (1 - THREE.MathUtils.smoothstep(distanceToPath(x, z), 0.9, 2)) * 0.85);
-    scratch.lerp(ROAD_DIRT, 1 - THREE.MathUtils.smoothstep(distanceToRoad(x, z), 2.2, 3.4));
+    const road = distanceToRoad(x, z);
+    scratch.lerp(ROAD_DIRT, 1 - THREE.MathUtils.smoothstep(road, 2.2, 3.4));
+    // On the yard's packed earth the road would be lost: worn darker there, so the way out reads from the field.
+    scratch.lerp(RUTS, (1 - THREE.MathUtils.smoothstep(road, 2, 3.2)) * (1 - THREE.MathUtils.smoothstep(yard, 30, 44)));
     // Cobbles last: inside the wall the ground is plainly not the wild.
     const village = Math.hypot(x - VILLAGE.center.x, z - VILLAGE.center.z);
     scratch.lerp(COBBLE, 1 - THREE.MathUtils.smoothstep(village, VILLAGE.wallRadius - 2.5, VILLAGE.wallRadius - 0.5));
