@@ -17,7 +17,9 @@ export type DogOptions = {
     /** True from the day it arrives. */
     here: () => boolean;
     growl: () => void;
-    onPet: (position: THREE.Vector3, first: boolean) => void;
+    /** `gift` is true the first time it is petted on a day: it has brought something. */
+    onPet: (position: THREE.Vector3, first: boolean, gift: boolean) => void;
+    day: () => number;
     onArrive: () => void;
 };
 
@@ -84,6 +86,7 @@ export function setupDog(game: Game, options: DogOptions): DogHandle {
     game.scene.add(dog.root);
     let arrived = false;
     let pets = 0;
+    let giftDay = 0;
     let alert = false;
     let stride = 0;
     let growlIn = 0;
@@ -96,7 +99,9 @@ export function setupDog(game: Game, options: DogOptions): DogHandle {
         enabled: false,
         onInteract: () => {
             pets += 1;
-            options.onPet(dog.root.position.clone().setY(dog.root.position.y + 0.9), pets === 1);
+            const gift = giftDay !== options.day();
+            giftDay = options.day();
+            options.onPet(dog.root.position.clone().setY(dog.root.position.y + 0.9), pets === 1, gift);
         },
     });
 
@@ -159,7 +164,14 @@ export function setupDog(game: Game, options: DogOptions): DogHandle {
         },
     });
 
-    game.save.register('dog', { save: () => pets, load: (data) => (pets = typeof data === 'number' ? data : 0) });
+    game.save.register('dog', {
+        save: () => ({ pets, giftDay }),
+        load: (data) => {
+            const saved = (typeof data === 'object' && data ? data : {}) as { pets?: number; giftDay?: number };
+            pets = saved.pets ?? 0;
+            giftDay = saved.giftDay ?? 0;
+        },
+    });
 
     return {
         object: dog.root,

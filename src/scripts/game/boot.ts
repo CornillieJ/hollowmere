@@ -330,7 +330,7 @@ export async function boot(): Promise<void> {
     game.save.register('finds', { save: () => [...found], load: (data) => (found.clear(), (Array.isArray(data) ? (data as string[]) : []).forEach((id) => found.add(id))) });
     /** The chance per harvest. A test sets it to 0 so its counts stay its own. */
     const finds = { chance: 0.07 };
-    function dig(position: THREE.Vector3, sure = false): string | undefined {
+    function dig(position: THREE.Vector3, sure = false, how = 'Dug up in the field.'): string | undefined {
         // Not before the first lessons are over, and the ones not yet seen come first.
         if (!sure && (tally.harvested < 6 || Math.random() > finds.chance)) return undefined;
         const fresh = FINDS.filter((id) => !found.has(id));
@@ -339,7 +339,7 @@ export async function boot(): Promise<void> {
         const isNew = !found.has(itemId);
         found.add(itemId);
         const item = pockets.inventory.registry.resolve(itemId);
-        juice.banner(`${item.icon ?? ''} ${item.name}`, isNew ? `Dug up in the field. ${found.size} of ${FINDS.length} found.` : 'Another one, under the same row.', { color: '#e8d8a0', seconds: 4 });
+        juice.banner(`${item.icon ?? ''} ${item.name}`, isNew ? `${how} ${found.size} of ${FINDS.length} found.` : 'Another one, under the same row.', { color: '#e8d8a0', seconds: 4 });
         juice.chime('fanfare');
         juice.sparkle(position.clone().setY(position.y + 0.5), 0xe8d8a0, 16);
         game.effects.shakeCamera(0.08);
@@ -1718,10 +1718,21 @@ export async function boot(): Promise<void> {
             synth.tone({ frequency: 82, duration: 0.7, type: 'sawtooth', gain: 0.05, sweep: 0.85 });
             think('dog-growl', ["The dog's gone stiff. It's growling at the fog, and I can't see a thing out there.", "It can smell them before I can see them. That's worth more than the lamp."]);
         },
-        onPet: (position, first) => {
+        day: () => dayCycle.day,
+        onPet: (position, first, gift) => {
             juice.sparkle(position, 0xff9ab0, 8);
             juice.chime('tick');
             body.play('reach');
+            // The first petting of the day is paid for: it has been out, and it brings what it found.
+            if (gift && !first) {
+                const roll = Math.random();
+                const brought = roll < 0.12 ? dig(position, true, 'The dog brought it in.') : undefined;
+                if (!brought) {
+                    const [itemId, amount] = (roll < 0.55 ? ['wood', 2] : roll < 0.8 ? ['mushroom', 1] : ['egg', 1]) as [string, number];
+                    if (give(itemId, amount)) juice.reward(position, `+${amount} ${nameOf(itemId).toLowerCase()}`);
+                    game.toasts.push('The dog drops something at your feet and looks pleased with itself', { color: '#ffc8d8' });
+                }
+            }
             if (first) think('dog-pet', ["Thin as a rake, and it leans on my leg like it's known me for years.", "All right. You can stay. I don't know what I'll call you."]);
         },
         onArrive: () => think('dog', ["There's a dog on the porch. Grey, thin, one ear down. It looks at me as if I were late.", "It isn't afraid of the fog. I wish I knew whether that was a good sign. (Press E to pet it. It follows you, and it growls when one of them is near.)"]),

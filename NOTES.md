@@ -276,3 +276,4 @@ Work on branch `fun-iteration`, one addition per commit.
 3. The day's craving: `craving()` in `boot.ts` picks 1 thing the farm can make each day. The stall and the crate pay double for it, a request for it pays 50% more. Chalkboard by the store and a row in the morning panel.
 4. The dog (`dog.ts`): arrives on day 2, follows, can be petted, and goes stiff and growls when a Hollow is within 24 m and the farmer is not in a safe place.
 5. Finds: 7% of harvests (after the 6th crop) turn up 1 of 8 buried things (`FINDS` in `content/items.ts`, `dig()` in `boot.ts`), unseen ones first. Worth 100 to 320c, listed in the notebook, deed `finds` for all 8. Probes set `world.finds.chance = 0`.
+6. The dog brings a gift the first time it is petted each day: 2 wood, a pale cap, an egg, or (12%) a find.
