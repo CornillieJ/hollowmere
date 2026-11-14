@@ -291,3 +291,7 @@ Work on branch `fun-iteration`, one addition per commit.
 - Barnaby asks for the first dish that leaves the pot (`firstDish` in `boot.ts`).
 - The road goes round the south side of the barn. North fence runs unbroken to the barn's corner. Shed is inside the fence.
 - Horses are Blender models `horse-bay` and `horse-black` (parts `neck`, `tail`).
+
+## Batch 21: item pictures
+
+- Every item has its own coloured picture: `icon: ':item-<id>:'`, a 32 px PNG in `static/icons/items/`. The drawings are SVG in `tools/item-art.mjs`; `node tools/build-item-art.mjs [sheet.png]` renders them (and a contact sheet). Item badges are gone. A new item needs an entry in `ART` and a rebuild.
