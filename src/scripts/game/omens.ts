@@ -15,7 +15,7 @@ type Omen = { kind: OmenKind; x: number; z: number; fromDay: number; yaw?: numbe
 /** Mostly along the road and across the open ground between it and the pool. */
 const OMENS: Omen[] = [
     { kind: 'blood', x: -30, z: 33, fromDay: 2 },
-    { kind: 'boot', x: -29, z: 34.5, fromDay: 2, yaw: 0.8 },
+    { kind: 'boot', x: -17, z: 19.5, fromDay: 2, yaw: 0.8 },
     { kind: 'trail', x: -2, z: 9, fromDay: 3, yaw: 2.3 },
     { kind: 'basket', x: 14, z: -7, fromDay: 3 },
     { kind: 'blood', x: 15.5, z: -6, fromDay: 3 },
