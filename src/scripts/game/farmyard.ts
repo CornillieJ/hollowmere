@@ -16,6 +16,9 @@ const WOOD = new THREE.MeshStandardMaterial({ color: 0x4e4032, roughness: 1, fla
 const DARK = new THREE.MeshStandardMaterial({ color: 0x2c2620, roughness: 1, flatShading: true });
 const STRAW = new THREE.MeshStandardMaterial({ color: 0x9a8a52, roughness: 1, flatShading: true });
 
+/** The north fence. */
+const FENCE_Z = 25.2;
+
 type Context = { game: Game; root: THREE.Object3D; terrain: Terrain; solids: THREE.Box3[] };
 
 export function buildFarmyard(game: Game, root: THREE.Object3D, terrain: Terrain, solids: THREE.Box3[]): { scarecrow: THREE.Object3D } {
@@ -28,18 +31,18 @@ export function buildFarmyard(game: Game, root: THREE.Object3D, terrain: Terrain
         return object;
     };
 
-    // A tool shed behind the west end of the field fence, out of the way of the road, and an outhouse nobody has opened in a while.
-    put(modelled(game, 'shed', boxHouse(0x4a3e34, 0x2a2420, 3.2)), -61.5, 22.5, 0.2);
+    // A tool shed in the north west corner, inside the fence, and an outhouse nobody has opened in a while.
+    put(modelled(game, 'shed', boxHouse(0x4a3e34, 0x2a2420, 3.2)), -60.5, 29, 0.2);
     // The outhouse is the same shed at half the size.
     const outhouse = modelled(game, 'shed', boxHouse(0x54463a, 0x2a2420, 3));
     outhouse.scale.set(0.5, 0.8, 0.55);
     put(outhouse, -67, 62.5, 0.4);
 
     put(modelled(game, 'woodpile', woodpile()), -63.5, 43.5, 0.3);
-    put(modelled(game, 'woodpile', woodpile()), -58.5, 22.6, 1.7);
+    put(modelled(game, 'woodpile', woodpile()), -60.6, 32.2, 1.7);
     for (const [x, z, yaw] of [
-        [-33, 46.2, 0.2],
-        [-31.4, 47.6, 1.1],
+        [-40.6, 42.4, 0.2],
+        [-28.4, 48.4, 1.1],
         [-43.5, 39.5, 0.6],
         [-58, 40, 1.4],
     ] as Array<[number, number, number]>) {
@@ -57,12 +60,28 @@ export function buildFarmyard(game: Game, root: THREE.Object3D, terrain: Terrain
     const yardScarecrow = put(modelled(game, 'scarecrow', scarecrow()), -48, 40.2, Math.PI, false);
     washingLine(context, { x: -57, z: 62 }, { x: -52.5, z: 63.2 });
 
-    // A fence along the north of the fields, with a gap a cart, or anything else, can come through.
-    for (const x of [-58, -54, -50, -42, -38]) {
-        const fence = railFence(4);
-        put(fence, x, 25.2, 0, false);
-        game.physics.add({ kind: 'fixed', shape: { type: 'box', size: { x: 4, y: 1.2, z: 0.2 } }, position: new THREE.Vector3(x, terrain.heightAt(x, 25.2) + 0.6, 25.2), syncObject: false, tag: 'wall' });
-    }
+    // A fence along the north of the fields. The short run is turned a little and joined to the long one: no gap.
+    const run = (from: { x: number; z: number }, to: { x: number; z: number }, pieces: number): void => {
+        const length = Math.hypot(to.x - from.x, to.z - from.z) / pieces;
+        const yaw = Math.atan2(-(to.z - from.z), to.x - from.x);
+        for (let piece = 0; piece < pieces; piece += 1) {
+            const t = (piece + 0.5) / pieces;
+            const x = from.x + (to.x - from.x) * t;
+            const z = from.z + (to.z - from.z) * t;
+            put(railFence(length), x, z, yaw, false);
+            for (let post = 0; post < 4; post += 1) {
+                const along = ((post + 0.5) / 4 - 0.5) * length;
+                const px = x + Math.cos(yaw) * along;
+                const pz = z - Math.sin(yaw) * along;
+                game.physics.add({ kind: 'fixed', shape: { type: 'box', size: { x: length / 4 + 0.1, y: 1.2, z: 0.3 } }, position: new THREE.Vector3(px, terrain.heightAt(px, pz) + 0.6, pz), syncObject: false, tag: 'wall' });
+            }
+        }
+    };
+    const corner = { x: -40.4, z: 22.8 };
+    run({ x: -60, z: FENCE_Z }, { x: -48, z: FENCE_Z }, 3);
+    run({ x: -48, z: FENCE_Z }, corner, 2);
+    // And on to the barn's corner: the farm is closed along the north, and the way out is the road south of the barn.
+    run(corner, { x: -34.6, z: 33.6 }, 3);
     return { scarecrow: yardScarecrow };
 }
 

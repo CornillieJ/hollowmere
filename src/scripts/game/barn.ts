@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+import { modelled } from './models';
+
 import { SYSTEM_ORDER } from '../core/systems';
 import type { Atmosphere } from '../fx/atmosphere';
 
@@ -43,7 +45,7 @@ const HEIGHT = 90;
 /** Roomier than the barn looks from the yard. Nobody inside has ever said so. */
 const SIZE = { x: 16, y: 4.8, z: 12 };
 
-type Horse = { root: THREE.Group; neck: THREE.Object3D; tail: THREE.Object3D };
+type Horse = { root: THREE.Group; neck: THREE.Object3D; tail: THREE.Object3D; rest: number };
 
 /** A horse from boxes, facing +z, head over the stall gate. */
 function buildHorse(color: number): Horse {
@@ -81,7 +83,7 @@ function buildHorse(color: number): Horse {
     strands.position.y = -0.45;
     tail.add(strands);
     root.add(tail);
-    return { root, neck, tail };
+    return { root, neck, tail, rest: 0 };
 }
 
 export function setupBarn(game: Game, options: BarnOptions): BarnHandle {
@@ -144,11 +146,6 @@ export function setupBarn(game: Game, options: BarnOptions): BarnHandle {
         bale.castShadow = true;
         room.add(bale);
     }
-    const floorStraw = new THREE.Mesh(new THREE.PlaneGeometry(SIZE.x - 1, SIZE.z - 1), new THREE.MeshStandardMaterial({ color: 0x7a6a3c, roughness: 1, transparent: true, opacity: 0.35 }));
-    floorStraw.rotation.x = -Math.PI / 2;
-    floorStraw.position.y = 0.01;
-    room.add(floorStraw);
-
     // 2 stalls against the east wall, a horse in each.
     for (const z of [-3.2, 1.2, 5.6]) slab(new THREE.Vector3(3.2, 1.5, 0.15), new THREE.Vector3(SIZE.x / 2 - 1.6, 0.75, z - 1), planks);
     for (const z of [-2.2, 2.2]) {
@@ -157,6 +154,15 @@ export function setupBarn(game: Game, options: BarnOptions): BarnHandle {
         room.add(gate);
         game.physics.add({ kind: 'fixed', shape: { type: 'box', size: { x: 0.2, y: 1.6, z: 4.4 } }, position: new THREE.Vector3(SIZE.x / 2 - 3.3, 0.8, z + 0.2).add(floor), syncObject: false, tag: 'wall' });
         const horse = buildHorse(z < 0 ? 0x5a3a26 : 0x2c2622);
+        // The modelled horse takes the stand-in's place, and its neck and tail are the ones that move from then on.
+        modelled(game, z < 0 ? 'horse-bay' : 'horse-black', horse.root);
+        horse.root.addEventListener('modelled' as never, () => {
+            horse.neck.removeFromParent();
+            horse.tail.removeFromParent();
+            horse.neck = horse.root.getObjectByName('neck') ?? horse.neck;
+            horse.tail = horse.root.getObjectByName('tail') ?? horse.tail;
+            horse.rest = horse.neck.rotation.x;
+        });
         horse.root.position.set(SIZE.x / 2 - 1.7, 0, z + 0.2);
         horse.root.rotation.y = -Math.PI / 2;
         room.add(horse.root);
@@ -168,7 +174,7 @@ export function setupBarn(game: Game, options: BarnOptions): BarnHandle {
             if (!inside) return;
             const now = performance.now() / 1000;
             horses.forEach((horse, index) => {
-                horse.neck.rotation.x = -0.5 + Math.max(0, Math.sin(now * 0.4 + index * 2)) * 0.9;
+                horse.neck.rotation.x = horse.rest + Math.max(0, Math.sin(now * 0.4 + index * 2)) * 0.5;
                 horse.tail.rotation.z = Math.sin(now * 2.2 + index) * 0.35;
             });
         },

@@ -72,7 +72,10 @@ export const PLACES = {
 /** The road as a polyline from the farm gate to the village square. */
 export const ROAD: Array<{ x: number; z: number }> = [
     { x: -44, z: 46 },
-    { x: -26, z: 30 },
+    // Round the south side of the barn, between it and the pen, then north east.
+    { x: -34, z: 45 },
+    { x: -21, z: 42.5 },
+    { x: -14, z: 26 },
     { x: -8, z: 16 },
     { x: 8, z: 0 },
     { x: 22, z: -16 },

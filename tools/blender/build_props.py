@@ -574,6 +574,48 @@ def shed():
 STAGES = {"turnip": 3, "wheat": 3, "corn": 4, "pumpkin": 4}
 
 
+def horse(coat, mane, blaze):
+    """A farm horse, heavy in the body, head over the stall gate. The neck and the tail are parts of their own, hinged where they join."""
+
+    def paint(atlas):
+        atlas.fill(A, coat, 0.22)
+        atlas.fill(B, mane, 0.3)
+        # The face: the coat, a blaze down the nose if it has one, and 2 dark eyes set wide.
+        atlas.fill(C, coat, 0.18)
+        if blaze:
+            for y in range(70, 126):
+                atlas.line(28, y, 35, y, (214, 206, 190))
+        atlas.fill(D, shade(coat, 0.55), 0.2)
+
+    def build():
+        body = Part("horse", (0, 0, 0))
+        # Barrel, chest and haunch: 3 boxes, so the back is not a plank.
+        body.box((0, 0, 1.32), (0.62, 1.5, 0.74), A)
+        body.box((0, -0.72, 1.38), (0.56, 0.5, 0.8), A, rotate=(0.12, 0, 0))
+        body.box((0, 0.74, 1.4), (0.66, 0.56, 0.78), A, rotate=(-0.1, 0, 0))
+        for x in (-0.2, 0.2):
+            for y, lean in ((-0.7, 0.04), (0.74, -0.06)):
+                body.box((x, y, 0.78), (0.19, 0.24, 0.6), A, rotate=(lean, 0, 0))
+                body.box((x, y + lean, 0.34), (0.13, 0.15, 0.5), D)
+                body.box((x, y + lean - 0.02, 0.06), (0.17, 0.22, 0.12), B)
+        neck = Part("neck", (0, -0.86, 1.56))
+        neck.box((0, -1.08, 1.98), (0.3, 0.44, 0.92), A, rotate=(0.62, 0, 0))
+        neck.box((0, -1.42, 2.36), (0.27, 0.36, 0.34), C)
+        neck.box((0, -1.72, 2.22), (0.21, 0.4, 0.24), C, rotate=(0.5, 0, 0))
+        neck.box((0, -1.9, 2.1), (0.19, 0.12, 0.17), D, rotate=(0.5, 0, 0))
+        for x in (-0.09, 0.09):
+            neck.box((x, -1.3, 2.6), (0.06, 0.07, 0.17), A, rotate=(-0.2, 0, x * 2))
+            neck.box((x * 1.55, -1.5, 2.4), (0.03, 0.07, 0.07), B)
+        # The mane, lying down one side of the neck, and a forelock.
+        neck.box((0.03, -0.92, 2.1), (0.1, 0.2, 0.9), B, rotate=(0.62, 0, 0))
+        neck.box((0, -1.5, 2.56), (0.12, 0.2, 0.08), B, rotate=(0.4, 0, 0))
+        tail = Part("tail", (0, 1.0, 1.66))
+        tail.box((0, 1.06, 1.24), (0.13, 0.14, 0.9), B, rotate=(-0.12, 0, 0))
+        return [body, neck, tail]
+
+    return paint, build
+
+
 def crop(kind):
     green = (86, 124, 74)
 
@@ -728,6 +770,8 @@ PROPS = {
     "stone": stone(),
     "mushrooms": mushrooms(),
     "shed": shed(),
+    "horse-bay": horse((112, 70, 44), (26, 20, 18), True),
+    "horse-black": horse((44, 38, 36), (14, 12, 12), False),
     "crop-turnip": crop("turnip"),
     "crop-wheat": crop("wheat"),
     "crop-corn": crop("corn"),

@@ -70,6 +70,7 @@ import { setupJournal } from './journal';
 import { setupLetters } from './letters';
 import { DAYS_LOST, ESCAPE, setupEscape } from './escape';
 import { setupBlooms } from './blooms';
+import { setupDevMode } from './devmode';
 import { setupDog } from './dog';
 import { setupFishing } from './fishing';
 import { setupHappenings } from './happenings';
@@ -576,6 +577,17 @@ export async function boot(): Promise<void> {
     });
 
     // What the pot can make: the dishes anyone knows, and the ones a villager has taught.
+    /**
+     * Whatever comes out of the pot first is what Barnaby asks for: the first delivery
+     * is then always something the farmer is already carrying up the road.
+     */
+    function firstDish(itemId: string): void {
+        const board = villagers.requests;
+        if (!board || board.completed > 0) return;
+        for (const request of board.from('barnaby')) board.open.splice(board.open.indexOf(request), 1);
+        const dish = pockets.inventory.registry.resolve(itemId);
+        board.open.unshift({ id: 100000 + dayCycle.day, from: 'barnaby', itemId, amount: 1, reward: Math.max(40, Math.round((dish.price ?? 50) * 0.8)), friendship: 30, dueDay: dayCycle.day + 3, text: `Is that ${dish.name.toLowerCase()} I smell? Hot? I will take 1 off you, and pay for it. Call it a welcome.`, tier: 0, deposit: 0, accepted: true });
+    }
     const potRecipes = [...COOKING];
     const regulars = setupRegulars({
         day: () => dayCycle.day,
@@ -650,6 +662,7 @@ export async function boot(): Promise<void> {
             juice.sparkle(refs.spots.hearth.position.clone().setY(refs.spots.hearth.position.y + 1.3), 0xffd9a0, 16);
         },
         onCollected: (itemId, amount) => {
+            if (tally.cooked === 0) firstDish(itemId);
             tally.cooked += 1;
             today.cooked += 1;
             warmth.collected(itemId, amount);
@@ -2002,8 +2015,58 @@ export async function boot(): Promise<void> {
     });
     game.save.register('coins', { save: () => coins.value(), load: (value) => coins.set(Number(value ?? 20)) });
 
+    // Typed into the code field in the settings: shortcuts for trying things out.
+    const skipTo = (last: string): void => {
+        const ids = story.story.steps.map((step) => step.id);
+        while (story.story.current && ids.indexOf(story.story.current.id) <= ids.indexOf(last)) story.story.complete();
+        for (const id of ['note', 'fenced', 'first-hollow']) thoughts.add(id);
+        tally.harvested = Math.max(tally.harvested, 2);
+        tally.wood = Math.max(tally.wood, 1);
+        tally.cooked = Math.max(tally.cooked, 1);
+        can.left = canSize();
+        narration.clear();
+    };
+    const nearPlayer = (ahead: number): { x: number; z: number } => {
+        const forward = world.controls.look.forward();
+        const spot = game.player?.position ?? at(FARM.start);
+        return { x: spot.x + forward.x * ahead, z: spot.z + forward.z * ahead };
+    };
+    const moveTo = (spot: { x: number; z: number }): void => {
+        if (bike.mounted) bike.dismount();
+        if (barn.inside) barn.leave();
+        world.player.body.teleport(at(spot, 0.3));
+        world.controls.snap();
+    };
+    const devmode = setupDevMode(game, [
+        { label: 'Skip tutorial (free to leave the farm)', run: () => (skipTo('take'), void give('turnip-soup', 1)) },
+        { label: 'Finish tutorial (the Hollow start hunting)', run: () => skipTo('deliver') },
+        ...[100, 1000, 10000].map((amount) => ({ label: `Give ${coin(amount)}`, run: () => coins.add(amount) })),
+        { label: 'Give seeds, wood and food', run: () => [...CROPS.map((crop) => [crop.seed as string, 10] as const), ['wood', 10] as const, ['turnip-soup', 3] as const, ['egg', 4] as const, ['milk', 4] as const, ['candle', 3] as const, ['lantern', 1] as const].forEach(([id, amount]) => void give(id, amount)) },
+        { label: 'Buy every upgrade', run: () => (coins.add(10000), upgrades.upgrades.definitions.forEach((definition) => definition.levels.forEach(() => upgrades.buy(definition.id)))) },
+        { label: 'Heal', run: () => game.player?.heal(999) },
+        { label: 'Trigger event: the village is ringed (siege)', run: () => happenings.trigger('siege') },
+        { label: 'Trigger event: the farm is overrun', run: () => happenings.trigger('overrun') },
+        { label: 'Weather: rain', run: () => weather.force('rain', 4) },
+        { label: 'Weather: thick Veil', run: () => weather.force('thick', 4) },
+        { label: 'Weather: clear night', run: () => weather.force('clear', 4) },
+        { label: 'Weather: stop', run: () => weather.stop() },
+        ...(['walker', 'crawler', 'watcher'] as HollowKind[]).map((kind) => ({ label: `Spawn a ${kind} ahead`, run: () => void spawnHollow(world.enemies, terrain.point(nearPlayer(12).x, nearPlayer(12).z, 0.4), { night: isNight(dayCycle), hunting: true, kind }) })),
+        { label: 'Remove every Hollow', run: () => population.clear() },
+        { label: 'Time: morning (07:00)', run: () => dayCycle.setHour(7) },
+        { label: 'Time: dusk (19:00)', run: () => dayCycle.setHour(19) },
+        { label: 'Time: night (23:00)', run: () => dayCycle.setHour(23) },
+        { label: 'Sleep to the next day', run: () => (world.flow.resume(), void goToBed()) },
+        { label: 'Go to the farm', run: () => moveTo(FARM.start) },
+        { label: 'Go to the village', run: () => moveTo({ x: VILLAGE.center.x - 4, z: VILLAGE.center.z + 6 }) },
+        { label: 'Go to Pell on the hill', run: () => moveTo({ x: PELL_SPOT.x + 2, z: PELL_SPOT.z + 2 }) },
+        { label: 'Go to the black pool', run: () => moveTo({ x: PLACES.pool.x - 10, z: PLACES.pool.z - 15 }) },
+        { label: 'Dig up a buried thing', run: () => void dig(game.player?.position ?? at(FARM.start), true) },
+        { label: 'Make the dog arrive now', run: () => (dayCycle.day = Math.max(2, dayCycle.day)) },
+    ]);
+
     const settings = addSettings(game, {
         namespace: 'hollowveil-farm',
+        console: devmode.code,
         fullscreen: true,
         volume: ['master', 'music', 'ambient', 'sfx'],
         settings: [
@@ -2045,6 +2108,7 @@ export async function boot(): Promise<void> {
             { label: 'Resume', primary: true, action: () => world.flow.resume() },
             saves.saveButton,
             settings.button,
+            devmode.button,
             { label: 'Main menu', action: () => world.flow.quit() },
         ],
     });
@@ -2060,7 +2124,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, wrongnessSign: SIGN_SPOT, blooms, craving, dog, fishing, dig, found, finds, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
+    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, devmode, wrongnessSign: SIGN_SPOT, blooms, craving, dog, fishing, dig, found, finds, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         weather,
