@@ -577,7 +577,7 @@
     log.wokeAt = game.player.position.toArray().map((value) => +value.toFixed(0));
     expect(game.state.current === 'playing' && !game.player.isDead, 'awake again');
     expect(Math.hypot(game.player.position.x - 52, game.player.position.z + 40) < 26, `woke inside the village, at ${log.wokeAt}`);
-    expect(world.dayCycle.day === day + 3, `3 days are gone: day ${day} became ${world.dayCycle.day}`);
+    expect(world.dayCycle.day === day + 2, `2 days are gone: day ${day} became ${world.dayCycle.day}`);
     log.kept = [...world.pockets.inventory.slots, ...world.bag.inventory.slots].map((slot) => slot.itemId).sort();
     expect(log.kept.join() === 'axe,watering-can', `only the tools are left, got ${log.kept}`);
     world.chest.add('turnip', 1);
@@ -609,8 +609,9 @@
     }
     await sleep(400);
     await quiet();
-    expect(world.escape.pledge.state === 'running' && world.escape.pledge.daysLeft === 60, `saying yes starts 60 days, state ${world.escape.pledge.state}, ${world.escape.pledge.daysLeft} days`);
-    expect(document.querySelector('.hud').textContent.includes('60d'), 'the countdown shows on the HUD');
+    expect(world.escape.pledge.state === 'running' && world.escape.met, `the count runs by itself and Pell has explained it, state ${world.escape.pledge.state}`);
+    expect(world.escape.pledge.daysLeft <= 25 && world.escape.pledge.daysLeft > 15, `25 days from the morning the note came: ${world.escape.pledge.daysLeft} left`);
+    expect(document.querySelector('.hud').textContent.includes(`${world.escape.pledge.daysLeft}d`), 'the countdown shows on the HUD');
     (await pellChoices()).find((choice) => choice.textContent.includes('Burn 500'))?.click();
     await sleep(300);
     for (let index = 0; index < 6 && document.querySelector('.dialogue:not(.is-hidden):not(.dialogue-self)'); index += 1) {

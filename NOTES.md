@@ -251,3 +251,10 @@ orders (`PREMIUM` 1.7, every 3 days, 3 days' patience); `WRONG_FROM` days.
 - The inventory panel scrolls as a whole on very low screens.
 - A new game starts at `FARM.start`, out in the yard, looking at the house.
 - The signpost stands beside the road and along it, so its arrow points up the road at the village. First read adds "Hollowveil? What's that? A village?".
+
+## Batch 17: the clock starts by itself
+
+- The way home: 6000c in 25 days (was 60). The count starts on the morning of day 3 with a note under the door, no yes or no. Pell explains on the first visit, takes payments after. Older saves that never said yes are started on load.
+- Dying costs 2 days (was 3). `DAYS_LOST` lives in `escape.ts`.
+- Template: mouse movement is ignored for 150 ms after pointer lock and single jumps over 500 px are dropped (Wayland reports a huge first movement). A camera ray that hits at 0 distance is ignored.
+- The scarecrow by the field only offers "carry it back" when it has moved.

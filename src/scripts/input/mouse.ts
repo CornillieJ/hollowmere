@@ -20,6 +20,11 @@ const WHEEL_GESTURE_GAP = 180;
 /** Shortest time between two counted steps, in milliseconds. */
 const WHEEL_STEP_INTERVAL = 90;
 
+/** Milliseconds after taking the pointer lock in which movement is not counted. */
+const LOCK_SETTLE = 150;
+/** Pixels in one event that no hand moves a mouse. */
+const MOVEMENT_SPIKE = 500;
+
 export class Mouse {
     /** Cursor position in pixels, origin top-left. */
     readonly position = new THREE.Vector2();
@@ -48,6 +53,7 @@ export class Mouse {
     private readonly onMouseDown: (event: MouseEvent) => void;
     private readonly onMouseUp: (event: MouseEvent) => void;
     private readonly onWheel: (event: WheelEvent) => void;
+    private lockedAt = 0;
     private wheelTravel = 0;
     private lastWheel = 0;
     private lastStep = 0;
@@ -67,8 +73,13 @@ export class Mouse {
             const rect = this.element.getBoundingClientRect();
             this.position.set(event.clientX - rect.left, event.clientY - rect.top);
             this.ndc.set((this.position.x / rect.width) * 2 - 1, -(this.position.y / rect.height) * 2 + 1);
-            if (this.locked) this.movement.x += event.movementX;
-            if (this.locked) this.movement.y += event.movementY;
+            if (!this.locked) return;
+            // Some systems (Wayland among them) report one huge jump when the lock is taken, or now and
+            // then while it is held. Counted, it throws the view round and up against its limit.
+            if (performance.now() - this.lockedAt < LOCK_SETTLE) return;
+            if (Math.abs(event.movementX) > MOVEMENT_SPIKE || Math.abs(event.movementY) > MOVEMENT_SPIKE) return;
+            this.movement.x += event.movementX;
+            this.movement.y += event.movementY;
         };
 
         this.onMouseDown = (event) => {
@@ -113,6 +124,7 @@ export class Mouse {
         this.onLockChange = () => {
             this.locked = document.pointerLockElement === this.lockTarget;
             if (this.locked) this.releasedByGame = false;
+            if (this.locked) this.lockedAt = performance.now();
             if (!this.locked) this.down.clear();
             this.emit(this.locked ? 'lock' : 'unlock');
         };

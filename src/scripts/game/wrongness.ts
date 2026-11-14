@@ -150,11 +150,13 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
         options.scarecrow.position.copy(terrain.point(x, z, 0));
         // It faces the door from wherever it stands.
         options.scarecrow.rotation.y = Math.atan2(FARM.door.x - x, FARM.door.z - z);
+        // On its post there is nothing to do with it, so nothing is offered.
+        game.interactions.setEnabled(options.scarecrow, steps > 0);
     };
     game.interactions.add(options.scarecrow, {
-        prompt: 'Carry the scarecrow back to its post',
+        prompt: 'It has moved. Carry it back to the field',
         range: 2.4,
-        canInteract: () => steps > 0,
+        enabled: false,
         onInteract: () => {
             steps = 0;
             standScarecrow();
