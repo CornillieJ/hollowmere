@@ -1162,3 +1162,29 @@ footer { display: none; }
 		display: none;
 	}
 }
+
+/* ---- Fishing: one line over the hotbar, loud when the float goes under ---- */
+
+.fishing-sign {
+	position: absolute;
+	left: 50%;
+	bottom: 150px;
+	transform: translateX(-50%);
+	padding: 4px 16px;
+	border: 2px solid var(--ui-fg);
+	background: var(--tape-ink);
+	color: var(--ui-fg);
+	font-family: var(--ui-font);
+	font-size: 24px;
+	white-space: nowrap;
+	pointer-events: auto;
+}
+
+.fishing-sign.is-urgent {
+	border-color: var(--ui-accent);
+	background: var(--ui-accent);
+	color: var(--tape-ink);
+	font-size: 40px;
+	text-shadow: none;
+	animation: hv-rec 0.24s steps(2) infinite;
+}

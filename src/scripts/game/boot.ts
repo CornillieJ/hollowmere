@@ -71,6 +71,7 @@ import { setupLetters } from './letters';
 import { DAYS_LOST, ESCAPE, setupEscape } from './escape';
 import { setupBlooms } from './blooms';
 import { setupDog } from './dog';
+import { setupFishing } from './fishing';
 import { setupHappenings } from './happenings';
 
 /**
@@ -283,7 +284,7 @@ export async function boot(): Promise<void> {
     const lateCall = (): void => think('late', ["They weren't expecting anybody at the door after dark. They paid half as much again and didn't count it.", '(Every delivery made at night pays 50% more. The road there is the price.)']);
 
     /** Counted for the story and the journal, and saved with the day. */
-    const tally = { harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0, bestStreak: 0, bestDay: 0, dodged: 0, regulars: 0, stayed: 0, burned: 0 };
+    const tally = { fished: 0, harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0, bestStreak: 0, bestDay: 0, dodged: 0, regulars: 0, stayed: 0, burned: 0 };
     const thoughts = new Set<string>();
 
     /** The watering can holds this many waterings, and is filled at the well. */
@@ -1365,6 +1366,39 @@ export async function boot(): Promise<void> {
     });
 
     // What the farmer carried when they died is kept by the black pool, and given back there after dark.
+    // A rod on the jetty: by day the pool gives fish, a few bites and then it goes still.
+    const jettyAt = { x: PLACES.pool.x - 9, z: PLACES.pool.z - 13 };
+    const jettyYaw = Math.atan2(PLACES.pool.x - jettyAt.x, PLACES.pool.z - jettyAt.z);
+    const alongJetty = (far: number, side = 0, lift = 0.4): THREE.Vector3 => new THREE.Vector3(jettyAt.x + Math.sin(jettyYaw) * far + Math.cos(jettyYaw) * side, POOL_LEVEL + lift, jettyAt.z + Math.cos(jettyYaw) * far - Math.sin(jettyYaw) * side);
+    const fishing = setupFishing(game, {
+        rod: alongJetty(2.2, 0.9),
+        water: alongJetty(6.4, 0.6, 0.02),
+        yaw: jettyYaw,
+        night: () => isNight(dayCycle),
+        day: () => dayCycle.day,
+        say: (line) => game.toasts.push(line, { color: '#b8c8c0' }),
+        onCast: () => {
+            body.play('reach');
+            synth.noise({ duration: 0.12, gain: 0.08, filter: 1200 });
+            think('fishing', ["Somebody left a rod here, and the line's still good. Black water, no wind. Something lives in it, I've seen the rings.", "(When the float goes under, press E at once. Too soon or too late and the hook comes back bare.)"]);
+        },
+        onBite: () => {
+            synth.tone({ frequency: 520, duration: 0.12, type: 'square', gain: 0.1 });
+            game.effects.shakeCamera(0.05);
+        },
+        onCatch: (position) => {
+            const roll = Math.random();
+            juice.chime('fanfare');
+            juice.sparkle(position, 0xb8d8e0, 14);
+            game.effects.particles.burst(position, { count: 12, color: 0x9ab0b0, size: 0.07, speed: 2.4, lifetime: 0.5 });
+            if (roll < 0.07 && dig(position, true, 'Hooked out of the pool.')) return;
+            const [itemId, amount] = (roll < 0.62 ? ['pale-fish', 1] : roll < 0.84 ? ['eel', 1] : ['wood', 1]) as [string, number];
+            if (give(itemId, amount)) juice.reward(position, itemId === 'wood' ? 'An old boot. It will burn. +1 wood' : `+1 ${nameOf(itemId).toLowerCase()}`);
+            tally.fished += 1;
+            if (itemId === 'eel') think('eel', ["That's not a fish. It's as long as my arm and it hasn't got a face.", "It's still pulling. Barnaby can have it."]);
+        },
+    });
+
     const pool = setupPool(game, {
         terrain,
         night: () => isNight(dayCycle),
@@ -2072,7 +2106,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, blooms, craving, dog, dig, found, finds, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
+    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, blooms, craving, dog, fishing, dig, found, finds, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         weather,

@@ -86,6 +86,8 @@ const ICONS: Record<string, string> = {
     button: '<circle cx="12" cy="12" r="8"/><rect x="9" y="9" width="2" height="2" fill="#000"/><rect x="13" y="9" width="2" height="2" fill="#000"/><rect x="9" y="13" width="2" height="2" fill="#000"/><rect x="13" y="13" width="2" height="2" fill="#000"/>',
     spoon: '<path d="M12 3c-3 0-4 3-4 5s2 4 4 4 4-2 4-4-1-5-4-5zM12 12l2 9"/>',
     locket: '<path d="M12 9c-4 0-6 3-6 6s3 6 6 6 6-3 6-6-2-6-6-6zM12 9V7M8 3l4 4 4-4M12 13v4M10 15h4"/>',
+    fish: '<path d="M3 12c4-6 10-6 14 0-4 6-10 6-14 0zM17 12l4-4v8z"/><rect x="6" y="10" width="2" height="2" fill="#000"/>',
+    eel: '<path d="M3 8c3-3 5 3 8 0s5 3 8 0M3 15c3-3 5 3 8 0s5 3 8 0"/>',
     mushroom: '<path d="M3 12c0-5 4-8 9-8s9 3 9 8zM10 12v8h4v-8"/>',
     bowl: '<path d="M3 11h18a9 8 0 0 1-18 0zM8 21h8"/>',
     pan: '<circle cx="10" cy="13" r="7"/><path d="M15 8l6-5"/><circle cx="10" cy="13" r="2.500" fill="#000"/>',

@@ -277,3 +277,4 @@ Work on branch `fun-iteration`, one addition per commit.
 4. The dog (`dog.ts`): arrives on day 2, follows, can be petted, and goes stiff and growls when a Hollow is within 24 m and the farmer is not in a safe place.
 5. Finds: 7% of harvests (after the 6th crop) turn up 1 of 8 buried things (`FINDS` in `content/items.ts`, `dig()` in `boot.ts`), unseen ones first. Worth 100 to 320c, listed in the notebook, deed `finds` for all 8. Probes set `world.finds.chance = 0`.
 6. The dog brings a gift the first time it is petted each day: 2 wood, a pale cap, an egg, or (12%) a find.
+7. Fishing (`fishing.ts`): a rod on the jetty at the pool, by day. Cast with E, press E within 0.85 s of the float going under. 5 bites a day. Pale fish (80c), eel (150c), a boot (1 wood) or a find; `fish-supper` in any pot.

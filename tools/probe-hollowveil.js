@@ -818,6 +818,36 @@
         world.population.clear();
     }
 
+    // 14e3b. Fishing off the jetty: cast, wait for the float, pull in time.
+    {
+        const { fishing, dayCycle } = world;
+        dayCycle.setHour(13);
+        world.population.clear();
+        const rod = fishing.rod.position;
+        game.player.body.teleport({ x: rod.x - 0.9, y: rod.y + 0.4, z: rod.z - 0.3 });
+        await sleep(900);
+        await quiet();
+        const carriedBefore = [...world.pockets.inventory.slots, ...world.bag.inventory.slots].reduce((sum, slot) => sum + slot.amount, 0);
+        await press('KeyE');
+        await sleep(500);
+        await quiet();
+        if (fishing.state === 'idle') {
+            await press('KeyE');
+            await sleep(500);
+        }
+        expect(fishing.state === 'waiting' && game.player.frozen, `E at the rod casts the line, state ${fishing.state}`);
+        fishing.hurry();
+        await sleep(200);
+        expect(fishing.state === 'bite', 'the float goes under');
+        await press('KeyE');
+        await sleep(700);
+        await quiet();
+        const carriedAfter = [...world.pockets.inventory.slots, ...world.bag.inventory.slots].reduce((sum, slot) => sum + slot.amount, 0);
+        expect(fishing.state === 'idle' && !game.player.frozen && carriedAfter === carriedBefore + 1 && fishing.bitesLeft === 4, `a pull in time lands something: ${carriedAfter - carriedBefore}, ${fishing.bitesLeft} bites left`);
+        for (const id of ['pale-fish', 'eel']) for (const inventory of [world.pockets, world.bag]) inventory.remove(id, 9);
+        await sleep(500);
+    }
+
     // 14e4. The Veil thickens far from light and late; a lantern makes a hole in it and a ring they keep out of.
     {
         const { lanterns, dayCycle } = world;

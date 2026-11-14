@@ -47,6 +47,9 @@ export const ITEMS: ItemDefinition[] = [
     { id: 'find-bell', name: 'Cow bell', icon: ':bell:', category: 'treasure', price: 180, description: 'No clapper in it. Your cow will not go near it.' },
     { id: 'find-locket', name: 'Locket', icon: ':locket:', category: 'treasure', price: 320, description: 'Inside, a picture of this farmhouse. Someone is at the window.' },
 
+    { id: 'pale-fish', name: 'Pale fish', icon: ':fish:', category: 'treasure', price: 80, description: 'From the black pool. No eyes to speak of. It does not need them down there.' },
+    { id: 'eel', name: 'Black eel', icon: ':eel:', category: 'treasure', price: 150, description: 'It was still moving an hour after. Barnaby sells them to somebody.' },
+
     { id: 'turnip-soup', name: 'Turnip soup', icon: ':pot:', badge: ':turnip:', category: 'consumable', price: 70, description: 'Restores 35 health.', use: food(35) },
     { id: 'boiled-egg', name: 'Boiled egg', icon: ':egg:', badge: ':hot:', category: 'consumable', price: 54, description: 'Restores 25 health.', use: food(25) },
     { id: 'bread', name: 'Bread', icon: ':bread:', category: 'consumable', price: 64, description: 'Restores 30 health.', use: food(30) },
@@ -54,6 +57,7 @@ export const ITEMS: ItemDefinition[] = [
     { id: 'omelette', name: 'Omelette', icon: ':pan:', category: 'consumable', price: 160, description: 'Restores 55 health.', use: food(55) },
     { id: 'pale-broth', name: 'Pale broth', icon: ':bowl:', badge: ':mushroom:', category: 'consumable', price: 150, description: 'Restores 50 health. Glows a little.', use: food(50) },
     { id: 'bloom-tea', name: 'Bloom tea', icon: ':cup:', badge: ':bloom:', category: 'consumable', price: 340, description: 'Restores 70 health. It tastes of a night you got away with.', use: food(70) },
+    { id: 'fish-supper', name: 'Fish supper', icon: ':fish:', badge: ':hot:', category: 'consumable', price: 230, description: 'Restores 60 health. Pale fish and turnip, fried. Better than it has any right to be.', use: food(60) },
     { id: 'pumpkin-pie', name: 'Pumpkin pie', icon: ':pie:', category: 'consumable', price: 300, description: 'Restores 80 health.', use: food(80) },
     { id: 'hollow-stew', name: 'Hollowveil stew', icon: ':pot:', badge: ':pumpkin:', category: 'consumable', price: 420, description: 'Restores all health. The village eats it at funerals and at weddings.', use: food(100) },
 
@@ -95,6 +99,7 @@ export const POT_TIERS = ['Clay pot', 'Iron pot', 'Cauldron'];
 export const COOKING: Recipe[] = [
     { id: 'turnip-soup', output: { itemId: 'turnip-soup' }, ingredients: [{ itemId: 'turnip', amount: 2 }, { itemId: 'wood', amount: 1 }], seconds: 20 },
     { id: 'boiled-egg', output: { itemId: 'boiled-egg' }, ingredients: [{ itemId: 'egg', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 12 },
+    { id: 'fish-supper', output: { itemId: 'fish-supper' }, ingredients: [{ itemId: 'pale-fish', amount: 1 }, { itemId: 'turnip', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 22 },
     { id: 'bread', output: { itemId: 'bread' }, ingredients: [{ itemId: 'wheat', amount: 2 }, { itemId: 'wood', amount: 1 }], seconds: 25 },
     { id: 'corn-chowder', output: { itemId: 'corn-chowder' }, ingredients: [{ itemId: 'corn', amount: 2 }, { itemId: 'milk', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 30, tier: 2 },
     { id: 'omelette', output: { itemId: 'omelette' }, ingredients: [{ itemId: 'egg', amount: 2 }, { itemId: 'milk', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 22, tier: 2 },
