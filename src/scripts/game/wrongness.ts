@@ -126,7 +126,7 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
         onInteract: () => {
             steps = 0;
             standScarecrow();
-            game.toasts.push('It is lighter than it looks. It is back on its post.', { color: '#c8c0b0' });
+            game.toasts.push('It is lighter than it looks, and warm where you held it. It is back on its post.', { color: '#c8c0b0' });
         },
     });
 

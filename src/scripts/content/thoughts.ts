@@ -19,8 +19,8 @@ export function fill(lines: string[], values: Record<string, string | number>): 
 /** Thought once, the first time something happens. Looked up by id. */
 export const THOUGHTS: Record<string, string[]> = {
     late: [
-        "They weren't expecting anybody at the door after dark. They paid half as much again and didn't count it.",
-        '(Every delivery made at night pays 50% more. The road there is the price.)',
+        "They weren't expecting anyone at the door after dark. They opened it on the chain, paid half as much again, and didn't count it.",
+        '(Deliveries after dark pay 50% more. Getting there is the hard part.)',
     ],
     scarecrow: [
         "There. It isn't looking at the field. It's looking at the house.",
@@ -51,7 +51,8 @@ export const THOUGHTS: Record<string, string[]> = {
         "They pay more for hot food, and every visit eats hours. So who gets theirs first is worth a thought.",
     ],
     barn: [
-        "Straw, horses, one lamp. This place seems safe.",
+        "Straw, horses, one lamp. Nothing out there comes in here.",
+        "The horses don't even look up when the door goes. They've stopped expecting anyone else.",
     ],
     candle: [
         "A little light, and they keep off. It won't burn long.",
@@ -81,7 +82,7 @@ export const THOUGHTS: Record<string, string[]> = {
     ],
     wrap: [
         "The Veil went solid white, and then it thinned again.",
-        "I'm on the far side of the valley. I walked out one way and came back in by the other. There's no out.",
+        "I'm on the far side of the valley. I walked out one way and came back in by the other. There's no way out.",
     ],
     fishing: [
         "Somebody left a rod here, and the line's still good. Black water, no wind. Something lives in it, I've seen the rings.",
@@ -105,7 +106,7 @@ export const THOUGHTS: Record<string, string[]> = {
     ],
     dusk: [
         "The light's going. There'll be more of them soon.",
-        "A lamp, a door, or the bicycle. Not the open road.",
+        "Home, the barn, the village. Somewhere with a lamp, before it's fully dark.",
     ],
     hollow: [
         "It's seen me. It doesn't hurry. It doesn't need to, I think.",
@@ -188,9 +189,22 @@ export const SAY = {
         'I will be here. Call on me when you have coins to burn.',
         'And do not die out there. Each time you do, {daysLost} of your days go with you.',
     ],
+    /** Pell, when coins are brought to the hill. */
+    pellAsks: ['{remaining} still to burn, and {daysLeft} days to find it in.', 'You have {purse} on you. How much goes on the fire today?'],
+    pellBurned: ['{paid}. It burns green. {remaining} to go.'],
+    pellPaidAll: ['That is the last of it. I did not think anyone would.', 'Go home. Sleep. Mean it. And when you wake, plant something for me.'],
+    pellMissed: ['The day passed. I am sorry. I did say.', 'You will stop minding. That is the worst thing I can tell you, and it is also the kindest.'],
+    pellKept: ['It is paid. Go home and sleep.'],
     afterPell: [
         "{remaining} in {daysLeft} days. That's a lot of soup.",
         "Hollowveil Farm. So that's what I've been calling home: a farm for the hollow, on the wrong side of the veil.",
         'But there is a way back through. (Bring coins to Pell on the hill whenever there are some to spare. What is left, and the days, show under the clock.)',
     ],
 };
+
+/** The price is burned in quarters. Each one puts green on the old tree and is spoken of once. */
+export const BURNED: Array<{ title: string; sub: string; lines: string[] }> = [
+    { title: 'A quarter burned', sub: 'The old tree on the hill has put out leaves.', lines: ['A quarter of it, gone up green.', "Pell says that tree hasn't had a leaf since before he came. It's got a handful now, low down, where the smoke went."] },
+    { title: 'Half burned', sub: 'More green on the old tree.', lines: ["Half. I caught myself humming this morning: a tune from the other kitchen. I'd forgotten I knew it.", "Pell didn't know it. He asked me to hum it again, slowly, and stood very still. Down in the fog, something else had stopped to listen too."] },
+    { title: 'Three quarters burned', sub: 'The old tree is almost in leaf.', lines: ['Three quarters. Pell asked me the name of my street and I had it at once.', 'He wrote it down and put it in my pocket, in case I don\'t have it later. "Read it on the last night," he said.'] },
+];
