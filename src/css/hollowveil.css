@@ -291,8 +291,14 @@
 .hotbar-icon,
 .pack-slot-icon,
 .inventory-slot-icon {
-	font-size: 30px;
+	font-size: 38px;
 	line-height: 1;
+}
+
+/* Item pictures are drawn at 32 px: no colour fringe on them, they have colours of their own. */
+.ui-icon-image {
+	text-shadow: none;
+	vertical-align: -0.25em;
 }
 
 .hotbar-key {
@@ -487,7 +493,12 @@
 }
 
 .inventory-slot-icon {
-	font-size: 42px;
+	font-size: 64px;
+}
+
+.inventory-detail-icon {
+	font-size: 44px;
+	line-height: 1;
 }
 
 /* In a window the mark sits in the top corner, clear of the price and the count. */

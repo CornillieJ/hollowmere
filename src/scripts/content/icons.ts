@@ -1,5 +1,7 @@
 import { registerIcons } from '../kit';
 
+import { ITEMS } from './items';
+
 /**
  * Every picture the screens use, drawn for this game: no emoji anywhere.
  *
@@ -104,6 +106,8 @@ const ICONS: Record<string, string> = {
 const FACES = ['farmer', 'barnaby', 'wren', 'fen', 'hollis', 'pike', 'pell'];
 
 export function registerGameIcons(): void {
+    // Every item has a small coloured picture of its own: drawn in `tools/item-art.mjs`, rendered by `tools/build-item-art.mjs`.
+    registerIcons(Object.fromEntries(ITEMS.map((item) => [`item-${item.id}`, { image: new URL(`icons/items/${item.id}.png`, document.baseURI).href }])));
     registerIcons(ICONS, { strokeWidth: 2.2, linecap: 'square', linejoin: 'miter' });
     // Until the portraits are taken, a face is the outline of a head.
     registerIcons(Object.fromEntries(FACES.map((id) => [`face-${id}`, ICONS.person as string])), { strokeWidth: 2.2, linecap: 'square', linejoin: 'miter' });
