@@ -70,6 +70,7 @@ import { setupJournal } from './journal';
 import { setupLetters } from './letters';
 import { DAYS_LOST, ESCAPE, setupEscape } from './escape';
 import { setupBlooms } from './blooms';
+import { setupDog } from './dog';
 import { setupHappenings } from './happenings';
 
 /**
@@ -1678,6 +1679,26 @@ export async function boot(): Promise<void> {
         },
     });
 
+    // A stray on the porch after the first night. Its nose is better than the farmer's eyes.
+    const dog = setupDog(game, {
+        ground,
+        threat: (position, within) => world.enemies.nearest(position, within)?.root.position,
+        wary: () => !safeZones.playerSafe && !barn.inside,
+        here: () => dayCycle.day >= 2,
+        growl: () => {
+            synth.noise({ duration: 0.7, gain: 0.09, filter: 160 });
+            synth.tone({ frequency: 82, duration: 0.7, type: 'sawtooth', gain: 0.05, sweep: 0.85 });
+            think('dog-growl', ["The dog's gone stiff. It's growling at the fog, and I can't see a thing out there.", "It can smell them before I can see them. That's worth more than the lamp."]);
+        },
+        onPet: (position, first) => {
+            juice.sparkle(position, 0xff9ab0, 8);
+            juice.chime('tick');
+            body.play('reach');
+            if (first) think('dog-pet', ["Thin as a rake, and it leans on my leg like it's known me for years.", "All right. You can stay. I don't know what I'll call you."]);
+        },
+        onArrive: () => think('dog', ["There's a dog on the porch. Grey, thin, one ear down. It looks at me as if I were late.", "It isn't afraid of the fog. I wish I knew whether that was a good sign. (Press E to pet it. It follows you, and it growls when one of them is near.)"]),
+    });
+
     /**
      * The lit ground round every lamp is not drawn until the farmer has seen what it is for.
      * The places are as safe as ever; there is only nothing yet to be safe from.
@@ -2012,7 +2033,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, blooms, craving, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
+    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, blooms, craving, dog, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         weather,

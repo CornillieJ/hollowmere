@@ -791,6 +791,13 @@
         await press('KeyE');
         await sleep(200);
         expect(have('veilbloom') === before + 1 && !blooms.blooms[2].open, 'and that plant gives no more that night');
+        // The dog came after the first night, and it smells them before they are seen.
+        expect(world.dog.object.visible && world.dog.object.position.distanceTo(game.player.position) < 8, 'the dog has turned up and keeps close');
+        const smelled = world.spawnKind(spot.x + 12, spot.z + 3, 'walker');
+        await sleep(900);
+        await quiet();
+        expect(world.dog.alert, 'the dog goes stiff when a Hollow is near');
+        world.enemies.despawn(smelled);
         world.pockets.remove('veilbloom', have('veilbloom'));
         world.bag.remove('veilbloom', 9);
         dayCycle.setHour(10);
