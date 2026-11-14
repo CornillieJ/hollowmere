@@ -1,3 +1,4 @@
+import { fill, SAY } from '../content/thoughts';
 import { addPledge, type NarrationHandle, type PledgeHandle, type ResourceHandle } from '../kit';
 import type { DialogueBox } from '../ui/dialogue-box';
 
@@ -47,13 +48,8 @@ export function setupEscape(game: Game, options: { coins: ResourceHandle; day: (
         currency: coins,
         day: options.day,
         format,
-        onKept: () => void narration.speak(["That's all of it. Burned.", 'Pell says the rest is simple: go home, lie down in that bed, and mean it. (Sleep at the farmhouse door.)']),
-        onMissed: () =>
-            void narration.speak([
-                'The last day came and went.',
-                'I tried to say the name of my own street this morning. I said "Hollowveil". It felt true.',
-                "So I'm not going home. I expect I'll know it properly once I've slept on it. (Go to bed.)",
-            ]),
+        onKept: () => void narration.speak(SAY.escapeKept),
+        onMissed: () => void narration.speak(SAY.escapeMissed),
     });
     let met = false;
     game.save.register('escape-met', { save: () => met, load: (data) => (met = data === true) });
@@ -63,35 +59,18 @@ export function setupEscape(game: Game, options: { coins: ResourceHandle; day: (
         update: () => {
             if (pledge.state !== 'idle' || options.day() < ESCAPE.fromDay) return;
             pledge.start(ESCAPE.days);
-            void narration.speak([
-                'A note under the door. The hand is careful, as if every word had to be fetched.',
-                `"There is a way to wake. It costs ${format(ESCAPE.price)}, and you have until the end of day ${pledge.deadline}. The days are already counting. Come up the hill. Pell."`,
-                `${ESCAPE.days} days. So I had better find out what he means. (The west path from the chapel. :hill: on the compass.)`,
-            ]);
+            void narration.speak(fill(SAY.escapeNote, { price: format(ESCAPE.price), deadline: pledge.deadline, days: ESCAPE.days }));
         },
     });
     const line = (text: string): { text: string; portrait: string } => ({ text, portrait: PELL });
 
     async function explain(dialogue: DialogueBox): Promise<void> {
         await dialogue.say(
-            [
-                line('You came. Good. Up here, above the Veil, I can still put words in a row.'),
-                line('You have heard them say it by now. The Veil, for the fog: it is what hangs between sleeping and waking. The Hollow, for us out in it: what is left of a dreamer who never woke.'),
-                line('Hollow, behind the Veil. That is all the name of the village ever meant. And you keep a farm in it.'),
-                line('There is a way to wake. Your own bed. Your real life. I found it too late to use it. You are not too late.'),
-                line(`It costs. Everything that crosses costs. ${format(ESCAPE.price)}, burned here at the old tree. A little at a time, or all at once.`),
-                line(`And there is a clock on it. It started the morning my note reached you: nobody gets to choose the day. You have ${pledge.daysLeft} left, to the end of day ${pledge.deadline}. After that the Veil closes over your name, and you never wake. You would be Hollow, as I am.`),
-                line('I will be here. Call on me when you have coins to burn.'),
-                line(`And do not die out there. Each time you do, ${DAYS_LOST} of your days go with you.`),
-            ],
+            fill(SAY.pellExplains, { price: format(ESCAPE.price), daysLeft: pledge.daysLeft, deadline: pledge.deadline, daysLost: DAYS_LOST }).map(line),
             'Pell',
         );
         met = true;
-        void narration.speak([
-            `${format(pledge.remaining)} in ${pledge.daysLeft} days. That's a lot of soup.`,
-            "Hollowveil Farm. So that's what I've been calling home: a farm for the hollow, on the wrong side of the veil.",
-            'But there is a way back through. (Bring coins to Pell on the hill whenever there are some to spare. What is left, and the days, show under the clock.)',
-        ]);
+        void narration.speak(fill(SAY.afterPell, { remaining: format(pledge.remaining), daysLeft: pledge.daysLeft }));
     }
 
     async function pay(dialogue: DialogueBox): Promise<void> {

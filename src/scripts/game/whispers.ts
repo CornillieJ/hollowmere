@@ -1,5 +1,6 @@
 import { SYSTEM_ORDER } from '../core/systems';
 import type { Synth } from '../audio/synth';
+import { VOICES } from '../content/wrongness';
 
 /**
  * Sounds that lie.
@@ -40,13 +41,6 @@ export type WhispersHandle = {
     play: (id: WhisperId) => void;
 };
 
-const VOICES = [
-    '"Is that you, dear? Come away from the road."',
-    '"I can see you! Can you see me?"',
-    '"Store is open. Store is always open."',
-    '"Signed for. Signed for. Signed for."',
-    '"Over here." It was your own voice.',
-];
 
 const between = (low: number, high: number): number => low + Math.random() * (high - low);
 

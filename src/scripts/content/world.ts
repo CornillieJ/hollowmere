@@ -207,3 +207,12 @@ export const BLOOMS: Array<{ x: number; z: number }> = [
     { x: -24, z: -44 },
     { x: 36, z: -62 },
 ];
+
+/** Places the farmer remarks on the first time they come within reach. Lines are in `THOUGHTS`, by id. */
+export const SIGHTS: Array<{ id: string; spot: { x: number; z: number }; within: number }> = [
+    { id: 'pool', spot: PLACES.pool, within: 26 },
+    { id: 'lookout', spot: PLACES.lookout, within: 8 },
+    { id: 'stones', spot: PLACES.stones, within: 11 },
+    { id: 'ruin', spot: PLACES.ruin, within: 12 },
+    { id: 'graveyard', spot: PLACES.graveyard, within: 11 },
+];

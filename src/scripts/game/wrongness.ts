@@ -6,6 +6,8 @@ import type { Terrain } from '../kit';
 import { FARM, ROAD } from '../content/world';
 import { createFolk, dressFolk, type FolkRig } from '../content/folk';
 import { MODELS, boxHouse, model } from './world';
+import { fill, THOUGHTS } from '../content/thoughts';
+import { DENIALS, NIGHT_ROWS, NOTES, SIGNS, WRONG_FROM, type WrongId } from '../content/wrongness';
 
 /**
  * The valley goes wrong by degrees.
@@ -24,19 +26,6 @@ import { MODELS, boxHouse, model } from './world';
  *
  * What the farmer has noticed is kept, in their own words, for the notebook.
  */
-export type WrongId = 'scarecrow' | 'sign' | 'denial' | 'house' | 'double' | 'clock' | 'night';
-
-export const WRONG_FROM: Record<WrongId, number> = { sign: 2, scarecrow: 3, denial: 4, clock: 5, house: 6, night: 7, double: 8 };
-
-const NOTES: Record<WrongId, { title: string; text: string }> = {
-    scarecrow: { title: 'The scarecrow', text: 'It is nearer the house each morning, and it faces the door. I carry it back. I do not remember ever moving it.' },
-    sign: { title: 'The signpost', text: 'The board at the gate does not say what it said. Nobody has painted it. The paint is old.' },
-    denial: { title: 'Yesterday', text: 'I talked to them yesterday. They say I did not, and they are not lying. They never lie.' },
-    house: { title: 'The house in the woods', text: 'A house off the road, with a lamp in the window. When I walked up to it there was grass, and not a mark on the grass.' },
-    double: { title: 'Somebody on the road', text: 'Standing still, at dusk, a long way down the road. My coat. My ears. Nobody there when I reached the place.' },
-    clock: { title: 'The hour', text: 'For a moment it was a time that is not a time. Then it was the right one again, and I could not swear to which is true.' },
-    night: { title: 'In the night', text: 'Things are done before I wake. The field watered. A second plate. I live alone here.' },
-};
 
 export type WrongnessOptions = {
     terrain: Terrain;
@@ -45,7 +34,7 @@ export type WrongnessOptions = {
     /** The scarecrow in the yard, where the yard builder put it. */
     scarecrow: THREE.Object3D;
     /** Say something once in the farmer's own voice. Returns nothing; safe to call every frame. */
-    think: (id: string, lines: string[]) => void;
+    think: (id: string, lines?: string[]) => void;
     /** True once the farmer has stayed for good: then nothing is wrong any more. */
     settled?: () => boolean;
     /** Water whatever is planted and dry. Returns how many plots it did. */
@@ -79,30 +68,6 @@ export type WrongnessHandle = {
     fromJSON: (data: unknown) => void;
 };
 
-const DENIALS: Record<string, string> = {
-    barnaby: 'Yesterday? You were not in yesterday. I have the book open here: there is a line ruled for you, and nothing written on it.',
-    wren: 'We did not talk yesterday! I would remember. I talked to the other one. The one who looks like you from behind.',
-    fen: 'I did not see you yesterday. I called at your door and it was opened, but not by you. I know your face. That one had it on wrong.',
-    hollis: 'Yesterday, dear? No. Yesterday you sat with me the whole afternoon and never said a word. I thought it so restful.',
-    pike: 'You were not here yesterday. Your smell was. It went twice round the square and then home, without you.',
-};
-
-/** What the board at the gate says, by how far along things are. */
-const SIGNS: Array<[string, string]> = [
-    ['HOLLOWVEIL  >', '1 mile'],
-    ['HOLLOWVEIL  >', 'not far'],
-    ['<  HOLLOWVEIL', 'you live here'],
-    ['HOLLOWVEIL', 'there is no other place'],
-    ['STAY', 'we like you'],
-];
-
-const NIGHT_ROWS: Array<{ icon: string; title: string }> = [
-    { icon: ':plate:', title: 'There were 2 plates on the table' },
-    { icon: ':bed:', title: 'The bed was made. You were in it' },
-    { icon: ':door:', title: 'The door was bolted from the outside' },
-    { icon: ':coat:', title: 'Your coat was wet. It did not rain' },
-    { icon: ':candle:', title: 'A candle had burned down on the sill. You own no such candle' },
-];
 
 /** Spots off the road where the house that is not there stands, one a day. */
 const HOUSE_SPOTS = [
@@ -127,7 +92,7 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
     const noticed = new Set<WrongId>();
     const settled = (): boolean => options.settled?.() === true;
     const active = (id: WrongId): boolean => !settled() && options.day() >= WRONG_FROM[id];
-    const notice = (id: WrongId, lines: string[]): void => {
+    const notice = (id: WrongId, lines?: string[]): void => {
         options.think(`wrong-${id}`, lines);
         if (noticed.has(id)) return;
         noticed.add(id);
@@ -229,7 +194,7 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
             const way = top.includes('>') ? 'It points up the road. ' : top.includes('<') ? 'It points back at the farm. ' : '';
             const wonder = signLevel() === 0 && !settled() ? "Hollowveil? What's that? A village?" : '';
             game.toasts.push(`The signpost reads: "${top.replace(/[<>]/g, '').trim()}, ${bottom}". ${way}${wonder}`.trim(), { color: '#e8e0c8' });
-            if (changed && !first && signLevel() > 0) notice('sign', [`"${bottom}." It did not say that. It said a mile.`, 'Nobody has painted it. The paint is old and cracked right through the letters.']);
+            if (changed && !first && signLevel() > 0) notice('sign', fill(THOUGHTS['wrong-sign'] ?? [], { bottom }));
         },
     });
 
@@ -318,20 +283,20 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
             paintSign();
 
             if (steps > 0 && active('scarecrow') && player.position.distanceTo(options.scarecrow.position) < 11) {
-                notice('scarecrow', ['The scarecrow is not where it was. It is nearer the house.', 'I must have moved it. I must have.']);
-                if (steps * SCARECROW_STEP >= toDoor - SCARECROW_STOPS) options.think('wrong-scarecrow-door', ["The scarecrow's standing at the edge of the porch light. Facing the door.", "I didn't put it there. I'm going to carry it back, and I'm not going to think about it."]);
+                notice('scarecrow');
+                if (steps * SCARECROW_STEP >= toDoor - SCARECROW_STOPS) options.think('wrong-scarecrow-door');
             }
 
             if (pendingDenial && !game.screens.blocksInput) {
                 pendingDenial = false;
-                notice('denial', ['I did speak to them yesterday. I remember what was said.', 'They are not lying. Nobody here lies. So one of us was somewhere else yesterday, and they seem very sure it was me.']);
+                notice('denial');
             }
 
             if (house.visible && Math.hypot(player.position.x - house.position.x, player.position.z - house.position.z) < 15) {
                 house.visible = false;
                 houseGoneOn = options.day();
                 game.effects.flash(0.25, 0xffffff, 0.25);
-                notice('house', ['There was a house here. A lamp in the window. I saw it from the road.', 'There is not a mark on the grass.']);
+                notice('house');
             }
 
             // Somebody on the road at dusk. Never close, never moving, gone when reached.
@@ -341,7 +306,7 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
                 if (distance < 17) {
                     double.visible = false;
                     doubleTimer = 150;
-                    notice('double', ['Somebody was standing in the road. Standing quite still. My coat. My ears.', 'There is nobody here now. There are no tracks but mine, and mine come from both directions.']);
+                    notice('double');
                 } else if (distance > 75 || !dusk()) {
                     double.visible = false;
                     doubleTimer = 30;
@@ -361,7 +326,7 @@ export function setupWrongness(game: Game, options: WrongnessOptions): Wrongness
             // The clock slips for a moment, now and then, from the fifth day.
             if (slipLeft > 0) {
                 slipLeft -= delta;
-                if (slipLeft <= 0 && slips >= 2) notice('clock', ['The hour. For a moment it was not an hour at all.', 'It is right again now. I think it is right.']);
+                if (slipLeft <= 0 && slips >= 2) notice('clock');
             } else if (active('clock')) {
                 slipTimer -= delta;
                 if (slipTimer <= 0) {
