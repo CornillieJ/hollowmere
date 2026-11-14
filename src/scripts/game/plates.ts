@@ -17,7 +17,7 @@ import type { HotbarHandle, ResourceHandle } from '../kit';
  * few things that still need choosing (which seeds, a candle, a fence, food).
  */
 /** What the held-item button says before the plates take it over. Also how they find it. */
-export const HELD_PLACEHOLDER = '∅';
+export const HELD_PLACEHOLDER = ':none:';
 
 export type PlatesOptions = {
     dayCycle: DayCycle;
@@ -31,7 +31,7 @@ export type PlatesOptions = {
     basket?: () => Array<{ text: string; tone?: 'hot' | 'warm' | 'cold' | 'bad' }>;
     /** What the clock reads instead of the hour, while it is not itself. */
     clock?: () => string | undefined;
-    /** The small heading over the task. Defaults to "✦ Don't forget". */
+    /** The small heading over the task. Defaults to "Don't forget". */
     label?: () => string;
 };
 
@@ -95,11 +95,11 @@ export function setupPlates(game: Game, options: PlatesOptions): PlatesHandle {
         update: () => {
             const night = options.isNight();
             const clockText = options.clock?.() ?? dayCycle.clock;
-            const label = options.label?.() ?? "✦ Don't forget";
-            const text = `${night ? '☾' : '☀'}|${dayCycle.day}|${clockText}|${dayCycle.stalled}|${options.note?.() ?? ''}|${label}`;
+            const label = options.label?.() ?? "Don't forget";
+            const text = `${night ? ':moon:' : ':sun:'}|${dayCycle.day}|${clockText}|${dayCycle.stalled}|${options.note?.() ?? ''}|${label}`;
             if (text !== shown) {
                 shown = text;
-                day.textContent = `${night ? '☾ Night' : '☀ Day'} ${dayCycle.day}`;
+                day.textContent = `${night ? ':moon: Night' : ':sun: Day'} ${dayCycle.day}`;
                 time.textContent = clockText;
                 time.classList.toggle('is-slipping', clockText !== dayCycle.clock);
                 if (quest instanceof HTMLElement) quest.dataset.label = label;
@@ -123,7 +123,7 @@ export function setupPlates(game: Game, options: PlatesOptions): PlatesHandle {
             if (inHand === heldShown) return;
             heldShown = inHand;
             const [icon, badge, amount] = inHand.split('|');
-            held.textContent = icon || '∅';
+            held.textContent = icon || ':none:';
             if (badge) div('item-badge', badge, held);
             if (amount) div('hv-held-count', amount, held);
         },
@@ -131,7 +131,7 @@ export function setupPlates(game: Game, options: PlatesOptions): PlatesHandle {
 
     return {
         setPlace: (name) => {
-            place.textContent = name ? `🕯 ${name}` : '';
+            place.textContent = name ? `:candle: ${name}` : '';
             place.classList.toggle('is-hidden', !name);
         },
         togglePockets,

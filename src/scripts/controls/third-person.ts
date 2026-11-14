@@ -166,6 +166,11 @@ export class ThirdPersonController {
         this.pivot.z = damp(this.pivot.z, this.scratch.z, Math.exp(-this.followDamping), delta);
     }
 
+    /** Put the camera where it belongs at once, e.g. after a teleport, so it is not seen travelling there. */
+    snap(): void {
+        this.pivot.copy(this.player.position).setY(this.player.position.y + this.targetHeight);
+    }
+
     private fixedUpdate(step: number): void {
         if (this.player.frozen || this.player.isDead) {
             this.player.body.update(step);
@@ -201,7 +206,9 @@ export class ThirdPersonController {
             const toCamera = this.desired.clone().sub(this.pivot);
             const distance = toCamera.length();
             const hit = this.game.physics.raycast(this.pivot, toCamera, distance, undefined, this.player.body.body);
-            if (hit && hit.distance < distance) {
+            // A hit at no distance means the pivot itself is inside something: pulling the camera
+            // into the player's head does not help, so that one is let through.
+            if (hit && hit.distance > 0.05 && hit.distance < distance) {
                 this.desired.copy(this.pivot).addScaledVector(toCamera.normalize(), Math.max(hit.distance - this.cameraRadius, 0.1));
             }
         }

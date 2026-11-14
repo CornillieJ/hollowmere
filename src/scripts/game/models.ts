@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+import { showStage } from './farm';
+
 /**
  * Swaps a stand-in built from boxes for its modelled self.
  *
@@ -11,7 +13,8 @@ import * as THREE from 'three';
  * lights and labels all belong to the holder and are untouched.
  *
  * Parts named `glow...` are made to shine; a crop's `ripe` part follows the
- * holder's `userData.ripe`.
+ * holder's `userData.ripe`, and a holder marked `staged` shows only the
+ * `stage-N` part for its `userData.stage`.
  */
 export function modelled<T extends THREE.Object3D>(game: Game, id: string, holder: T, folder = 'props'): T {
     void game.assets
@@ -26,6 +29,7 @@ export function modelled<T extends THREE.Object3D>(game: Game, id: string, holde
                 if (part.name === 'ripe') part.visible = holder.userData.ripe === true;
                 holder.add(part);
             }
+            if (holder.userData.staged === true) showStage(holder, (holder.userData.stage as number | undefined) ?? 0);
             // Whoever measured the stand-in can measure again.
             holder.dispatchEvent({ type: 'modelled' } as never);
         })

@@ -18,6 +18,15 @@ export type AddSafeZonesOptions = {
     /** Draw a faint ring on the ground. Defaults to true. */
     showRing?: boolean;
     ringColor?: THREE.ColorRepresentation;
+    /**
+     * `line` is a thin circle at the edge. `glow` is a pool of warm light that
+     * fills the zone, brightest in a band at its edge, with sparks that rise
+     * slowly along that edge: the place reads as different without a word.
+     * Defaults to `line`.
+     */
+    ringStyle?: 'line' | 'glow';
+    /** Height of the ground at a point. With it a glow is laid over uneven ground instead of lying flat. */
+    ground?: (x: number, z: number) => number;
     onEnter?: (zone: SafeZone) => void;
     onLeave?: (zone: SafeZone) => void;
 };
@@ -51,11 +60,18 @@ export function addSafeZones(game: Game, options: AddSafeZonesOptions): SafeZone
 
     const ringOf = new Map<SafeZone, THREE.Mesh>();
     const timers = new Map<SafeZone, { left: number; onExpire: ((zone: SafeZone) => void) | undefined }>();
+    const glowMaterial = options.ringStyle === 'glow' ? new THREE.MeshBasicMaterial({ color: options.ringColor ?? 0xffc98a, map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }) : undefined;
+    const moteMaterial = glowMaterial ? new THREE.PointsMaterial({ color: options.ringColor ?? 0xffc98a, size: 0.11, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }) : undefined;
     const drawRing = (zone: SafeZone): void => {
         if (options.showRing === false || zone.ring === false) return;
-        const ring = new THREE.Mesh(new THREE.RingGeometry(zone.radius - 0.12, zone.radius, 48), ringMaterial);
-        ring.rotation.x = -Math.PI / 2;
+        const ring = glowMaterial ? new THREE.Mesh(new THREE.RingGeometry(0, zone.radius, 40, 6), glowMaterial) : new THREE.Mesh(new THREE.RingGeometry(zone.radius - 0.12, zone.radius, 48), ringMaterial);
+        ring.geometry.rotateX(-Math.PI / 2);
+        if (glowMaterial && options.ground) {
+            const points = ring.geometry.getAttribute('position');
+            for (let index = 0; index < points.count; index += 1) points.setY(index, options.ground(zone.position.x + points.getX(index), zone.position.z + points.getZ(index)) - zone.position.y);
+        }
         ring.position.set(zone.position.x, zone.position.y + 0.03, zone.position.z);
+        if (glowMaterial && moteMaterial) ring.add(motesFor(zone, moteMaterial, options.ground));
         rings.add(ring);
         ringOf.set(zone, ring);
     };
@@ -65,6 +81,7 @@ export function addSafeZones(game: Game, options: AddSafeZonesOptions): SafeZone
         timers.delete(zone);
         const ring = ringOf.get(zone);
         ring?.geometry.dispose();
+        (ring?.children[0] as THREE.Points | undefined)?.geometry.dispose();
         ring?.removeFromParent();
         ringOf.delete(zone);
     };
@@ -100,6 +117,7 @@ export function addSafeZones(game: Game, options: AddSafeZonesOptions): SafeZone
                 remove(timed);
                 timer.onExpire?.(timed);
             }
+            if (moteMaterial) for (const ring of rings.children) riseMotes(ring.children[0] as THREE.Points | undefined, delta);
             const player = game.player;
             const zone = player ? zoneAt(player.position) : undefined;
             if (zone === current) return;
@@ -128,9 +146,67 @@ export function addSafeZones(game: Game, options: AddSafeZonesOptions): SafeZone
             removeSystem();
             for (const ring of rings.children) (ring as THREE.Mesh).geometry.dispose();
             ringMaterial.dispose();
+            glowMaterial?.dispose();
+            moteMaterial?.dispose();
             rings.removeFromParent();
         },
     };
 }
 
 //#endregion Safe zones
+
+/** Sparks for a glowing zone: most along the edge, a few inside. Each keeps its foot and its speed in `userData`. */
+function motesFor(zone: SafeZone, material: THREE.PointsMaterial, ground?: (x: number, z: number) => number): THREE.Points {
+    const count = Math.round(8 + zone.radius * 7);
+    const positions = new Float32Array(count * 3);
+    const feet = new Float32Array(count);
+    const speeds = new Float32Array(count);
+    for (let index = 0; index < count; index += 1) {
+        const angle = Math.random() * Math.PI * 2;
+        const reach = zone.radius * (index % 4 === 0 ? Math.sqrt(Math.random()) * 0.9 : 0.93 + Math.random() * 0.07);
+        const x = Math.cos(angle) * reach;
+        const z = Math.sin(angle) * reach;
+        feet[index] = ground ? ground(zone.position.x + x, zone.position.z + z) - zone.position.y : 0;
+        speeds[index] = 0.25 + Math.random() * 0.35;
+        positions.set([x, (feet[index] as number) + Math.random() * MOTE_RISE, z], index * 3);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const motes = new THREE.Points(geometry, material);
+    motes.frustumCulled = false;
+    motes.userData = { feet, speeds };
+    return motes;
+}
+
+/** How high a spark rises before it starts again at the ground, in meters. */
+const MOTE_RISE = 1.9;
+
+function riseMotes(motes: THREE.Points | undefined, delta: number): void {
+    if (!motes) return;
+    const positions = motes.geometry.getAttribute('position');
+    const { feet, speeds } = motes.userData as { feet: Float32Array; speeds: Float32Array };
+    for (let index = 0; index < positions.count; index += 1) {
+        const height = positions.getY(index) + (speeds[index] as number) * delta;
+        positions.setY(index, height - (feet[index] as number) > MOTE_RISE ? (feet[index] as number) : height);
+    }
+    positions.needsUpdate = true;
+}
+
+/** Light on the ground: clear in the middle, strongest in a band near the edge, and gone at the edge itself. */
+function glowTexture(): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const context = canvas.getContext('2d');
+    if (context) {
+        const gradient = context.createRadialGradient(64, 64, 0, 64, 64, 64);
+        gradient.addColorStop(0, 'rgba(255,255,255,0.3)');
+        gradient.addColorStop(0.6, 'rgba(255,255,255,0.24)');
+        gradient.addColorStop(0.86, 'rgba(255,255,255,0.34)');
+        gradient.addColorStop(0.95, 'rgba(255,255,255,0.75)');
+        gradient.addColorStop(1, 'rgba(255,255,255,0)');
+        context.fillStyle = gradient;
+        context.fillRect(0, 0, 128, 128);
+    }
+    return new THREE.CanvasTexture(canvas);
+}

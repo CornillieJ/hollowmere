@@ -37,20 +37,21 @@ import {
     type AnimalDefinition,
 } from '../kit';
 import { createFolk, createHeldTool, dressFolk, FolkAnimator, type FolkRig } from '../content/folk';
-import { createBike, spinWheels } from '../content/bike';
+import { createBike } from '../content/bike';
 import { COOKING, CROPS, ITEMS, NEEDS_CROP, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
 import { REQUESTS, VILLAGERS } from '../content/villagers';
 import { FARM, HAUNTS, POOL_LEVEL, PELL_SPOT, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF, WRAP_AT, homeOf } from '../content/world';
-import { buildWorld, stump } from './world';
+import { buildWorld, solid, stump } from './world';
 import { setupMood } from './mood';
 import { setupFarming } from './farming';
-import { useHollowModels, animateHollow, forgetHollow, hollowTarget, isNight, pickKind, setNightTemper, setScent, spawnHollow, updateWatchers, type HollowKind } from './monsters';
+import { useHollowModels, animateHollow, forgetHollow, hollowTarget, isNight, pickKind, setNightTemper, setScent, spawnHollow, type HollowKind } from './monsters';
 import { buildFarmyard, buildInfirmary } from './farmyard';
 import { modelOnly, modelled } from './models';
 import { setupCrate } from './crate';
 import { setupBarn } from './barn';
 import { HOT_HOURS, setupWarmth } from './warmth';
 import { LANTERN, setupLanterns } from './lanterns';
+import { setupScarecrows } from './scarecrows';
 import { setupRegulars } from './regulars';
 import { REGULARS } from '../content/regulars';
 import { setupWrongness } from './wrongness';
@@ -59,9 +60,15 @@ import { HELD_PLACEHOLDER, setupPlates, type PlatesHandle } from './plates';
 import { OMEN_THOUGHTS, setupOmens } from './omens';
 import { setupDread } from './dread';
 import { INTRO, setupStory } from './story';
+import { worded } from './wording';
+import { setupWeather } from './weather';
+import { setupWhispers } from './whispers';
+import { setupPool } from './pool';
+import { registerGameIcons } from '../content/icons';
+import { takePortrait } from './portraits';
 import { setupJournal } from './journal';
 import { setupLetters } from './letters';
-import { ESCAPE, setupEscape } from './escape';
+import { DAYS_LOST, ESCAPE, setupEscape } from './escape';
 import { setupHappenings } from './happenings';
 
 /**
@@ -73,12 +80,19 @@ import { setupHappenings } from './happenings';
 const SAVE_SLOT = 'hollowveil-farm';
 /** Real seconds per in-game day. */
 const DAY_LENGTH = 600;
+/** Real seconds in one hour on the clock. */
+const HOUR_SECONDS = DAY_LENGTH / 24;
 const LOOK_BASE = 0.0012;
 const coin = (amount: number): string => `${amount}c`;
 
 export async function boot(): Promise<void> {
     const cat = createFolk({ species: 'cat', fur: 0x2b2522, accent: 0xd9b8a0, clothes: 0x6b4f3a });
 
+    registerGameIcons();
+    // The screen lettering. Loaded here and not from the stylesheet, so the path holds on GitHub Pages too.
+    const lettering = new FontFace('VT323', 'url(fonts/vt323.woff2)');
+    document.fonts.add(lettering);
+    void lettering.load().catch(() => undefined);
     const { game, world } = await createThirdPersonGame({
         title: 'Hollowveil Farm',
         autoStart: false,
@@ -88,17 +102,17 @@ export async function boot(): Promise<void> {
         // The valley brings its own ground.
         scene: { preset: 'outdoor-dusk', groundSize: 0, fog: false },
         player: { lives: Infinity, maxHealth: 100, regenPerSecond: 2, regenDelay: 6, respawnDelay: 2.5 },
-        spawnPoint: { x: FARM.door.x, y: 0.2, z: FARM.door.z },
+        spawnPoint: { x: FARM.start.x, y: 0.2, z: FARM.start.z },
         playerObject: () => cat.root,
         controls: { distance: 4.6, targetHeight: 1.3, shoulderOffset: 0.35, walkSpeed: 4.5, sprintSpeed: 6.8, cameraCollision: true },
         enemies: { animate: animateHollow, onAttack: (hub) => hub.effects.flash(0.25, 0x220000, 0.35) },
         touch: {
             buttons: [
-                { action: 'interact', label: '✋', primary: true },
-                { action: 'use', label: '◉' },
-                { action: 'sprint', label: '≫', hold: true },
-                { action: 'inventory', label: '🎒' },
-                { action: 'journal', label: '📖' },
+                { action: 'interact', label: ':hand:', primary: true },
+                { action: 'use', label: ':use:' },
+                { action: 'sprint', label: ':run:', hold: true },
+                { action: 'inventory', label: ':bag:' },
+                { action: 'journal', label: ':notebook:' },
             ],
             // What is in the hand; it opens the pockets, which a phone otherwise keeps folded away.
             actions: [{ label: HELD_PLACEHOLDER, onClick: () => plates?.togglePockets() }],
@@ -107,7 +121,7 @@ export async function boot(): Promise<void> {
         game: { stats: false, exposeDebug: true },
     });
     let plates: PlatesHandle | undefined;
-    void dressFolk(game, cat, 'farmer');
+    void dressFolk(game, cat, 'farmer').then(() => takePortrait(game, 'farmer', cat));
     const body = new FolkAnimator(cat);
     // What is in the hand shows in the hand.
     const heldTools = new Map((['axe', 'watering-can', 'candle'] as const).map((kind) => [kind as string, createHeldTool(kind, game)]));
@@ -124,21 +138,30 @@ export async function boot(): Promise<void> {
     const look = addRetroLook(game, { resolutionScale: 0.36, psx: { colorLevels: 28, dither: 0.7 }, vhs: { wobble: 0.5, saturation: 0.72, noise: 0.07 } });
     game.renderer.toneMappingExposure = 1.1;
 
+    const say = worded(game);
+    if (game.device.touch) for (const item of ITEMS) if (item.description) item.description = say(item.description);
+
     const refs = await buildWorld(game);
     const { terrain } = refs;
     const ground = (x: number, z: number): number => terrain.heightAt(x, z);
     const at = (spot: { x: number; z: number }, lift = 0): THREE.Vector3 => terrain.point(spot.x, spot.z, lift);
     // The ground arrived after the player did.
-    world.player.body.teleport(at(FARM.door, 0.2));
+    world.player.body.teleport(at(FARM.start, 0.2));
+    // Looking at the house, so the camera stands in the open yard and not in a wall.
+    const faceHome = (): void => {
+        world.controls.look.yaw = Math.PI / 2;
+        world.controls.snap();
+    };
+    faceHome();
 
-    useHollowModels(game);
+    useHollowModels(game, world.enemies);
     const yard = buildFarmyard(game, game.scene, terrain, refs.solids);
     buildInfirmary(game.scene, terrain);
     const omens = setupOmens(game, terrain);
 
     const dayCycle = new DayCycle(game, { dayLength: DAY_LENGTH, startHour: 7, stopAtHour: 3 });
     setupMood(game, { dayCycle, atmosphere, lighting: world.scene.lighting, lamps: refs.lamps });
-    const narration = addNarration(game, { speaker: 'You', portrait: '🐱' });
+    const narration = addNarration(game, { speaker: 'You', portrait: ':face-farmer:' });
 
     //#endregion Look and land
 
@@ -187,12 +210,12 @@ export async function boot(): Promise<void> {
         },
     });
     const stats = (): Array<{ icon: string; label: string; value: string }> => [
-        { icon: '❤', label: 'Health', value: `${Math.ceil(game.player?.health.current ?? 0)}/${game.player?.health.max ?? 100}` },
-        { icon: '🪙', label: 'Coins', value: coin(coins.value()) },
-        { icon: isNight(dayCycle) ? '☾' : '☀', label: dayCycle.clock, value: `Day ${dayCycle.day}` },
-        { icon: '❗', label: 'Requests filled', value: String(villagers.requests?.completed ?? 0) },
-        { icon: '♥', label: 'Hearts', value: String(VILLAGERS.reduce((total, villager) => total + villagers.relationships.hearts(villager.id), 0)) },
-        ...(escape.pledge.state === 'running' ? [{ icon: '🌅', label: `${escape.pledge.daysLeft} days to wake`, value: coin(escape.pledge.remaining) }] : []),
+        { icon: ':heart:', label: 'Health', value: `${Math.ceil(game.player?.health.current ?? 0)}/${game.player?.health.max ?? 100}` },
+        { icon: ':coin:', label: 'Coins', value: coin(coins.value()) },
+        { icon: isNight(dayCycle) ? ':moon:' : ':sun:', label: dayCycle.clock, value: `Day ${dayCycle.day}` },
+        { icon: ':alert:', label: 'Requests filled', value: String(villagers.requests?.completed ?? 0) },
+        { icon: ':heart:', label: 'Hearts', value: String(VILLAGERS.reduce((total, villager) => total + villagers.relationships.hearts(villager.id), 0)) },
+        ...(escape.pledge.state === 'running' ? [{ icon: ':dawn:', label: `${escape.pledge.daysLeft} days to wake`, value: coin(escape.pledge.remaining) }] : []),
     ];
     const pack = addPack(game, {
         title: 'Backpack',
@@ -215,7 +238,7 @@ export async function boot(): Promise<void> {
         onDrop: dropInWorld,
     });
     const escape = setupEscape(game, { coins, day: () => dayCycle.day, narration, format: coin });
-    const hotbar = addHotbar(game, { inventory: pockets, slots: 8, useAction: 'use', onUse: (slot) => (dayCycle.stalled ? undefined : slot.itemId === 'candle' ? void lightCandle() : slot.itemId === 'lantern' ? void lanterns.place() : farming.useHeld(slot)) });
+    const hotbar = addHotbar(game, { inventory: pockets, slots: 8, useAction: 'use', onUse: (slot) => (dayCycle.stalled ? undefined : slot.itemId === 'candle' ? void lightCandle() : slot.itemId === 'lantern' ? void lanterns.place() : slot.itemId === 'scarecrow' ? void scarecrows.place() : farming.useHeld(slot)) });
     game.systems.add({
         name: 'player-anim',
         order: SYSTEM_ORDER.GAMEPLAY + 7,
@@ -253,13 +276,18 @@ export async function boot(): Promise<void> {
 
     //#region Farm, animals and the bike
 
+    /** A call paid after dark is worth this much more: nobody expects the door to be knocked on then. */
+    const NIGHT_PAY = 0.5;
+    const lateCall = (): void => think('late', ["They weren't expecting anybody at the door after dark. They paid half as much again and didn't count it.", '(Every delivery made at night pays 50% more. The road there is the price.)']);
+
     /** Counted for the story and the journal, and saved with the day. */
-    const tally = { harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0, bestStreak: 0, bestDay: 0, dodged: 0, regulars: 0, stayed: 0 };
+    const tally = { harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0, bestStreak: 0, bestDay: 0, dodged: 0, regulars: 0, stayed: 0, burned: 0 };
     const thoughts = new Set<string>();
 
     /** The watering can holds this many waterings, and is filled at the well. */
-    const CAN_SIZE = 5;
-    const can = { left: CAN_SIZE };
+    const CAN_SIZES = [5, 10, 20];
+    const canSize = (): number => CAN_SIZES[upgrades.level('can')] ?? 5;
+    const can = { left: 5 };
     const farm = new Farm(game, {
         columns: FARM.field.columns,
         rows: FARM.field.rows,
@@ -270,9 +298,28 @@ export async function boot(): Promise<void> {
         soil: { dry: 0x3a2e24, wet: 0x1e1612 },
         // Planting, watering and picking each answer for themselves; no toasts on top.
         quiet: true,
-        createPlant: (crop) => modelOnly(game, `crop-${crop.id}`),
+        // One part per growth stage in the model: see `crop` in tools/blender/build_props.py.
+        createPlant: (crop) => {
+            const plant = modelOnly(game, `crop-${crop.id}`);
+            plant.userData.staged = true;
+            return plant;
+        },
     });
     const barriers = addBarriers(game, { enemies: world.enemies, lifetime: 150, toughness: 7, onBroken: () => game.toasts.push('A fence gave way', { color: '#c8a0a0' }) });
+    const scarecrows = setupScarecrows(game, {
+        farm,
+        plotSize: 1.6,
+        take: () => takeCarried('scarecrow', 1),
+        give: () => void give('scarecrow', 1),
+        say: (message, color) => game.toasts.push(message, color ? { color } : undefined),
+        onPlaced: (position) => {
+            body.play('reach');
+            juice.chime('plant');
+            game.effects.particles.burst(position.clone().setY(position.y + 0.2), { count: 10, color: 0x4a3a2a, size: 0.06, speed: 1.6, lifetime: 0.4 });
+            think('scarecrow', ["There. It isn't looking at the field. It's looking at the house.", "Barnaby says they weep in the small hours, and that I shouldn't go and ask one why."]);
+        },
+    });
+    game.save.register('scarecrows', { save: () => scarecrows.toJSON(), load: (data) => scarecrows.fromJSON(data) });
     const farming = setupFarming(game, { farm, pockets, hotbar, barriers, give, nodes: () => nodes,
         water: { left: () => can.left, use: () => (can.left -= 1) },
         enabled: () => !dayCycle.stalled,
@@ -282,8 +329,15 @@ export async function boot(): Promise<void> {
             const name = pockets.inventory.registry.resolve(itemId).name.toLowerCase();
             juice.reward(plot.position.clone().setY(1.1), `+${amount} ${name}${seeds > 0 ? `  +${seeds} seed${seeds > 1 ? 's' : ''}` : ''}`, { color: seeds > 1 ? 0xb8f0a0 : 0xffe9a8 });
         },
+        secondsPerHour: HOUR_SECONDS,
         onWork: (kind, plot) => {
             body.play(kind === 'water' ? 'pour' : 'reach');
+            // Working down a row climbs a scale: each plot within a breath of the last is a note higher.
+            const now = game.time.elapsed;
+            row.count = kind === row.kind && now - row.at < 1.4 ? row.count + 1 : 0;
+            row.kind = kind;
+            row.at = now;
+            if (row.count > 0) synth.tone({ frequency: 392 * 2 ** (ROW_SCALE[Math.min(row.count, ROW_SCALE.length) - 1] as number / 12), duration: 0.12, type: 'triangle', gain: 0.06 });
             if (kind === 'plant') {
                 juice.chime('plant');
                 juice.pop(plot.plant, 0.6);
@@ -297,10 +351,23 @@ export async function boot(): Promise<void> {
         },
     });
 
+    const row = { kind: '', count: 0, at: 0 };
+    /** Semitones above G: a major scale over 2 octaves, so a long row keeps rising. */
+    const ROW_SCALE = [2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24];
+
+    /** Hours that go by at once (a night, a visit) pass over the field too. Returns how many crops ripened. */
+    let skipping = false;
+    const growFor = (hours: number): number => {
+        skipping = true;
+        const ripened = farm.advance(hours * HOUR_SECONDS);
+        skipping = false;
+        return ripened;
+    };
+
     // Crops hop when they grow a stage, and a ripe one glints until it is picked.
     const stages = new Map<object, number>();
     farm.onChange((plot) => {
-        if (plot.crop && stages.get(plot) !== plot.stage && plot.stage > 0) {
+        if (!skipping && plot.crop && stages.get(plot) !== plot.stage && plot.stage > 0) {
             juice.pop(plot.plant, 0.35);
             if (plot.ripe) {
                 juice.sparkle(plot.position.clone().setY(0.9), 0xfff0b0, 14);
@@ -364,8 +431,8 @@ export async function boot(): Promise<void> {
         maxSpeed: 12,
         seat: { x: 0, y: 0.28, z: -0.05 },
         prompt: 'Ride the bicycle',
+        wheels: ['front-wheel', 'rear-wheel'],
     });
-    game.systems.add({ name: 'bike-wheels', order: SYSTEM_ORDER.GAMEPLAY + 6, update: (delta) => spinWheels(bikeModel, bike.speed * delta) });
 
     //#endregion Farm, animals and the bike
 
@@ -416,9 +483,23 @@ export async function boot(): Promise<void> {
         have,
         now: () => dayCycle.day * 24 + dayCycle.hour,
         // Mother Hollis's cosy keeps a basket hot half as long again.
-        keep: () => (regulars.has('cosy') ? 1.5 : 1),
+        keep: () => (regulars.has('cosy') ? 1.5 : 1) / weather.cooling,
     });
     game.save.register('warmth', { save: () => warmth.toJSON(), load: (data) => warmth.fromJSON(data) });
+    // In the bicycle's basket, under its cloth, a dish cools half as fast.
+    let basketClock = 0;
+    game.systems.add({
+        name: 'basket',
+        order: SYSTEM_ORDER.GAMEPLAY + 8,
+        update: () => {
+            const now = dayCycle.day * 24 + dayCycle.hour;
+            const passed = now - basketClock;
+            basketClock = now;
+            if (!bike.mounted || passed <= 0 || passed > 1) return;
+            warmth.spare(passed * 0.5);
+            if (warmth.carried().some((dish) => dish.heat !== 'cold')) think('basket', ["There's a cloth in the basket on the handlebars. Somebody was riding hot food about before I was.", '(A dish cools half as fast while you ride.)']);
+        },
+    });
 
     // What the pot can make: the dishes anyone knows, and the ones a villager has taught.
     const potRecipes = [...COOKING];
@@ -437,24 +518,27 @@ export async function boot(): Promise<void> {
         },
         onTaught: (regular) => {
             const dish = pockets.inventory.registry.resolve(regular.teaches.output.itemId);
-            juice.banner(`${dish.icon ?? '🍲'} ${dish.name}`, `${VILLAGERS.find((villager) => villager.id === regular.id)?.name} taught you a dish. It is in the pot's list now.`, { color: '#b8f0a0', seconds: 4 });
+            juice.banner(`${dish.icon ?? ':pot:'} ${dish.name}`, `${VILLAGERS.find((villager) => villager.id === regular.id)?.name} taught you a dish. It is in the pot's list now.`, { color: '#b8f0a0', seconds: 4 });
             juice.chime('fanfare');
         },
         onFavour: (regular) => {
-            juice.banner(`♥ ${regular.favour.title}`, regular.favour.text, { color: '#ffc8d8', seconds: 5 });
+            juice.banner(`:heart: ${regular.favour.title}`, regular.favour.text, { color: '#ffc8d8', seconds: 5 });
             juice.chime('fanfare');
         },
         onDelivered: (regular, itemId, _amount, pay) => {
             today.delivered += 1;
             const heat = warmth.heatOf(itemId);
             const heatBonus = Math.round(pay * warmth.bonus(itemId));
+            const nightBonus = isNight(dayCycle) ? Math.round(pay * NIGHT_PAY) : 0;
+            if (nightBonus > 0) lateCall();
             dayCycle.advance(visitHours());
-            coins.add(pay + heatBonus);
+            growFor(visitHours());
+            coins.add(pay + heatBonus + nightBonus);
             villagers.relationships.add(regular.id, heat === 'hot' ? 45 : 35);
             tally.bestStreak = Math.max(tally.bestStreak, today.delivered);
             tally.regulars += 1;
             const name = VILLAGERS.find((villager) => villager.id === regular.id)?.name ?? '';
-            juice.banner('Regular order filled', `${name}  +${coin(pay)}${heat === 'hot' ? `  ·  still hot: +${coin(heatBonus)}` : heat === 'warm' ? `  ·  still warm: +${coin(heatBonus)}` : heat === 'cold' ? '  ·  gone cold' : ''}`, { color: '#ffe9a8' });
+            juice.banner('Regular order filled', `${name}  +${coin(pay)}${heat === 'hot' ? `  ·  still hot: +${coin(heatBonus)}` : heat === 'warm' ? `  ·  still warm: +${coin(heatBonus)}` : heat === 'cold' ? '  ·  gone cold' : ''}${nightBonus > 0 ? `  ·  after dark: +${coin(nightBonus)}` : ''}`, { color: '#ffe9a8' });
             juice.chime('fanfare');
             game.toasts.push(`${visitHours()} hours pass. It is ${dayCycle.clock}.`, { color: '#c8c0b0' });
         },
@@ -495,7 +579,7 @@ export async function boot(): Promise<void> {
             tally.cooked += 1;
             today.cooked += 1;
             warmth.collected(itemId, amount);
-            think('hot', [`Hot from the pot. It will not stay that way: ${HOT_HOURS} hours, perhaps, and then it is only warm, and then it is cold.`, 'They pay more for hot food. And every visit takes hours of the day. So who gets theirs first is worth a thought.']);
+            think('hot', [`Hot from the pot. It won't stay that way: ${HOT_HOURS} hours, maybe, then it's only warm, then it's cold.`, "They pay more for hot food, and every visit eats hours. So who gets theirs first is worth a thought."]);
         },
     });
     const bench = addCraftingStation(game, { id: 'bench', title: 'Workbench', object: refs.spots.workbench, recipes: WOODWORK, sources: carried, give: stow, prompt: 'Use the workbench', verb: 'Build' });
@@ -521,7 +605,7 @@ export async function boot(): Promise<void> {
         villagers: VILLAGERS.map((villager) => {
             const rig = createFolk(villager.look);
             folk.set(villager.id, { rig, animator: new FolkAnimator(rig) });
-            void dressFolk(game, rig, villager.id);
+            void dressFolk(game, rig, villager.id).then(() => takePortrait(game, villager.id, rig));
             const square = at({ x: VILLAGE.center.x + villager.spot.x, z: VILLAGE.center.z + villager.spot.z });
             const home = villager.home !== undefined ? homeOf(villager.home) : undefined;
             return {
@@ -563,19 +647,22 @@ export async function boot(): Promise<void> {
             // Read before the visit takes its hours: it is as hot as it was when it was handed over.
             const heat = warmth.heatOf(request.itemId);
             const heatBonus = Math.round(request.reward * warmth.bonus(request.itemId));
+            const nightBonus = isNight(dayCycle) ? Math.round(request.reward * NIGHT_PAY) : 0;
+            if (nightBonus > 0) lateCall();
             // A delivery is a visit: hours go by.
             dayCycle.advance(visitHours());
+            growFor(visitHours());
             game.toasts.push(`${visitHours()} hours pass. It is ${dayCycle.clock}.`, { color: '#c8c0b0' });
             // Each further delivery on the same day pays a little more, up to half as much again.
             const streak = Math.min(5, today.delivered - 1);
             const bonus = Math.round(request.reward * 0.1 * streak);
-            coins.add(amount + bonus + heatBonus);
+            coins.add(amount + bonus + heatBonus + nightBonus);
             if (heat === 'hot') villagers.relationships.add(request.from, 10);
             if (request.deposit > 0) tally.bigJobs += 1;
             tally.bestStreak = Math.max(tally.bestStreak, today.delivered);
             const name = VILLAGERS.find((villager) => villager.id === request.from)?.name ?? '';
             const heatLine = heat === 'hot' ? `  ·  still hot: +${coin(heatBonus)}` : heat === 'warm' ? `  ·  still warm: +${coin(heatBonus)}` : heat === 'cold' ? '  ·  gone cold' : '';
-            juice.banner('Request filled', `${name}  +${coin(request.reward)}${heatLine}${bonus > 0 ? `  ·  ${today.delivered} today: +${coin(bonus)} bonus` : ''}`, { color: '#ffe9a8' });
+            juice.banner('Request filled', `${name}  +${coin(request.reward)}${heatLine}${nightBonus > 0 ? `  ·  after dark: +${coin(nightBonus)}` : ''}${bonus > 0 ? `  ·  ${today.delivered} today: +${coin(bonus)} bonus` : ''}`, { color: '#ffe9a8' });
             juice.chime(streak > 0 ? 'fanfare' : 'success');
         },
         formatReward: coin,
@@ -610,7 +697,7 @@ export async function boot(): Promise<void> {
         const seeds = upgrades.level('seeds');
         const bagLevel = upgrades.level('bag');
         stock.length = 0;
-        stock.push('turnip-seed', 'wheat-seed', ...(seeds >= 1 ? ['corn-seed'] : []), ...(seeds >= 2 ? ['pumpkin-seed'] : []), 'fence-kit', 'candle', 'lantern', 'lamp-oil', ...(bagLevel < 3 ? [`backpack-${bagLevel + 1}`] : []));
+        stock.push('turnip-seed', 'wheat-seed', ...(seeds >= 1 ? ['corn-seed'] : []), ...(seeds >= 2 ? ['pumpkin-seed'] : []), 'fence-kit', 'candle', 'lantern', 'lamp-oil', 'scarecrow', ...(bagLevel < 3 ? [`backpack-${bagLevel + 1}`] : []));
         if (shop.isOpen) shop.screen.refresh();
     }
     // A backpack bought at the counter is put on there and then.
@@ -630,11 +717,14 @@ export async function boot(): Promise<void> {
     lectern.position.copy(at({ x: VILLAGE.store.x + 5.6, z: VILLAGE.store.z + 4.8 }));
     lectern.rotation.y = VILLAGE.store.yaw;
     game.scene.add(counter, lectern);
+    solid(game, counter, refs, 1);
+    solid(game, lectern, refs, 1);
     game.interactions.add(counter, { prompt: 'Buy at the store', range: 2.6, onInteract: () => shop.open() });
     // The counter only reaches into the pockets. The crate at its end takes from the backpack as well.
     const scales = setupCrate(game, {
         position: at({ x: VILLAGE.store.x + 0.4, z: VILLAGE.store.z + 7.1 }),
         yaw: VILLAGE.store.yaw,
+        solids: refs.solids,
         carried,
         coins,
         stallPrice: (itemId) => shop.inventory.sellPrice(itemId),
@@ -662,7 +752,7 @@ export async function boot(): Promise<void> {
             {
                 id: 'field',
                 name: 'More land',
-                icon: '🌱',
+                icon: ':sprout:',
                 levels: [
                     { cost: 150, name: 'The east field', description: '12 more plots beside the first field.' },
                     { cost: 340, name: 'The long field', description: '18 more plots along the south fence.' },
@@ -672,7 +762,7 @@ export async function boot(): Promise<void> {
             {
                 id: 'pot',
                 name: 'A better pot',
-                icon: '🍲',
+                icon: ':pot:',
                 levels: [
                     { cost: 180, name: 'Iron pot', description: 'Cooks chowder, omelettes and pale broth.' },
                     { cost: 450, name: 'Cauldron', description: 'Cooks pumpkin pie and Hollowveil stew.' },
@@ -682,7 +772,7 @@ export async function boot(): Promise<void> {
             {
                 id: 'seeds',
                 name: 'Better seeds',
-                icon: '🌽',
+                icon: ':corn:',
                 levels: [
                     { cost: 80, name: 'Corn seeds', description: 'The store starts stocking corn.' },
                     { cost: 170, name: 'Pumpkin seeds', description: 'The store starts stocking pumpkins.' },
@@ -692,7 +782,7 @@ export async function boot(): Promise<void> {
             {
                 id: 'bag',
                 name: 'A bigger backpack',
-                icon: '🎒',
+                icon: ':bag:',
                 levels: [
                     { cost: 150, name: 'Stitched backpack', description: '6 slots instead of 3. Also on the store shelf.' },
                     { cost: 400, name: 'Leather backpack', description: '10 slots.' },
@@ -703,8 +793,19 @@ export async function boot(): Promise<void> {
                     restock();
                 },
             },
-            { id: 'hen', name: 'Another hen', icon: '🐔', description: 'One more hen in the pen, laying eggs.', levels: [{ cost: 90 }, { cost: 120 }, { cost: 160 }], apply: (level) => setHerd('hen', 2 + level) },
-            { id: 'cow', name: 'Another cow', icon: '🐄', description: 'One more cow in the pen, giving milk.', levels: [{ cost: 260 }, { cost: 360 }], apply: (level) => setHerd('cow', 1 + level) },
+            {
+                id: 'can',
+                name: 'A bigger watering can',
+                icon: ':drop:',
+                levels: [
+                    { cost: 110, name: 'Two-gallon can', description: 'Holds 10 waterings instead of 5.' },
+                    { cost: 280, name: 'Yoke and pails', description: 'Holds 20 waterings.' },
+                ],
+                // It comes full.
+                apply: () => (can.left = canSize()),
+            },
+            { id: 'hen', name: 'Another hen', icon: ':hen:', description: 'One more hen in the pen, laying eggs.', levels: [{ cost: 90 }, { cost: 120 }, { cost: 160 }], apply: (level) => setHerd('hen', 2 + level) },
+            { id: 'cow', name: 'Another cow', icon: ':cow:', description: 'One more cow in the pen, giving milk.', levels: [{ cost: 260 }, { cost: 360 }], apply: (level) => setHerd('cow', 1 + level) },
         ],
     });
     setHerd('hen', 2);
@@ -715,11 +816,12 @@ export async function boot(): Promise<void> {
 
     //#region Home
 
-    // Beside the mailbox: what is too much goes in, and Barnaby pays for it, less than at his stall.
-    const crateSpot = at({ x: FARM.door.x + 3.2, z: FARM.door.z + 3.5 });
+    // On its own by the yard's edge, clear of the mailbox and the bench: what is too much goes in, and Barnaby pays for it, less than at his stall.
+    const crateSpot = at({ x: FARM.door.x + 5.4, z: FARM.door.z + 6.2 });
     const crate = setupCrate(game, {
         position: crateSpot,
         yaw: Math.PI,
+        solids: refs.solids,
         carried,
         coins,
         // In Barnaby's green book the crate pays what the stall does.
@@ -745,10 +847,11 @@ export async function boot(): Promise<void> {
         door: at({ x: barnFront, z: FARM.barn.z }, 1),
         outside: at({ x: barnFront - 1.4, z: FARM.barn.z }, 0.3),
         atmosphere,
+        settle: () => world.controls.snap(),
         canEnter: () => (bike.mounted ? 'The bicycle stays outside' : dayCycle.stalled ? 'You need to sleep. Go home to bed.' : undefined),
         onEnter: () => {
             plates?.setPlace('The barn');
-            think('barn', ['Straw, old wood, one lamp. And quiet: the first real quiet since I woke up here.', 'Nothing has ever come in after me. They do not seem to know it has an inside.']);
+            think('barn', ["Straw, old wood, one lamp. And quiet. The first real quiet since I woke up here.", "Nothing's ever followed me in. I don't think they know it has an inside."]);
         },
         onLeave: () => plates?.setPlace(safeZones.zoneAt(game.player?.position ?? barn.floor)?.name),
     });
@@ -761,12 +864,12 @@ export async function boot(): Promise<void> {
     well.position.copy(at(FARM.well));
     game.scene.add(well);
     game.interactions.add(well, {
-        prompt: () => `Fill the watering can (${can.left}/${CAN_SIZE})`,
+        prompt: () => `Fill the watering can (${can.left}/${canSize()})`,
         blockedPrompt: () => (have('watering-can') === 0 ? 'A well. You have no can to fill' : 'The watering can is full'),
         range: 2.8,
-        canInteract: () => can.left < CAN_SIZE && have('watering-can') > 0,
+        canInteract: () => can.left < canSize() && have('watering-can') > 0,
         onInteract: () => {
-            can.left = CAN_SIZE;
+            can.left = canSize();
             body.play('reach');
             juice.chime('water');
             synth.noise({ duration: 0.9, gain: 0.08, filter: 2600 });
@@ -785,10 +888,12 @@ export async function boot(): Promise<void> {
 
     const safeZones = addSafeZones(game, {
         enemies: world.enemies,
+        // Lamplight on the ground, not a drawn line.
+        ringStyle: 'glow',
+        ground,
         zones: SAFE_ZONES.map((zone) => ({ ...zone, position: { ...zone.position, y: ground(zone.position.x, zone.position.z) } })),
         onEnter: (zone) => {
             plates?.setPlace(zone.name ?? 'Safe');
-            think('safe', ['They stop at the light. Remember that.']);
         },
         onLeave: () => plates?.setPlace(undefined),
     });
@@ -818,7 +923,7 @@ export async function boot(): Promise<void> {
             },
         });
         synth.tone({ frequency: 880, duration: 0.15, type: 'sine', gain: 0.06 });
-        think('candle', ['A little light, and they keep off. It will not burn long.']);
+        think('candle', ["A little light, and they keep off. It won't burn long."]);
         return true;
     };
 
@@ -835,7 +940,7 @@ export async function boot(): Promise<void> {
             body.play('reach');
             synth.tone({ frequency: 660, duration: 0.2, type: 'sine', gain: 0.07 });
             juice.chime('success');
-            think('lantern', ['There. A ring of light they will not step into, and the Veil draws back from it a little.', `It has a day of oil in it. A flask buys another day. If I let it go dark it is only a post.`]);
+            think('lantern', ["There. A ring of light they won't step into, and the Veil pulls back from it a little.", "It's got a day of oil in it. A flask buys another day. If I let it go dark it's only a post."]);
         },
         onFilled: (lantern) => {
             body.play('pour');
@@ -864,13 +969,13 @@ export async function boot(): Promise<void> {
         dragAt: (position) => (POOL_LEVEL - position.y) / 0.6,
         onEnter: () => {
             synth.noise({ duration: 0.4, gain: 0.1, filter: 1200 });
-            think('wade', ['Cold. And it pulls at the legs. I will not get anywhere fast in this.']);
+            think('wade', ["Cold. And it drags at my legs. I'm not getting anywhere fast in this."]);
         },
     });
 
     const population = addPopulation(game, {
         enemies: world.enemies,
-        target: () => hollowTarget(dayCycle, hunting()),
+        target: () => Math.round(hollowTarget(dayCycle, hunting()) * weather.hollow),
         spawn: (position, post) => spawnHollow(world.enemies, position, { night: isNight(dayCycle), post, hunting: hunting(), kind: pickKind(dayCycle.day) }),
         // Night fills up fast; day thins out slowly.
         interval: () => (isNight(dayCycle) ? [1, 2.5] : [4, 8]),
@@ -888,15 +993,14 @@ export async function boot(): Promise<void> {
         name: 'watchers',
         order: SYSTEM_ORDER.GAMEPLAY - 2,
         update: () => {
-            updateWatchers(game.camera);
             const night = isNight(dayCycle);
+            setNightTemper(night);
             if (night === wasNight) return;
             wasNight = night;
-            setNightTemper(night);
             if (!hunting()) return;
             game.toasts.push(night ? 'Night. The fog is full of them now.' : 'Dawn. Most of them drift back into the fog.', { color: night ? '#c8a0a0' : '#e8e0c8' });
             if (night) synth.tone({ frequency: 46, duration: 3, type: 'sawtooth', gain: 0.16, sweep: 0.7 });
-            if (night) think('night', ['Night. There are 3 of them now for every one I saw by day, and they are not wandering any more.', 'A lamp, a candle, a door. Or the bicycle, and do not stop.']);
+            if (night) think('night', ["Night. There are 3 of them now for every one I saw by day, and they've stopped wandering.", "A lamp, a candle, a door. Or the bicycle, and I don't stop."]);
         },
     });
 
@@ -912,8 +1016,8 @@ export async function boot(): Promise<void> {
             if (scentTimer > 0) return;
             scentTimer = 0.5;
             const level = scentLevel();
-            setScent(level, isNight(dayCycle));
-            if (level >= 0.25) think('scent', ['They turned their heads. All of them, the same way, as I came past with the basket.', 'It is the food. They can smell it while it is hot. The more I carry, the further off they notice, and the more of them come.']);
+            setScent(level);
+            if (level >= 0.25) think('scent', ["They turned their heads. All of them, the same way, as I came past with the basket.", "It's the food. They can smell it while it's hot. The more I carry, the further off they notice, and the more of them come."]);
         },
     });
 
@@ -930,11 +1034,10 @@ export async function boot(): Promise<void> {
         quietFarm = undefined;
         // The ones already out there were made harmless; let them go and the real ones come.
         population.clear();
-        think('yard', ['Tracks in the yard this morning. Right up to the field.', 'They come onto the farm now. Only the porch and the barn lamp keep them off.']);
+        think('yard', ["Tracks in the yard this morning. Right up to the field.", "So they come onto the farm now. Only the porch light and the barn lamp keep them off."]);
     }
 
     // They kill. The farmer is found, days later, and wakes in the infirmary with nothing but their tools.
-    const DAYS_LOST = 3;
     game.events.on('player:death', () => {
         if (bike.mounted) bike.dismount();
         game.effects.flash(1.6, 0x1a0000, 0.95);
@@ -951,7 +1054,11 @@ export async function boot(): Promise<void> {
     });
     function wake(): void {
         for (const inventory of carried) {
-            for (const slot of [...inventory.inventory.slots]) if (!slot.definition.keep) inventory.remove(slot.itemId, slot.amount);
+            for (const slot of [...inventory.inventory.slots]) {
+                if (slot.definition.keep) continue;
+                pool.keep(slot.itemId, slot.amount);
+                inventory.remove(slot.itemId, slot.amount);
+            }
         }
         // The last of the lost days ends with a morning, like any other.
         // Dying after midnight is already on the new day, so the morning does not add one.
@@ -961,7 +1068,7 @@ export async function boot(): Promise<void> {
         const bed = homeOf(VILLAGE.infirmary);
         world.player.body.teleport(at({ x: bed.x + 0.4, z: bed.z + 0.8 }, 0.2));
         narration.clear();
-        void narration.speak(['The infirmary. Clean sheets. Nobody about.', `${DAYS_LOST} days gone, and my pockets with them. Whoever was waiting on me has stopped waiting.`, 'They left my tools by the cot. Back to the farm, then. More carefully.']);
+        void narration.speak(["The infirmary. Clean sheets. Nobody about.", `${DAYS_LOST} days gone, and my pockets with them. Whoever was waiting on me has given up.`, "They left my tools by the cot. Back to the farm, then. And I'll be more careful."]);
         saves.save();
     }
 
@@ -986,8 +1093,8 @@ export async function boot(): Promise<void> {
             const out = Math.max(Math.abs(x), Math.abs(z));
             // Thicker away from any light and late in the day, and thicker still at the edge of the valley.
             veilFactor += (veilAt(player.position) - veilFactor) * Math.min(1, game.time.delta * 0.8);
-            if (veilFactor > 1.55) think('thick', ['I can hardly see my own hands. It was not like this at noon, or near the lamps.', 'The Veil is thickest late in the day and far from any light. A lantern on the way would make a hole in it.']);
-            atmosphere.setDensity(atmosphere.fog.density * veilFactor * (1 + (1 - THREE.MathUtils.smoothstep(WRAP_AT - out, 0, 24)) * 4));
+            if (veilFactor > 1.55) think('thick', ["I can hardly see my own hands. It wasn't like this at noon, or near the lamps.", "The Veil's thickest late in the day and far from any light. A lantern on the way would make a hole in it."]);
+            atmosphere.setDensity(atmosphere.fog.density * veilFactor * weather.fog * (1 + (1 - THREE.MathUtils.smoothstep(WRAP_AT - out, 0, 24)) * 4));
 
             if (!crossing) {
                 if (out <= WRAP_AT) return;
@@ -1012,7 +1119,7 @@ export async function boot(): Promise<void> {
                 crossing = undefined;
                 tally.wrapped += 1;
                 // Only once the far side can be seen does the farmer remark on it.
-                think('wrap', ['The Veil went solid white, and then thinned again.', 'I am on the far side of the valley. I walked out of it one way and came in by the other. There is no out.']);
+                think('wrap', ["The Veil went solid white, and then it thinned again.", "I'm on the far side of the valley. I walked out one way and came back in by the other. There's no out."]);
             }
         },
     });
@@ -1041,37 +1148,86 @@ export async function boot(): Promise<void> {
     const atHome = (): boolean => Math.hypot((game.player?.position.x ?? 0) - FARM.door.x, (game.player?.position.z ?? 0) - FARM.door.z) < 8;
     const deeds = addAchievements(game, {
         onEarned: (achievement) => {
-            juice.banner(`${achievement.icon ?? '★'} ${achievement.title}`, achievement.description, { color: '#ffe9a8', seconds: 3.2 });
+            juice.banner(`${achievement.icon ?? ':star:'} ${achievement.title}`, achievement.description, { color: '#ffe9a8', seconds: 3.2 });
             juice.chime('success');
         },
         achievements: [
-            { id: 'harvest', icon: '🌱', title: 'Soil is soil', description: 'Pick your first crop.', done: () => tally.harvested > 0 },
-            { id: 'dish', icon: '🍲', title: 'Something hot', description: 'Cook a dish.', done: () => tally.cooked > 0 },
-            { id: 'delivery', icon: '❗', title: 'Worth keeping', description: 'Fill a request.', done: () => (villagers.requests?.completed ?? 0) >= 1 },
-            { id: 'regular', icon: '🧺', title: 'Part of the village', description: 'Fill 10 requests.', done: () => (villagers.requests?.completed ?? 0) >= 10 },
-            { id: 'trusted', icon: '🤝', title: 'Money down', description: 'Take a job that wants a deposit, and deliver it.', done: () => tally.bigJobs > 0 },
-            { id: 'friend', icon: '♥', title: 'Easier to love', description: 'Reach 3 hearts with someone.', done: () => VILLAGERS.some((villager) => villagers.relationships.hearts(villager.id) >= 3) },
-            { id: 'cauldron', icon: '🫕', title: 'Funerals and weddings', description: 'Own the cauldron.', done: () => cookpot.station.tier >= 3 },
-            { id: 'land', icon: '🌾', title: 'All of it under seed', description: 'Buy both extra fields.', done: () => farm.activeFields >= 3 },
-            { id: 'places', icon: '🧭', title: 'What is in this valley with me', description: 'Find all 5 places off the road.', done: () => SIGHTS.every((sight) => thoughts.has(sight.id)) },
-            { id: 'wrap', icon: '🌫', title: 'There is no out', description: 'Walk out of the valley and come in by the other side.', done: () => tally.wrapped > 0 },
-            { id: 'candle', icon: '🕯', title: 'A little light', description: 'Light a grave candle.', done: () => thoughts.has('candle') },
-            { id: 'letters', icon: '✉', title: 'Your neighbour, Pell', description: 'Read every letter.', done: () => letters.read >= letters.total },
-            { id: 'bargain', icon: '🌅', title: 'A way home', description: 'Say yes to Pell.', done: () => escape.pledge.state !== 'idle' },
-            { id: 'halfway', icon: '🔥', title: 'It burns green', description: 'Burn half the price.', done: () => escape.pledge.paid >= ESCAPE.price / 2 },
-            { id: 'siege', icon: '🏘', title: 'Shoulder to shoulder', description: 'Be in the village square while they ring the wall.', hidden: true, done: () => happenings.active === 'siege' && inVillage() },
-            { id: 'overrun', icon: '🏚', title: 'Only the porch is mine', description: 'Stand on your porch while the farm is overrun.', hidden: true, done: () => happenings.active === 'overrun' && atHome() },
-            { id: 'dodge', icon: '💨', title: 'Close!', description: 'Step out from under a blow.', done: () => tally.dodged > 0 },
-            { id: 'streak', icon: '🔔', title: 'A good day', description: 'Fill 3 requests in one day.', done: () => tally.bestStreak >= 3 },
-            { id: 'noticing', icon: '✎', title: 'It is an ordinary valley', description: 'Notice 4 things that are not right.', done: () => wrongness.noticed.size >= 4 },
-            { id: 'all-wrong', icon: '🪞', title: 'Everybody says so', description: 'Notice all 7.', hidden: true, done: () => wrongness.noticed.size >= 7 },
-            { id: 'regulars', icon: '🧺', title: 'On the day', description: 'Fill 5 regular orders.', done: () => tally.regulars >= 5 },
-            { id: 'stayed', icon: '🌫', title: 'There are worse neighbours', description: 'Let the last day pass, and stay.', hidden: true },
-            { id: 'died', icon: '🛏', title: 'Clean sheets', description: 'Wake up in the infirmary.', hidden: true },
+            { id: 'harvest', icon: ':sprout:', title: 'Soil is soil', description: 'Pick your first crop.', done: () => tally.harvested > 0 },
+            { id: 'dish', icon: ':pot:', title: 'Something hot', description: 'Cook a dish.', done: () => tally.cooked > 0 },
+            { id: 'delivery', icon: ':alert:', title: 'Worth keeping', description: 'Fill a request.', done: () => (villagers.requests?.completed ?? 0) >= 1 },
+            { id: 'regular', icon: ':basket:', title: 'Part of the village', description: 'Fill 10 requests.', done: () => (villagers.requests?.completed ?? 0) >= 10 },
+            { id: 'trusted', icon: ':deposit:', title: 'Money down', description: 'Take a job that wants a deposit, and deliver it.', done: () => tally.bigJobs > 0 },
+            { id: 'friend', icon: ':heart:', title: 'Easier to love', description: 'Reach 3 hearts with someone.', done: () => VILLAGERS.some((villager) => villagers.relationships.hearts(villager.id) >= 3) },
+            { id: 'cauldron', icon: ':cauldron:', title: 'Funerals and weddings', description: 'Own the cauldron.', done: () => cookpot.station.tier >= 3 },
+            { id: 'land', icon: ':wheat:', title: 'All of it under seed', description: 'Buy both extra fields.', done: () => farm.activeFields >= 3 },
+            { id: 'places', icon: ':compass:', title: 'What is in this valley with me', description: 'Find all 5 places off the road.', done: () => SIGHTS.every((sight) => thoughts.has(sight.id)) },
+            { id: 'wrap', icon: ':fog:', title: 'There is no out', description: 'Walk out of the valley and come in by the other side.', done: () => tally.wrapped > 0 },
+            { id: 'candle', icon: ':candle:', title: 'A little light', description: 'Light a grave candle.', done: () => thoughts.has('candle') },
+            { id: 'letters', icon: ':letter:', title: 'Your neighbour, Pell', description: 'Read every letter.', done: () => letters.read >= letters.total },
+            { id: 'bargain', icon: ':dawn:', title: 'A way home', description: 'Hear Pell out.', done: () => escape.met },
+            { id: 'halfway', icon: ':fire:', title: 'It burns green', description: 'Burn half the price.', done: () => escape.pledge.paid >= ESCAPE.price / 2 },
+            { id: 'siege', icon: ':village:', title: 'Shoulder to shoulder', description: 'Be in the village square while they ring the wall.', hidden: true, done: () => happenings.active === 'siege' && inVillage() },
+            { id: 'overrun', icon: ':ruin:', title: 'Only the porch is mine', description: 'Stand on your porch while the farm is overrun.', hidden: true, done: () => happenings.active === 'overrun' && atHome() },
+            { id: 'dodge', icon: ':dash:', title: 'Close!', description: 'Step out from under a blow.', done: () => tally.dodged > 0 },
+            { id: 'streak', icon: ':bell:', title: 'A good day', description: 'Fill 3 requests in one day.', done: () => tally.bestStreak >= 3 },
+            { id: 'noticing', icon: ':pencil:', title: 'It is an ordinary valley', description: 'Notice 4 things that are not right.', done: () => wrongness.noticed.size >= 4 },
+            { id: 'all-wrong', icon: ':mirror:', title: 'Everybody says so', description: 'Notice all 7.', hidden: true, done: () => wrongness.noticed.size >= 7 },
+            { id: 'regulars', icon: ':basket:', title: 'On the day', description: 'Fill 5 regular orders.', done: () => tally.regulars >= 5 },
+            { id: 'stayed', icon: ':fog:', title: 'There are worse neighbours', description: 'Let the last day pass, and stay.', hidden: true },
+            { id: 'died', icon: ':bed:', title: 'Clean sheets', description: 'Wake up in the infirmary.', hidden: true },
         ],
     });
 
     //#endregion The edge, bad days and deeds
+
+    //#region Weather, sounds that lie, and the pool
+
+    const weather = setupWeather(game, {
+        clock: () => dayCycle.day * 24 + dayCycle.hour,
+        hour: () => dayCycle.hour,
+        enabled: () => hunting() && game.state.is('playing') && !ending.playing,
+        sheltered: () => barn.inside,
+        synth,
+        waterField: () => farm.plots.filter((plot) => plot.active && plot.crop && !plot.ripe && farm.water(plot)).length,
+        setCompass: (visible) => compass.setVisible(visible),
+        banner: (title, effect) => juice.banner(title, effect, { color: '#c8d4d8' }),
+    });
+
+    const whispers = setupWhispers(game, {
+        synth,
+        hour: () => dayCycle.hour,
+        night: () => isNight(dayCycle),
+        enabled: () => hunting() && game.state.is('playing') && !narration.speaking && !ending.playing,
+        inBarn: () => barn.inside,
+        safe: () => safeZones.playerSafe,
+        riding: () => bike.mounted,
+        toVillage: () => Math.hypot((game.player?.position.x ?? 0) - VILLAGE.center.x, (game.player?.position.z ?? 0) - VILLAGE.center.z),
+        thick: () => weather.id === 'thick',
+        say: (line) => game.toasts.push(line, { color: '#b8c8c0', duration: 5 }),
+        think,
+    });
+
+    // What the farmer carried when they died is kept by the black pool, and given back there after dark.
+    const pool = setupPool(game, {
+        terrain,
+        night: () => isNight(dayCycle),
+        stow,
+        knows: (itemId) => pockets.inventory.registry.get(itemId) !== undefined,
+        say: (line) => game.toasts.push(line, { color: '#b8c8c0', duration: 5 }),
+        think,
+        onReturned: (count, left) => {
+            if (count === 0) {
+                game.toasts.push(left > 0 ? 'Your pockets and backpack are full' : 'Cold water. Nothing else.', { color: '#c8a0a0' });
+                return;
+            }
+            synth.tone({ frequency: 70, duration: 1.6, type: 'sine', gain: 0.18, sweep: 1.6 });
+            juice.banner('The water gives it back', left > 0 ? `${count} things. ${left} more are still down there.` : `${count} things, cold and wet, and all yours.`, { color: '#a8c8d0' });
+            think('pool-back', ["Cold, right up to the shoulder. And then a strap in my hand. Mine.", "Everything I was carrying when they got me. All laid out down there, in a row.", "I never felt the bottom. I felt it being handed up."]);
+            saves.save();
+        },
+    });
+
+    //#endregion Weather, sounds that lie, and the pool
 
     //#region What is not right
 
@@ -1152,7 +1308,7 @@ export async function boot(): Promise<void> {
         order: SYSTEM_ORDER.UI,
         update: () => {
             const { station } = cookpot;
-            const text = station.job ? `${Math.max(1, Math.ceil(station.job.recipe.seconds - station.job.elapsed))}s` : station.ready.length > 0 ? '✓ ready' : '';
+            const text = station.job ? `${Math.max(1, Math.ceil(station.job.recipe.seconds - station.job.elapsed))}s` : station.ready.length > 0 ? 'ready' : '';
             if (text !== potText) {
                 potText = text;
                 potLabel.text = text;
@@ -1183,6 +1339,53 @@ export async function boot(): Promise<void> {
             if (night === tuneIsNight) return;
             tuneIsNight = night;
             music.setScale(night ? NIGHT_TUNE : DAY_TUNE, { gap: night ? [4, 9] : [1.6, 4] });
+        },
+    });
+
+    // The price is burned in quarters: each one puts green on the old tree and is spoken of once.
+    const QUARTERS: Array<{ title: string; sub: string; lines: string[] }> = [
+        { title: 'A quarter burned', sub: 'The old tree on the hill has put out leaves.', lines: ['A quarter of it, gone up green.', 'Pell says that tree has not had a leaf since before he came. It has a handful now, low down, where the smoke went.'] },
+        { title: 'Half burned', sub: 'More green on the old tree.', lines: ['Half. I caught myself humming this morning: a tune from the other kitchen. I had forgotten I knew it.', 'Pell did not know it. He asked me to hum it again, slowly, and stood very still.'] },
+        { title: 'Three quarters burned', sub: 'The old tree is almost in leaf.', lines: ['Three quarters. Pell asked me the name of my street and I had it at once.', 'He wrote it down and put it in my pocket. In case I do not have it, later. "Read it on the last night," he said.'] },
+    ];
+    const treeGreen = new THREE.Group();
+    const leafMaterial = new THREE.MeshBasicMaterial({ color: 0x86e89a, side: THREE.DoubleSide });
+    const leafShape = new THREE.PlaneGeometry(0.55, 0.32);
+    QUARTERS.forEach((_quarter, tier) => {
+        const cluster = new THREE.Group();
+        for (let index = 0; index < 9; index += 1) {
+            const leaf = new THREE.Mesh(leafShape, leafMaterial);
+            const angle = index * 2.4 + tier;
+            leaf.position.set(Math.cos(angle) * (0.9 + (index % 3) * 0.45), 2.6 + tier * 1.5 + (index % 4) * 0.35, Math.sin(angle) * (0.9 + (index % 3) * 0.45));
+            leaf.rotation.set(index, angle, index * 0.7);
+            cluster.add(leaf);
+        }
+        cluster.visible = false;
+        treeGreen.add(cluster);
+    });
+    const treeLight = new THREE.PointLight(0x7dff8a, 0, 14, 1.6);
+    treeLight.position.y = 4;
+    treeGreen.add(treeLight);
+    treeGreen.position.copy(at({ x: PLACES.lookout.x - 2.5, z: PLACES.lookout.z - 2 }));
+    game.scene.add(treeGreen);
+    game.systems.add({
+        name: 'quarters',
+        order: SYSTEM_ORDER.EFFECTS,
+        update: () => {
+            const { pledge } = escape;
+            const reached = pledge.state === 'idle' ? 0 : pledge.state === 'kept' ? QUARTERS.length : Math.min(QUARTERS.length, Math.floor((pledge.paid / ESCAPE.price) * 4));
+            treeGreen.children.forEach((cluster, tier) => {
+                if (cluster !== treeLight) cluster.visible = tier < reached;
+            });
+            treeLight.intensity = reached * 1.2 + (reached > 0 ? Math.sin(game.time.elapsed * 2.3) * 0.3 : 0);
+            tally.burned = Math.min(tally.burned, reached);
+            if (reached <= tally.burned || !game.state.is('playing') || pledge.state !== 'running') return;
+            tally.burned = reached;
+            const quarter = QUARTERS[reached - 1] as (typeof QUARTERS)[number];
+            juice.banner(`:fire: ${quarter.title}`, quarter.sub, { color: '#9af0a8', seconds: 4.5 });
+            juice.chime('fanfare');
+            juice.sparkle(treeGreen.position.clone().setY(treeGreen.position.y + 3), 0x86e89a, 30);
+            void narration.speak(quarter.lines);
         },
     });
 
@@ -1218,6 +1421,7 @@ export async function boot(): Promise<void> {
         potTier: () => cookpot.station.tier,
         bestHearts: () => Math.max(...VILLAGERS.map((villager) => villagers.relationships.hearts(villager.id))),
         metPell: () => letters.metPell,
+        noteRead: () => thoughts.has('note'),
         reward: (amount) => {
             coins.add(amount);
             game.toasts.push(`+${coin(amount)}`, { color: '#ffe08a' });
@@ -1237,18 +1441,19 @@ export async function boot(): Promise<void> {
         wrong: () => wrongness.rows(),
         extra: () => [
             ...regulars.rows(),
-            ...(escape.pledge.state === 'running'
+            ...(escape.pledge.state === 'running' && escape.met
                 ? [
                       { heading: true, title: 'Going home' },
-                      { icon: '🌅', title: `Burn ${coin(escape.pledge.remaining)} more at the old tree`, detail: `${escape.pledge.daysLeft} days left, to the end of day ${escape.pledge.deadline}. Paid so far: ${coin(escape.pledge.paid)}. Dying costs 3 days.`, progress: escape.pledge.paid / ESCAPE.price },
+                      { icon: ':dawn:', title: `Burn ${coin(escape.pledge.remaining)} more at the old tree`, detail: `${escape.pledge.daysLeft} days left, to the end of day ${escape.pledge.deadline}. Paid so far: ${coin(escape.pledge.paid)}. Dying costs ${DAYS_LOST} days.`, progress: escape.pledge.paid / ESCAPE.price },
                   ]
                 : escape.waiting
-                  ? [{ heading: true, title: 'Going home' }, { icon: '🕯', title: 'Pell is waiting on the hill', detail: 'Up the west path from the chapel, to the old tree on the lookout. He has something to say about going home.' }]
+                  ? [{ heading: true, title: 'Going home' }, { icon: ':candle:', title: 'Pell is waiting on the hill', detail: `Up the west path from the chapel, to the old tree on the lookout. His note says ${coin(ESCAPE.price)} by the end of day ${escape.pledge.deadline}, and that the days are counting.` }]
                   : []),
         ],
     });
 
     // The compass: home, the village, and wherever the current task is.
+    const NOTE_SPOT = { x: FARM.field.x + 2.4, z: FARM.field.z + 5.4 };
     const fieldCentre = { x: FARM.field.x + 2.4, z: FARM.field.z + 1.6 };
     const mailboxSpot = { x: FARM.door.x + 1.5, z: FARM.door.z + 3.2 };
     const TARGETS: Record<string, { x: number; z: number }> = {
@@ -1256,6 +1461,7 @@ export async function boot(): Promise<void> {
         plant: fieldCentre,
         water: fieldCentre,
         harvest: fieldCentre,
+        note: NOTE_SPOT,
         chop: FARM.orchard[0] as { x: number; z: number },
         cook: FARM.hearth,
         ride: VILLAGE.center,
@@ -1266,18 +1472,26 @@ export async function boot(): Promise<void> {
         pot: { x: VILLAGE.store.x + 5.6, z: VILLAGE.store.z + 4.8 },
         pell: PELL_SPOT,
     };
-    addCompass(game, {
+    const compass = addCompass(game, {
         markers: () => {
             const step = dayCycle.stalled ? 'sleep' : story.story.current?.id;
             const target = step === 'deliver' ? villagerSpot(villagers.requests?.open[0]?.from) : step ? TARGETS[step] : undefined;
             return [
-                { glyph: '🏠', position: { x: FARM.door.x, y: 0, z: FARM.door.z }, hideWithin: 14 },
-                { glyph: '🕯', position: { x: VILLAGE.center.x, y: 0, z: VILLAGE.center.z }, hideWithin: 22 },
-                ...(escape.waiting ? [{ glyph: '⛰', position: { x: PELL_SPOT.x, y: 0, z: PELL_SPOT.z }, hideWithin: 4 }] : []),
-                ...(target ? [{ glyph: '➤', position: { x: target.x, y: 0, z: target.z }, hideWithin: 3 }] : []),
+                { glyph: ':house:', position: { x: FARM.door.x, y: 0, z: FARM.door.z }, hideWithin: 14 },
+                { glyph: ':candle:', position: { x: VILLAGE.center.x, y: 0, z: VILLAGE.center.z }, hideWithin: 22 },
+                ...(escape.waiting ? [{ glyph: ':hill:', position: { x: PELL_SPOT.x, y: 0, z: PELL_SPOT.z }, hideWithin: 4 }] : []),
+                // Whoever can be paid a call right now, with what is being carried.
+                ...(story.finished ? VILLAGERS.filter((villager) => owed(villager.id)).flatMap((villager) => { const spot = villagerSpot(villager.id); return spot ? [{ glyph: ':alert:', position: { x: spot.x, y: 0, z: spot.z }, hideWithin: 6 }] : []; }) : []),
+                ...(target ? [{ glyph: ':arrow:', position: { x: target.x, y: 0, z: target.z }, hideWithin: 3 }] : []),
             ];
         },
     });
+    /** True when what this villager is waiting for is in the pockets or the backpack. */
+    const owed = (id: string): boolean => {
+        const order = regulars.orderOf(id);
+        if (order?.open && have(order.itemId) >= order.amount) return true;
+        return (villagers.requests?.open ?? []).some((request) => request.from === id && request.accepted && have(request.itemId) >= request.amount);
+    };
     const villagerSpot = (id: string | undefined): { x: number; z: number } | undefined => (id ? game.scene.getObjectByName(`villager-${id}`)?.position : undefined);
 
     /** Something the farmer thinks once, the first time it comes up. */
@@ -1287,11 +1501,11 @@ export async function boot(): Promise<void> {
         void narration.speak(lines);
     }
     const SIGHTS: Array<{ id: string; spot: { x: number; z: number }; within: number; lines: string[] }> = [
-        { id: 'pool', spot: PLACES.pool, within: 26, lines: ['Still water. No wind on it at all.', 'Black, and it does not show the sky. I do not think I will drink from it.'] },
-        { id: 'lookout', spot: PLACES.lookout, within: 8, lines: ['Above the mist, at last.', 'From up here it almost looks like home. Almost.'] },
+        { id: 'pool', spot: PLACES.pool, within: 26, lines: ["Still water. Not a breath of wind on it.", "Black, and it doesn't show the sky. I don't think I'll drink from it."] },
+        { id: 'lookout', spot: PLACES.lookout, within: 8, lines: ["Above the fog, at last.", "From up here it nearly looks like home. Nearly."] },
         { id: 'stones', spot: PLACES.stones, within: 11, lines: ['Somebody stood these up. Somebody still keeps the candle lit.'] },
-        { id: 'ruin', spot: PLACES.ruin, within: 12, lines: ['Another farm. Another farmer.', 'The scarecrow is facing the house.'] },
-        { id: 'graveyard', spot: PLACES.graveyard, within: 11, lines: ['One of these is open. And empty.'] },
+        { id: 'ruin', spot: PLACES.ruin, within: 12, lines: ["Another farm. So there was another farmer.", "The scarecrow's facing the house."] },
+        { id: 'graveyard', spot: PLACES.graveyard, within: 11, lines: ["One of these is open. And there's nobody in it."] },
     ];
     /**
      * Nobody can get stuck. A farmer with no seeds, nothing growing and no money
@@ -1308,7 +1522,7 @@ export async function boot(): Promise<void> {
         const broke = coins.value() < 4 && farm.plantedCount === 0 && SEEDS.every((seed) => have(seed) === 0) && have('turnip') === 0 && have('wheat') === 0;
         if (!broke || !give('turnip-seed', 3)) return;
         rescuedOn = dayCycle.day;
-        void narration.speak(['A paper twist of turnip seeds on the doorstep.', 'Barnaby has written on it: "On account. Do not let it happen twice."']);
+        void narration.speak(["A paper twist of turnip seeds on the doorstep.", 'Barnaby has written on it: "On account. Do not let it happen twice."']);
     }
     let thoughtTimer = 0;
     game.systems.add({
@@ -1320,15 +1534,100 @@ export async function boot(): Promise<void> {
             if (thoughtTimer > 0 || !player) return;
             thoughtTimer = 0.5;
             rescue();
-            if (escape.waiting && letters.read >= 2) think('hill', ['Pell wants me up the hill, by the old tree. Something about going home.', '(The west path from the chapel. ⛰ on the compass.)']);
+            if (escape.waiting && letters.read >= 2) think('hill', ["Pell's note says to come up the hill, to the old tree. And the days are counting whether I go or not.", '(The west path from the chapel. :hill: on the compass.)']);
             endQuiet();
             const sign = omens.near(player);
             if (sign) think(`omen-${sign}`, OMEN_THOUGHTS[sign]);
-            if (Math.max(Math.abs(player.x), Math.abs(player.z)) > WRAP_AT - 26) think('edge', ['The fog is getting thicker out here. I cannot see the ground ahead. This must be what they mean by the Veil.']);
+            if (Math.max(Math.abs(player.x), Math.abs(player.z)) > WRAP_AT - 26) think('edge', ["The fog's getting thicker out here. I can't see the ground in front of me. This must be what they mean by the Veil."]);
             for (const sight of SIGHTS) if (Math.hypot(player.x - sight.spot.x, player.z - sight.spot.z) < sight.within) think(sight.id, sight.lines);
-            if (dayCycle.hour >= 18 && dayCycle.hour < 21) think('dusk', ['The light is going. There will be more of them soon.', 'A lamp, a door, or the bicycle. Not the open road.']);
+            if (dayCycle.hour >= 18 && dayCycle.hour < 21) think('dusk', ["The light's going. There'll be more of them soon.", "A lamp, a door, or the bicycle. Not the open road."]);
             const nearest = world.enemies.nearest(player);
-            if (nearest && nearest.root.position.distanceTo(player) < 9 && !safeZones.playerSafe) think('hollow', ['It has seen me.', 'It is slow. I am not. Walk away and it loses interest.']);
+            if (nearest && nearest.root.position.distanceTo(player) < 9 && !safeZones.playerSafe) think('hollow', ["It's seen me.", "It's slow. I'm not. If I walk away it loses interest."]);
+            if (!thoughts.has('first-hollow') && hollowInView()) think('first-hollow', ["There. Out past the trees. That's not a person. It stands like a coat on a hook.", "It isn't coming any closer. Something about the lamps, I think. It stays where the light stops."]);
+            safeLight.visible = thoughts.has('first-hollow');
+            note.visible = noteOut();
+        },
+    });
+
+    /**
+     * The lit ground round every lamp is not drawn until the farmer has seen what it is for.
+     * The places are as safe as ever; there is only nothing yet to be safe from.
+     */
+    const safeLight = game.scene.getObjectByName('safe-zones') ?? new THREE.Group();
+    const seen = new THREE.Vector3();
+    const hollowInView = (): boolean =>
+        world.enemies.all.some((enemy) => {
+            if (enemy.root.position.distanceTo(game.camera.position) > 34) return false;
+            seen.copy(enemy.root.position).setY(enemy.root.position.y + 1.2).project(game.camera);
+            return seen.z < 1 && Math.abs(seen.x) < 0.85 && Math.abs(seen.y) < 0.85;
+        });
+
+    /**
+     * A sheet of paper by the field, written in something that was not ink. It is there once
+     * the first crop is in, and it is the last lesson: until it is read, the farm is all there is.
+     */
+    const noteCanvas = document.createElement('canvas');
+    noteCanvas.width = 64;
+    noteCanvas.height = 80;
+    const notePaint = noteCanvas.getContext('2d');
+    if (notePaint) {
+        notePaint.fillStyle = '#cfc6a8';
+        notePaint.fillRect(0, 0, 64, 80);
+        notePaint.fillStyle = '#5c1410';
+        for (const [x, y, w] of [[8, 14, 46], [10, 26, 38], [8, 38, 30], [9, 54, 44], [12, 66, 26]] as Array<[number, number, number]>) notePaint.fillRect(x, y, w, 4);
+        notePaint.fillStyle = '#7a1a12';
+        for (const [x, y, r] of [[50, 60, 9], [14, 72, 6], [56, 8, 4], [40, 46, 3]] as Array<[number, number, number]>) {
+            notePaint.beginPath();
+            notePaint.arc(x, y, r, 0, Math.PI * 2);
+            notePaint.fill();
+        }
+    }
+    const noteTexture = new THREE.CanvasTexture(noteCanvas);
+    noteTexture.magFilter = THREE.NearestFilter;
+    noteTexture.colorSpace = THREE.SRGBColorSpace;
+    const note = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1), new THREE.MeshStandardMaterial({ map: noteTexture, roughness: 1, emissive: 0xffffff, emissiveMap: noteTexture, emissiveIntensity: 0.35, side: THREE.DoubleSide }));
+    note.name = 'bloody-note';
+    note.rotation.set(-Math.PI / 2 + 0.06, 0, 0.5);
+    note.position.copy(at(NOTE_SPOT, 0.07));
+    note.visible = false;
+    game.scene.add(note);
+    const noteOut = (): boolean => !thoughts.has('note') && tally.harvested >= 2;
+    game.interactions.add(note, {
+        prompt: 'Read the paper',
+        range: 2.2,
+        canInteract: noteOut,
+        onInteract: () => {
+            juice.chime('tick');
+            synth.tone({ frequency: 70, duration: 1.4, type: 'sawtooth', gain: 0.1, sweep: 0.6 });
+            think('note', [
+                "A sheet of paper under a stone, at the end of the row. It wasn't there when I planted.",
+                'Brown, dry letters, done with a finger: "THEY STOP AT THE LIGHT. REMEMBER THAT."',
+                "That isn't ink. Somebody wanted me to know this badly enough to bleed for it. Fine. Lamps, candles, a lit porch. I'll remember.",
+            ]);
+        },
+    });
+
+    /** Until the note is read nobody leaves the farm: the lessons come first. */
+    const FARM_EDGE = 27;
+    let turnedBack = 0;
+    game.systems.add({
+        name: 'farm-edge',
+        order: SYSTEM_ORDER.GAMEPLAY + 9,
+        update: (delta) => {
+            turnedBack -= delta;
+            const player = game.player;
+            if (!player || thoughts.has('note')) return;
+            const x = player.position.x - FARM.centre.x;
+            const z = player.position.z - FARM.centre.z;
+            const out = Math.hypot(x, z);
+            if (out <= FARM_EDGE) return;
+            if (bike.mounted) bike.dismount();
+            const pull = (FARM_EDGE - 0.6) / out;
+            player.body.teleport({ x: FARM.centre.x + x * pull, y: player.position.y, z: FARM.centre.z + z * pull });
+            if (turnedBack > 0) return;
+            turnedBack = 5;
+            think('fenced', ["No. I can't see ten steps into that, and I've got an empty stomach and empty pockets.", "First I get something out of this field and into a pot. Then I'll go and see where the road goes."]);
+            game.toasts.push(tally.harvested >= 2 ? 'There is a paper lying by the field' : 'Not yet. Grow something first', { color: '#e8e0c8' });
         },
     });
 
@@ -1346,15 +1645,17 @@ export async function boot(): Promise<void> {
     const morning = addPanel(game, {
         title: 'Morning',
         rows: () => [
-            { icon: '🌅', title: `Day ${dayCycle.day}`, detail: nightLine },
+            { icon: ':dawn:', title: `Day ${dayCycle.day}`, detail: nightLine },
             { heading: true, title: 'Yesterday' },
-            { icon: '🪙', title: today.earned > 0 && today.earned >= tally.bestDay ? 'Earned (your best day yet)' : 'Earned', meta: coin(today.earned), ...(tally.bestDay > 0 ? { detail: `Best day: ${coin(tally.bestDay)}. Most requests in a day: ${tally.bestStreak}.` } : {}) },
-            { icon: '❗', title: 'Requests filled', meta: String(today.delivered) },
-            { icon: '🍲', title: 'Dishes cooked', meta: String(today.cooked) },
-            { icon: '🌱', title: 'Crops picked', meta: String(today.picked) },
+            { icon: ':coin:', title: today.earned > 0 && today.earned >= tally.bestDay ? 'Earned (your best day yet)' : 'Earned', meta: coin(today.earned), ...(tally.bestDay > 0 ? { detail: `Best day: ${coin(tally.bestDay)}. Most requests in a day: ${tally.bestStreak}.` } : {}) },
+            { icon: ':alert:', title: 'Requests filled', meta: String(today.delivered) },
+            { icon: ':pot:', title: 'Dishes cooked', meta: String(today.cooked) },
+            { icon: ':sprout:', title: 'Crops picked', meta: String(today.picked) },
             ...nightRows,
-            ...(letters.waiting ? [{ icon: '✉', title: 'There is a letter in the mailbox' }] : []),
-            ...(cookpot.station.ready.length > 0 ? [{ icon: '🍲', title: 'The pot finished overnight' }] : []),
+            { heading: true, title: 'Today' },
+            ...planRows(),
+            ...(letters.waiting ? [{ icon: ':letter:', title: 'There is a letter in the mailbox' }] : []),
+            ...(cookpot.station.ready.length > 0 ? [{ icon: ':pot:', title: 'The pot finished overnight' }] : []),
             { title: 'Saved.', dim: true, action: { label: 'Get up', onPress: () => morning.close() } },
         ],
         onClose: () => Object.assign(today, { earned: 0, delivered: 0, cooked: 0, picked: 0 }),
@@ -1369,9 +1670,43 @@ export async function boot(): Promise<void> {
     ];
     let nightLine = NIGHTS[0] as string;
 
+    /** "2 eggs", but "2 wheat": only the things that are counted get an s. */
+    const several = (name: string, amount: number): string => (amount > 1 && /(turnip|pumpkin|egg|cap|omelette|pie)$/.test(name) ? `${name}s` : name);
+    /** Plots the scarecrows left wet this morning. */
+    let wept = 0;
+    /** What the day ahead holds, for the morning panel: who is waiting, what is ready, what is owed. */
+    const planRows = (): Array<{ icon: string; title: string; meta?: string; detail?: string }> => {
+        const nameOf = (id: string): string => VILLAGERS.find((villager) => villager.id === id)?.name ?? '?';
+        const item = (itemId: string, amount: number): string => `${amount} ${several(pockets.inventory.registry.resolve(itemId).name.toLowerCase(), amount)}`;
+        const due = (day: number): string => (day <= dayCycle.day ? 'Today is the last day' : day === dayCycle.day + 1 ? 'By the end of tomorrow' : `By the end of day ${day}`);
+        const orders = REGULARS.flatMap((regular) => {
+            const order = regulars.orderOf(regular.id);
+            return order?.open ? [{ icon: ':basket:', title: `${nameOf(regular.id)}'s regular order: ${item(order.itemId, order.amount)}`, meta: coin(order.pay), detail: `${due(order.dueDay)}${have(order.itemId) >= order.amount ? '. You have it on you.' : ''}`, dueDay: order.dueDay }] : [];
+        });
+        const asked = (villagers.requests?.open ?? []).map((request) => ({
+            icon: ':alert:',
+            title: `${nameOf(request.from)} wants ${item(request.itemId, request.amount)}`,
+            meta: coin(request.reward),
+            detail: `${request.accepted ? due(request.dueDay) : `On offer, for ${coin(request.deposit)} down`}${have(request.itemId) >= request.amount ? '. You have it on you.' : ''}`,
+            dueDay: request.dueDay,
+        }));
+        const ripe = farm.ripeCount;
+        const empty = farm.plots.filter((plot) => plot.active && !plot.crop).length;
+        return [
+            ...[...orders, ...asked].sort((a, b) => a.dueDay - b.dueDay).slice(0, 4).map(({ dueDay: _dueDay, ...row }) => row),
+            ...(ripe > 0 || empty > 0 ? [{ icon: ':sprout:', title: [ripe > 0 ? `${ripe} ${ripe === 1 ? 'crop is' : 'crops are'} ready to pick` : '', empty > 0 ? `${empty} ${empty === 1 ? 'plot is' : 'plots are'} empty` : ''].filter(Boolean).join(', '), ...(ripenedOvernight > 0 ? { detail: `${ripenedOvernight} ripened in the night.` } : {}) }] : []),
+            ...(wept > 0 ? [{ icon: ':drop:', title: `The scarecrows wept over ${wept} ${wept === 1 ? 'plot' : 'plots'}`, detail: 'Those are watered for the day.' }] : []),
+            ...(weather.line ? [{ icon: ':cloud:', title: weather.line }] : []),
+            ...(escape.pledge.state === 'running' ? [{ icon: ':dawn:', title: `${coin(escape.pledge.remaining)} still to burn`, meta: `${escape.pledge.daysLeft}d`, ...(coins.value() >= 100 ? { detail: `You have ${coin(coins.value())}. Pell is on the hill.` } : {}) }] : []),
+        ];
+    };
+
     /** What was done in the night, for the morning to mention. */
     let nightRows: ReturnType<typeof wrongness.newDay> = [];
+    let ripenedOvernight = 0;
     function sleep(message?: string): void {
+        // The field has the night as well, watered or not, before the morning dries it.
+        ripenedOvernight = growFor((30 - dayCycle.hour) % 24);
         dayCycle.sleep();
         nightRows = wrongness.newDay();
         // A night is long enough for anything left on the fire or the bench.
@@ -1422,6 +1757,7 @@ export async function boot(): Promise<void> {
 
     dayCycle.hooks.onDayStart = (day) => {
         farm.newDay();
+        wept = scarecrows.weep();
         villagers.newDay();
         regulars.newDay();
         // Wren's half: a few seeds on the step, of whatever the store stocks.
@@ -1450,9 +1786,11 @@ export async function boot(): Promise<void> {
                 ...warmth.carried().slice(0, 4).map((dish) => {
                     const name = pockets.inventory.registry.resolve(dish.itemId).name;
                     const left = dish.hoursLeft >= 1 ? `${Math.floor(dish.hoursLeft)}h` : `${Math.max(1, Math.round(dish.hoursLeft * 60))}m`;
-                    return { text: `${dish.heat === 'cold' ? '❄' : '♨'} ${name}${dish.amount > 1 ? ` ×${dish.amount}` : ''} · ${dish.heat}${dish.heat === 'cold' ? '' : ` ${left}`}`, tone: dish.heat };
+                    return { text: `${dish.heat === 'cold' ? ':cold:' : ':hot:'} ${name}${dish.amount > 1 ? ` ×${dish.amount}` : ''} · ${dish.heat}${dish.heat === 'cold' ? '' : ` ${left}`}`, tone: dish.heat };
                 }),
-                ...(scentLevel() >= 0.5 ? [{ text: '☁ They smell this from far off', tone: 'bad' as const }] : scentLevel() >= 0.25 ? [{ text: '☁ The smell carries', tone: 'bad' as const }] : []),
+                ...(bike.mounted && warmth.carried().some((dish) => dish.heat !== 'cold') ? [{ text: ':bike: In the basket: cooling half as fast', tone: 'warm' as const }] : []),
+                ...(weather.line ? [{ text: weather.line, tone: 'warm' as const }] : []),
+                ...(scentLevel() >= 0.5 ? [{ text: ':cloud: They smell this from far off', tone: 'bad' as const }] : scentLevel() >= 0.25 ? [{ text: ':cloud: The smell carries', tone: 'bad' as const }] : []),
             ],
     });
     // A phone has no J: the notebook is a button there.
@@ -1481,7 +1819,7 @@ export async function boot(): Promise<void> {
             omens.setDay(dayCycle.day);
             if (saved.field) farm.fromJSON(saved.field);
             Object.assign(tally, saved.tally);
-            can.left = saved.can ?? CAN_SIZE;
+            can.left = saved.can ?? canSize();
             thoughts.clear();
             for (const id of saved.thoughts ?? []) thoughts.add(id);
         },
@@ -1509,9 +1847,12 @@ export async function boot(): Promise<void> {
         slot: SAVE_SLOT,
         title: 'Hollowveil Farm',
         subtitle: 'A farm for the hollow, behind the veil.',
-        hint: 'WASD to walk, E to interact, F to use what you hold, 1 to 8 to pick it, Tab for the bag, J for the notebook',
+        hint: say('WASD to walk, E to interact, F to use what you hold, 1 to 8 to pick it, Tab for the bag, J for the notebook'),
         describe: (save) => `day ${(save.data.hollowveil as Saved | undefined)?.day ?? 1}`,
-        onNewGame: () => void narration.speak(INTRO),
+        onNewGame: () => {
+            faceHome();
+            void narration.speak(INTRO.map(say));
+        },
         onContinue: () => villagers.snapToSchedule(),
         buttons: [settings.button],
     });
@@ -1541,9 +1882,13 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
+    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
+        weather,
+        whispers,
+        pool,
+        wakeFromDeath: wake,
         spawnKind: (x: number, z: number, kind: HollowKind) => spawnHollow(world.enemies, terrain.point(x, z, 0.4), { night: isNight(dayCycle), hunting: hunting(), kind }),
     };
 }

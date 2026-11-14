@@ -53,7 +53,7 @@ export class PackScreen {
         this.card = div('pack', undefined, this.root);
         const head = div('pack-head', undefined, this.card);
         div('pack-title', options.title, head);
-        button('✕', () => this.close(), { className: 'pack-close', parent: head });
+        button(':close:', () => this.close(), { className: 'pack-close', parent: head });
         this.stats = div('pack-stats', undefined, this.card);
         this.grids = div('pack-grids', undefined, this.card);
         div('pack-hint', 'Drag to move, onto another item to swap. Drag out of the window to drop. Click for more.', this.card);

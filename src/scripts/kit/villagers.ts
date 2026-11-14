@@ -369,7 +369,7 @@ export function addVillagers(game: Game, options: AddVillagersOptions): Villager
 
     function hearts(id: string): string {
         const count = relationships.hearts(id);
-        return `${'♥'.repeat(count)}${'♡'.repeat(Math.max(0, 5 - count))}`;
+        return `${':heart:'.repeat(count)}${':heart-empty:'.repeat(Math.max(0, 5 - count))}`;
     }
 
     type Saved = { relationships?: ReturnType<Relationships['toJSON']>; requests?: ReturnType<RequestBoard['toJSON']>; heard?: Record<string, string[]>; met?: string[] };

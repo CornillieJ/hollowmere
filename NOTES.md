@@ -64,7 +64,7 @@ Pack screen (Tab) with stats, drag and drop, drop into the world, item menu;
 backpack starts at 3 slots with 3 upgrades; chest by the barn; Escape closes
 windows before pausing; all of the farmer's lines are spoken in the box;
 trees regrow in 2 to 3 days; deposits on tier 2 and 3 requests; the way home
-(`escape.ts`: 12000c in 60 days, Pell on the hill); the world wraps at
+(`escape.ts`: 6000c in 60 days, Pell on the hill); the world wraps at
 `WRAP_AT`; sieges and overruns (`happenings.ts`); 17 deeds; seeds have their
 own icons.
 
@@ -201,3 +201,68 @@ orders (`PREMIUM` 1.7, every 3 days, 3 days' patience); `WRONG_FROM` days.
 - Dropped items are not saved; they are gone after a reload.
 - The barn is a solid model, so the chest stands outside against its wall.
 - An ending cutscene instead of a menu when the farmer wakes.
+
+## Batch 11: on `dev`
+
+- Template blocks now used here: `addEnemyKinds` (the Hollow's kinds, night mood and scent in `monsters.ts`), `addRandomEvents` (weather), `addMount` `wheels`.
+- `weather.ts`: rain, thick Veil, clear night. Numbers in `WEATHER`; gaps of 10 to 26 in-game hours. Probes call `world.weather.hold(true)`.
+- `whispers.ts`: steps behind, a knock on the barn door, a voice from the Veil. Heard by nobody yet: volumes are guesses.
+- `pool.ts`: what was carried at death is kept (save key `pool`) and handed back from the end of the jetty at night. The sign by the jetty is the only hint.
+- Goal price halved to 6000c. A save that had already burned 6000c or more stays "running" until the next payment.
+- Shop counter, lectern, crates, hearth and shrine are solid. Hints are reworded for touch in `wording.ts`.
+
+## Batch 12: the loop, on `dev`
+
+- Hours that are skipped pass over the field: a night in bed and every visit (`growFor` in `boot.ts`, `Farm.advance` in the template). The morning panel counts what ripened.
+- A bigger watering can in the order book: 10, then 20 waterings (`CAN_SIZES`).
+- The plot the next press works is framed in the colour of the action, and a growing crop says in how many clock hours it is ripe (`farming.ts`).
+- Working down a row climbs a scale (`ROW_SCALE`).
+- The compass shows ❗ for every villager whose request or regular order is in the pockets or the backpack.
+- A save whose pledge is already paid past the new price counts as kept on load (template `pledge.ts`).
+
+## Batch 13: crops and days, on `dev`
+
+- Crop models have one part per growth stage (`stage-0` and up, built by `crop` in `tools/blender/build_props.py`; `STAGES` there must match `stages` in `content/items.ts`). The template's `Farm` shows the right part when the model is marked `userData.staged`.
+- The morning panel has a "Today" list (`planRows` in `boot.ts`).
+- A delivery after dark pays 50% more (`NIGHT_PAY`).
+- A dish cools half as fast while riding (`warmth.spare`, system `basket`).
+- `scarecrows.ts`: a weeping scarecrow (260c) on a plot corner waters up to 12 plots each morning. Save key `scarecrows`.
+- Quarters of the price (`QUARTERS` in `boot.ts`): banner, lines and leaves on the old tree. `tally.burned` holds how many were announced.
+- The gameplay probe crashed the headless browser ("Target crashed") in 2 of about 10 runs on this batch. Cause not found; reruns pass.
+
+## Batch 14: house and signs, on `dev`
+
+- The farmhouse is our own model (`farmhouse` in `tools/blender/build_props.py`), no longer the downloaded cottage.
+- Safe places show as a pool of warm light with a bright edge and sparks rising along it (`ringStyle: 'glow'` in the template's `addSafeZones`), not a drawn circle.
+- Going into and out of the barn snaps the camera (`controls.snap()`) under a longer black.
+- The farm's collection crate stands apart from the mailbox and the bench.
+- Sign boards hang in front of their posts, are larger, and use block letters. The pool sign says plainly what the pool does.
+
+## Batch 15: the screens, on `dev`
+
+- The look is "found tape": VT323 lettering (loaded in `boot.ts` from `static/fonts`), white frames with nicks, scan lines, a rolling tracking band, colour fringes. All of it is in `src/css/hollowveil.css`; the variables at its top set the palette and the frame shapes.
+- No emoji anywhere. Text on screen may hold `:name:` tokens, which the template (`ui/icons.ts`, watching the UI root) draws as icons. The game's set is `content/icons.ts`. Text that is not in the DOM (3D labels, `data-label`) cannot use tokens.
+- Faces in the talk box are photographs of the models (`game/portraits.ts`), registered as `face-<id>` when a model arrives.
+- Not checked on a real phone or in Safari: `font-size-adjust` (needs Safari 16.4 or newer; older ones show smaller letters) and CSS masks for the icons.
+
+## Batch 16: windows that fit, start spot, signpost
+
+- Menus are never taller than 90% of the screen. The buttons scroll between the title and "Back", which stays at the bottom. Sizes in menus follow the window height (`clamp` with `vh`). Template: `.menu-panel` is a flex column, `.menu-actions` scrolls.
+- The inventory panel scrolls as a whole on very low screens.
+- A new game starts at `FARM.start`, out in the yard, looking at the house.
+- The signpost stands beside the road and along it, so its arrow points up the road at the village. First read adds "Hollowveil? What's that? A village?".
+
+## Batch 17: the clock starts by itself
+
+- The way home: 6000c in 25 days (was 60). The count starts on the morning of day 3 with a note under the door, no yes or no. Pell explains on the first visit, takes payments after. Older saves that never said yes are started on load.
+- Dying costs 2 days (was 3). `DAYS_LOST` lives in `escape.ts`.
+- Template: mouse movement is ignored for 150 ms after pointer lock and single jumps over 500 px are dropped (Wayland reports a huge first movement). A camera ray that hits at 0 distance is ignored.
+- The scarecrow by the field only offers "carry it back" when it has moved.
+
+## Batch 18: the tutorial holds the farm
+
+- Nobody leaves the farm (27 m round `FARM.centre`) until the paper by the field is read. The paper (`bloody-note`) appears after 2 crops are picked and is story step `note`, between `harvest` and `cook`. It carries "They stop at the light".
+- The lamplight on the ground (`safe-zones` group) is hidden until a Hollow has been on screen (`first-hollow` thought). The zones are safe all along.
+- Signpost moved 22 m up the road, past the pen and the barn.
+- Compass task marker is a map pin (icon name is still `arrow`).
+- Intro, story lines and thoughts rewritten with contractions and a drier voice.

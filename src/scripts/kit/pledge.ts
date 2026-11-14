@@ -72,6 +72,8 @@ export function addPledge(game: Game, options: AddPledgeOptions): PledgeHandle {
             state = saved?.state ?? 'idle';
             paid = saved?.paid ?? 0;
             deadline = saved?.deadline ?? 0;
+            // The target may have come down since this was saved.
+            if (state === 'running' && paid >= options.target) state = 'kept';
         },
     });
 

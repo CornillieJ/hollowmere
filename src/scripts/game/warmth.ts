@@ -39,6 +39,8 @@ export type WarmthHandle = {
     carried: () => Array<{ itemId: string; amount: number; heat: Heat; hoursLeft: number }>;
     /** How strongly the basket smells: hot dishes count double, cold ones hardly. */
     scent: () => number;
+    /** Let this many hours go by without the carried dishes cooling, e.g. half of every hour spent riding with a covered basket. */
+    spare: (hours: number) => void;
     toJSON: () => Record<string, number>;
     fromJSON: (data: unknown) => void;
 };
@@ -97,6 +99,9 @@ export function setupWarmth(game: Game, options: WarmthOptions): WarmthHandle {
                 .filter((dish) => dish.amount > 0)
                 .sort((a, b) => ageOf(a.itemId) - ageOf(b.itemId)),
         scent: () => [...options.dishes].reduce((total, itemId) => total + options.have(itemId) * (heatOf(itemId) === 'hot' ? 2 : heatOf(itemId) === 'warm' ? 1 : 0.25), 0),
+        spare: (hours) => {
+            for (const [itemId, at] of cookedAt) cookedAt.set(itemId, Math.min(options.now(), at + hours));
+        },
         toJSON: () => Object.fromEntries(cookedAt),
         fromJSON: (data) => {
             cookedAt.clear();

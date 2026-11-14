@@ -34,7 +34,7 @@ export const VILLAGERS: VillagerContent[] = [
         // The shopkeeper. Careful, fatherly, counts everything. Keeps a ledger of the living.
         id: 'barnaby',
         name: 'Barnaby',
-        portrait: '🐐',
+        portrait: ':face-barnaby:',
         look: { species: 'goat', fur: 0xc9bfae, clothes: 0x3d4a3a, eyes: 'stitched', height: 1.75 },
         spot: { x: -6, z: 4, yaw: Math.PI / 2 },
         lines: ({ hearts, day }) => [
@@ -112,7 +112,7 @@ export const VILLAGERS: VillagerContent[] = [
         // A child, more or less. Sunny, proud of small things, says the worst of it most cheerfully.
         id: 'wren',
         name: 'Wren',
-        portrait: '🐰',
+        portrait: ':face-wren:',
         look: { species: 'rabbit', fur: 0xd8cfc4, accent: 0xe8a8a8, clothes: 0x7a5a6a, missingArm: 'left', height: 1.45 },
         spot: { x: 5, z: 7, yaw: -Math.PI / 3 },
         home: 0,
@@ -183,7 +183,7 @@ export const VILLAGERS: VillagerContent[] = [
         // The postman. Tired, dry, dutiful to a fault. Still delivers to houses nobody lives in.
         id: 'fen',
         name: 'Fen',
-        portrait: '🦊',
+        portrait: ':face-fen:',
         look: { species: 'fox', fur: 0xb8622e, clothes: 0x2e3a52, neck: 3.2, headTilt: 0.25 },
         spot: { x: 10, z: 3, yaw: -Math.PI / 2 },
         home: 1,
@@ -263,7 +263,7 @@ export const VILLAGERS: VillagerContent[] = [
         // The elder. Warm as a grandmother, calls everyone dear, and knows exactly what the shrine costs.
         id: 'hollis',
         name: 'Mother Hollis',
-        portrait: '🐑',
+        portrait: ':face-hollis:',
         look: { species: 'sheep', fur: 0x3a3632, clothes: 0x6a6a5a, eyes: 'hollow', height: 1.55 },
         spot: { x: -2, z: -9, yaw: 0 },
         home: 2,
@@ -344,7 +344,7 @@ export const VILLAGERS: VillagerContent[] = [
         // The dog. Loyal past all sense, adores the player on sight, sees a great deal too much.
         id: 'pike',
         name: 'Pike',
-        portrait: '🐕',
+        portrait: ':face-pike:',
         look: { species: 'dog', fur: 0x8a6a48, clothes: 0x5a3a2a, eyes: 'extra', height: 1.4 },
         spot: { x: 3, z: -2, yaw: Math.PI },
         home: 4,
