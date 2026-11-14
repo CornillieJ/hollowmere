@@ -38,6 +38,7 @@
     expect(game.state.current === 'menu', `starts on the title screen, got ${game.state.current}`);
     expect(!document.querySelector('.menu:not(.is-hidden) .menu-dynamic:not(.is-hidden)'), 'no Continue button without a save');
     world.saves.newGame();
+    world.finds.chance = 0;
     // Weather comes when it likes: not during a test.
     world.weather.hold(true);
     await sleep(700);
@@ -506,6 +507,19 @@
     // 13h2. What the village wants today pays double at the stall, and the chalkboard says so.
     expect(world.scales.priceOf(world.craving()) === world.shop.inventory.sellPrice(world.craving()) * 2, `today's craving (${world.craving()}) pays double at the stall`);
     expect(game.scene.getObjectByName('chalkboard') !== undefined, 'a chalkboard stands by the store');
+
+    // 13h3. Things come up out of the field: the unseen ones first, and the notebook counts them.
+    {
+        const first = world.dig(game.player.position, true);
+        await sleep(300);
+        await quiet();
+        const second = world.dig(game.player.position, true);
+        await sleep(300);
+        await quiet();
+        expect(first === 'find-button' && second === 'find-coin' && world.found.size === 2, `the field gives up its things in order: ${first}, ${second}`);
+        expect(have('find-button') === 1 && world.scales.priceOf('find-coin') >= 60, 'they are carried, and the stall buys them');
+        for (const id of ['find-button', 'find-coin']) for (const inventory of [world.pockets, world.bag]) inventory.remove(id, 1);
+    }
 
     // 13i. A farmer with nothing left is given seeds, once a day.
     const stash = { coins: world.coins.value(), field: world.farm.toJSON() };

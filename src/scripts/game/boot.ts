@@ -38,7 +38,7 @@ import {
 } from '../kit';
 import { createFolk, createHeldTool, dressFolk, FolkAnimator, type FolkRig } from '../content/folk';
 import { createBike } from '../content/bike';
-import { COOKING, CROPS, ITEMS, NEEDS_CROP, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
+import { COOKING, CROPS, FINDS, ITEMS, NEEDS_CROP, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
 import { REQUESTS, VILLAGERS } from '../content/villagers';
 import { BLOOMS, FARM, HAUNTS, POOL_LEVEL, PELL_SPOT, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF, WRAP_AT, homeOf } from '../content/world';
 import { buildWorld, solid, stump } from './world';
@@ -322,12 +322,38 @@ export async function boot(): Promise<void> {
         },
     });
     game.save.register('scarecrows', { save: () => scarecrows.toJSON(), load: (data) => scarecrows.fromJSON(data) });
+    /**
+     * Things lie in this field under the crops. Now and then a harvest turns one up: worth good
+     * coin at the stall, and there are 8 to find, so no row is ever only a row.
+     */
+    const found = new Set<string>();
+    game.save.register('finds', { save: () => [...found], load: (data) => (found.clear(), (Array.isArray(data) ? (data as string[]) : []).forEach((id) => found.add(id))) });
+    /** The chance per harvest. A test sets it to 0 so its counts stay its own. */
+    const finds = { chance: 0.07 };
+    function dig(position: THREE.Vector3, sure = false): string | undefined {
+        // Not before the first lessons are over, and the ones not yet seen come first.
+        if (!sure && (tally.harvested < 6 || Math.random() > finds.chance)) return undefined;
+        const fresh = FINDS.filter((id) => !found.has(id));
+        const itemId = (fresh[0] ?? FINDS[Math.floor(Math.random() * FINDS.length)]) as string;
+        if (!give(itemId, 1)) return undefined;
+        const isNew = !found.has(itemId);
+        found.add(itemId);
+        const item = pockets.inventory.registry.resolve(itemId);
+        juice.banner(`${item.icon ?? ''} ${item.name}`, isNew ? `Dug up in the field. ${found.size} of ${FINDS.length} found.` : 'Another one, under the same row.', { color: '#e8d8a0', seconds: 4 });
+        juice.chime('fanfare');
+        juice.sparkle(position.clone().setY(position.y + 0.5), 0xe8d8a0, 16);
+        game.effects.shakeCamera(0.08);
+        think('find', ["Something hard under the roots. That isn't a stone.", "Somebody's things are in this field. Barnaby will buy them, I'd bet, and I'd bet he won't ask where they came from."]);
+        if (found.size === FINDS.length) think('finds-all', ["That's 8 things out of 1 field. A whole life's worth of small things.", "Nobody loses all that by accident. Whoever farmed here before me didn't leave. They were put away."]);
+        return itemId;
+    }
     const farming = setupFarming(game, { farm, pockets, hotbar, barriers, give, nodes: () => nodes,
         water: { left: () => can.left, use: () => (can.left -= 1) },
         enabled: () => !dayCycle.stalled,
         onHarvest: (itemId, amount, seeds, plot) => {
             tally.harvested += amount;
             today.picked += amount;
+            dig(plot.position);
             const name = pockets.inventory.registry.resolve(itemId).name.toLowerCase();
             juice.reward(plot.position.clone().setY(1.1), `+${amount} ${name}${seeds > 0 ? `  +${seeds} seed${seeds > 1 ? 's' : ''}` : ''}`, { color: seeds > 1 ? 0xb8f0a0 : 0xffe9a8 });
         },
@@ -1283,6 +1309,7 @@ export async function boot(): Promise<void> {
         },
         achievements: [
             { id: 'harvest', icon: ':sprout:', title: 'Soil is soil', description: 'Pick your first crop.', done: () => tally.harvested > 0 },
+            { id: 'finds', icon: ':locket:', title: 'Put away', description: 'Dig all 8 things out of the field.', hidden: true, done: () => found.size >= FINDS.length },
             { id: 'dish', icon: ':pot:', title: 'Something hot', description: 'Cook a dish.', done: () => tally.cooked > 0 },
             { id: 'delivery', icon: ':alert:', title: 'Worth keeping', description: 'Fill a request.', done: () => (villagers.requests?.completed ?? 0) >= 1 },
             { id: 'regular', icon: ':basket:', title: 'Part of the village', description: 'Fill 10 requests.', done: () => (villagers.requests?.completed ?? 0) >= 10 },
@@ -1571,6 +1598,7 @@ export async function boot(): Promise<void> {
         wrong: () => wrongness.rows(),
         extra: () => [
             ...regulars.rows(),
+            ...(found.size > 0 ? [{ heading: true, title: `Dug up in the field (${found.size}/${FINDS.length})` }, ...FINDS.map((id) => (found.has(id) ? { icon: pockets.inventory.registry.resolve(id).icon ?? ':mark:', title: pockets.inventory.registry.resolve(id).name, detail: pockets.inventory.registry.resolve(id).description ?? '' } : { icon: ':mark:', title: '???', dim: true }))] : []),
             ...(escape.pledge.state === 'running' && escape.met
                 ? [
                       { heading: true, title: 'Going home' },
@@ -2033,7 +2061,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, blooms, craving, dog, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
+    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, blooms, craving, dog, dig, found, finds, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         weather,

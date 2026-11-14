@@ -37,6 +37,16 @@ export const ITEMS: ItemDefinition[] = [
 
     { id: 'veilbloom', name: 'Veilbloom', icon: ':bloom:', category: 'treasure', price: 120, description: 'Opens only after dark, far from any lamp. Barnaby pays well and does not ask where you were.' },
 
+    // Turned up by the hoe now and then: see `FINDS`. Barnaby buys them and never asks to look twice.
+    { id: 'find-coin', name: 'Worn coin', icon: ':coin:', category: 'treasure', price: 120, description: 'Rubbed smooth. The face on it has its eyes shut.' },
+    { id: 'find-key', name: 'Small key', icon: ':key:', category: 'treasure', price: 160, description: 'Too small for any door on this farm.' },
+    { id: 'find-tooth', name: 'Tooth', icon: ':tooth:', category: 'treasure', price: 140, description: 'Not from any animal you keep.' },
+    { id: 'find-ring', name: 'Wedding ring', icon: ':ring:', category: 'treasure', price: 260, description: 'A date inside it, and the word "wake".' },
+    { id: 'find-button', name: 'Bone button', icon: ':button:', category: 'treasure', price: 100, description: 'It matches the ones on the scarecrow.' },
+    { id: 'find-spoon', name: 'Bent spoon', icon: ':spoon:', category: 'treasure', price: 110, description: 'Bent on purpose, and bent back, many times.' },
+    { id: 'find-bell', name: 'Cow bell', icon: ':bell:', category: 'treasure', price: 180, description: 'No clapper in it. Your cow will not go near it.' },
+    { id: 'find-locket', name: 'Locket', icon: ':locket:', category: 'treasure', price: 320, description: 'Inside, a picture of this farmhouse. Someone is at the window.' },
+
     { id: 'turnip-soup', name: 'Turnip soup', icon: ':pot:', badge: ':turnip:', category: 'consumable', price: 70, description: 'Restores 35 health.', use: food(35) },
     { id: 'boiled-egg', name: 'Boiled egg', icon: ':egg:', badge: ':hot:', category: 'consumable', price: 54, description: 'Restores 25 health.', use: food(25) },
     { id: 'bread', name: 'Bread', icon: ':bread:', category: 'consumable', price: 64, description: 'Restores 30 health.', use: food(30) },
@@ -105,3 +115,6 @@ export const WOODWORK: Recipe[] = [
 
 /** What the collection crate takes: produce and dishes, not tools or seeds. */
 export const SHIPPABLE = new Set(ITEMS.filter((item) => item.category === 'treasure' || item.category === 'consumable' || item.id === 'wood').map((item) => item.id));
+
+/** What lies in the field under the crops, in the order it tends to come up. */
+export const FINDS = ['find-button', 'find-coin', 'find-spoon', 'find-tooth', 'find-key', 'find-bell', 'find-ring', 'find-locket'];
