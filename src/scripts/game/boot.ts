@@ -435,6 +435,35 @@ export async function boot(): Promise<void> {
         wheels: ['front-wheel', 'rear-wheel'],
     });
 
+    /**
+     * The carbide lamp, bought from the order book: a beam down the road while riding, and the
+     * Veil thins round it. It is dark while the bicycle stands, so it is no place to hide.
+     */
+    const bikeLamp = new THREE.Group();
+    bikeLamp.position.set(0, 0.74, 0.74);
+    const lampGlass = new THREE.MeshBasicMaterial({ color: 0x3a3428 });
+    const lampCase = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 0.12), new THREE.MeshStandardMaterial({ color: 0x8a7a48, roughness: 0.5, metalness: 0.6, flatShading: true }));
+    const lampFace = new THREE.Mesh(new THREE.CircleGeometry(0.06, 8), lampGlass);
+    lampFace.position.z = 0.065;
+    const beam = new THREE.SpotLight(0xffe6b0, 0, 26, 0.5, 0.6, 1.2);
+    beam.target.position.set(0, -0.35, 6);
+    const beamCone = new THREE.Mesh(new THREE.ConeGeometry(2.2, 9, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe6b0, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }));
+    beamCone.rotation.x = -Math.PI / 2 - 0.06;
+    beamCone.position.z = 4.5;
+    bikeLamp.add(lampCase, lampFace, beam, beam.target, beamCone);
+    bikeLamp.visible = false;
+    bikeModel.add(bikeLamp);
+    const lampLit = (): boolean => bikeLamp.visible && bike.mounted;
+    game.systems.add({
+        name: 'bike-lamp',
+        update: () => {
+            const lit = lampLit();
+            beam.intensity = lit ? 90 : 0;
+            (beamCone.material as THREE.MeshBasicMaterial).opacity = lit ? 0.03 : 0;
+            lampGlass.color.setHex(lit ? 0xfff0c0 : 0x3a3428);
+        },
+    });
+
     //#endregion Farm, animals and the bike
 
     //#region Gathering and making
@@ -821,6 +850,13 @@ export async function boot(): Promise<void> {
                 // It comes full.
                 apply: () => (can.left = canSize()),
             },
+            {
+                id: 'bikelamp',
+                name: 'A lamp for the bicycle',
+                icon: ':lantern:',
+                levels: [{ cost: 240, name: 'Carbide lamp', description: 'Lights the road ahead while you ride, and the Veil thins round it.' }],
+                apply: (level) => (bikeLamp.visible = level > 0),
+            },
             { id: 'hen', name: 'Another hen', icon: ':hen:', description: 'One more hen in the pen, laying eggs.', levels: [{ cost: 90 }, { cost: 120 }, { cost: 160 }], apply: (level) => setHerd('hen', 2 + level) },
             { id: 'cow', name: 'Another cow', icon: ':cow:', description: 'One more cow in the pen, giving milk.', levels: [{ cost: 260 }, { cost: 360 }], apply: (level) => setHerd('cow', 1 + level) },
         ],
@@ -977,7 +1013,8 @@ export async function boot(): Promise<void> {
         const far = THREE.MathUtils.smoothstep(toLight, 4, 55);
         const hour = dayCycle.hour;
         const late = hour < 5.5 ? 1 : THREE.MathUtils.smoothstep(hour, 12, 19.5);
-        return 1 + far * (0.2 + 0.8 * late) * 0.9;
+        // The bicycle's lamp cuts most of it away, while it is ridden.
+        return 1 + far * (0.2 + 0.8 * late) * 0.9 * (lampLit() ? 0.35 : 1);
     };
 
     // The pool is knee deep: wading is slow, and the Hollow do not mind the water.

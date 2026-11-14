@@ -266,3 +266,10 @@ orders (`PREMIUM` 1.7, every 3 days, 3 days' patience); `WRONG_FROM` days.
 - Signpost moved 22 m up the road, past the pen and the barn.
 - Compass task marker is a map pin (icon name is still `arrow`).
 - Intro, story lines and thoughts rewritten with contractions and a drier voice.
+
+## fun-iteration
+
+Work on branch `fun-iteration`, one addition per commit.
+
+1. Veilblooms (`blooms.ts`, `BLOOMS` in `content/world.ts`): open at night only, 1 flower a night each, item `veilbloom` 120c, `bloom-tea` in the iron pot.
+2. Bicycle lamp: order book entry `bikelamp` 240c. A spot light while riding, and `veilAt` thins to 35% of its extra thickness.
