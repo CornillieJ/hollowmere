@@ -73,6 +73,7 @@ import { setupBlooms } from './blooms';
 import { setupDevMode } from './devmode';
 import { setupDog } from './dog';
 import { setupFishing } from './fishing';
+import { GOLDEN, setupGolden } from './golden';
 import { PEDLAR, PEDLAR_STOCK, setupPedlar } from './pedlar';
 import { setupHappenings } from './happenings';
 
@@ -350,6 +351,8 @@ export async function boot(): Promise<void> {
         if (found.size === FINDS.length) think('finds-all', ["That's 8 things out of 1 field. A whole life's worth of small things.", "Nobody loses all that by accident. Whoever farmed here before me didn't leave. They were put away."]);
         return itemId;
     }
+    // 1 crop in 20 comes up gold, once the lessons are over.
+    const golden = setupGolden(game, { plots: () => farm.plots, allowed: () => story.over });
     const farming = setupFarming(game, { farm, pockets, hotbar, barriers, give, nodes: () => nodes,
         water: { left: () => can.left, use: () => (can.left -= 1) },
         enabled: () => !dayCycle.stalled,
@@ -358,6 +361,18 @@ export async function boot(): Promise<void> {
             today.picked += amount;
             dig(plot.position);
             const name = pockets.inventory.registry.resolve(itemId).name.toLowerCase();
+            if (golden.is(plot)) {
+                const extra = amount * (GOLDEN.times - 1);
+                give(itemId, extra);
+                tally.harvested += extra;
+                today.picked += extra;
+                juice.banner(`Golden ${name}`, `${amount + extra} from 1 plot`, { color: '#ffd84a' });
+                juice.chime('fanfare');
+                juice.sparkle(plot.position.clone().setY(1), 0xffd84a, 24);
+                game.effects.shakeCamera(0.06);
+                think('golden', ["It's gold. Not the colour of gold: gold, all through, and heavy with it.", 'Things grow how they like here. I am not going to complain about this one.']);
+                return;
+            }
             juice.reward(plot.position.clone().setY(1.1), `+${amount} ${name}${seeds > 0 ? `  +${seeds} seed${seeds > 1 ? 's' : ''}` : ''}`, { color: seeds > 1 ? 0xb8f0a0 : 0xffe9a8 });
         },
         secondsPerHour: HOUR_SECONDS,
@@ -2081,6 +2096,7 @@ export async function boot(): Promise<void> {
         { label: 'Dig up a buried thing', run: () => void dig(game.player?.position ?? at(FARM.start), true) },
         { label: 'Make the dog arrive now', run: () => (dayCycle.day = Math.max(2, dayCycle.day)) },
         { label: 'Bring the pedlar today', run: () => (pedlarForced = dayCycle.day) },
+        { label: 'Turn ripe crops gold', run: () => farm.plots.filter((plot) => plot.ripe).forEach((plot) => golden.make(plot)) },
     ]);
 
     const settings = addSettings(game, {
@@ -2143,7 +2159,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, devmode, wrongnessSign: SIGN_SPOT, blooms, craving, dog, fishing, pedlar, pedlarShop, dig, found, finds, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
+    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, devmode, wrongnessSign: SIGN_SPOT, blooms, craving, dog, fishing, pedlar, golden, pedlarShop, dig, found, finds, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         weather,

@@ -39,6 +39,7 @@
     expect(!document.querySelector('.menu:not(.is-hidden) .menu-dynamic:not(.is-hidden)'), 'no Continue button without a save');
     world.saves.newGame();
     world.finds.chance = 0;
+    world.golden.chance = 0;
     // Weather comes when it likes: not during a test.
     world.weather.hold(true);
     await sleep(700);
