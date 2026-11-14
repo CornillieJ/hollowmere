@@ -79,6 +79,22 @@ export const OMEN_THOUGHTS: Record<OmenKind, string[]> = {
     wheel: ['A cart wheel. No cart.'],
 };
 
+/** A dim line in the morning panel every other day from day 3. Nothing comes of any of them. */
+export const MORNING_SIGNS = [
+    'Small muddy prints on the porch, going in. None coming out.',
+    'The dog slept facing the door all night.',
+    'Your boots were by the bed, laced, and wet.',
+    'The well bucket was down. You left it up.',
+    'Someone has swept the porch.',
+    'A long scratch on the outside of the door, at the height of your face.',
+    'The scarecrow has dew on it everywhere except its face.',
+    'The hens would not come out until the sun was up.',
+    'A chair was pulled out from the table, facing the bed.',
+    'Your name was said once, outside, just before you woke. Not loudly.',
+    'The kettle was warm.',
+    'Fog on the inside of the window. Something was written in it, and then rubbed out.',
+];
+
 /** Heard in the fog at night, from nowhere in particular. */
 export const VOICES = [
     '"Is that you, dear? Come away from the road."',

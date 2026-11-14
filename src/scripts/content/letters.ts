@@ -24,7 +24,7 @@ export const LETTERS: Letter[] = [
             'You are settling in. I can tell by the smoke from the pot.',
             'I woke here too, you know. I had a kitchen somewhere, and a dog that was only a dog. I kept the names in my head as long as I could.',
             'Write yours down tonight. Put it under the bed. You will want it later, and it will not be where you left it.',
-            'And come up the hill, west of the chapel, to the old tree. Above the Veil I can still think. I have something to tell you about going home.',
+            'There is a way home. It is not cheap and it does not wait. I have put the sum under your door. Come up the hill when you have read it, west of the chapel, to the old tree. Above the Veil I can still think.',
             'P.',
         ],
     },
@@ -60,9 +60,9 @@ export const LETTERS: Letter[] = [
 /** What Pell says, in his way, when the farmer finally stops at the bend. */
 export const PELL_SPEAKS = [
     '...',
-    'You. came.',
-    'I. kept it. For you.',
-    'The name. You. wrote it. And put it. Under the bed.',
-    'Take it. Home. Read it. Every morning. It. helps.',
-    'Good. neighbour.',
+    'You... came.',
+    'I kept it... for you.',
+    'The name. You wrote it... and put it under the bed.',
+    'Take it home. Read it... every morning. It helps.',
+    'Good... neighbour.',
 ];

@@ -24,6 +24,6 @@ export const STAY_SLIDES: EndingSlide[] = [
 /** The lines under the title of a few menus. `{days}` is filled in by the game. */
 export const SCREENS = {
     title: 'A farm for the hollow, behind the veil.',
-    died: 'They found you out in the Veil and carried you to the infirmary. {days} days are gone, and so is everything you carried. Your tools were kept for you.',
+    died: 'Someone found you in the Veil and carried you to the infirmary. {days} days are missing. Your tools were set by the bed. What you carried was not brought back with you.',
     woke: 'Your own ceiling. Your own kitchen, and rain of the ordinary kind. On the pillow beside you: a folded slip with your name on it, and one pale turnip seed.',
 };

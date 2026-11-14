@@ -40,7 +40,7 @@ import { fill, SAY, THOUGHTS } from '../content/thoughts';
 import { DEEDS, ORDER_BOOK, type OrderId } from '../content/progress';
 import { INTRO } from '../content/tutorial';
 import { SCREENS, STAY_SLIDES, WAKE_SLIDES } from '../content/endings';
-import { OMEN_THOUGHTS } from '../content/wrongness';
+import { MORNING_SIGNS, OMEN_THOUGHTS } from '../content/wrongness';
 import { createFolk, createHeldTool, dressFolk, FolkAnimator, type FolkRig } from '../content/folk';
 import { createBike } from '../content/bike';
 import { COOKING, CROPS, FINDS, ITEMS, NEEDS_CROP, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
@@ -1811,6 +1811,7 @@ export async function boot(): Promise<void> {
         title: 'Morning',
         rows: () => [
             { icon: ':dawn:', title: `Day ${dayCycle.day}`, detail: nightLine },
+            ...(dayCycle.day >= 3 && dayCycle.day % 2 === 1 ? [{ title: MORNING_SIGNS[Math.floor(dayCycle.day / 2) % MORNING_SIGNS.length] as string, dim: true }] : []),
             { heading: true, title: 'Yesterday' },
             { icon: ':coin:', title: today.earned > 0 && today.earned >= tally.bestDay ? 'Earned (your best day yet)' : 'Earned', meta: coin(today.earned), ...(tally.bestDay > 0 ? { detail: `Best day: ${coin(tally.bestDay)}. Most requests in a day: ${tally.bestStreak}.` } : {}) },
             { icon: ':alert:', title: 'Requests filled', meta: String(today.delivered) },

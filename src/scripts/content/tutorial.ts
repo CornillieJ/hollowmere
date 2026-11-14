@@ -28,7 +28,7 @@ export const TUTORIAL = {
     plant: {
             objective: 'Plant 3 seeds in the field',
             detail: 'Stand at an empty plot and press E, or hold E and walk along the row. The seeds in your hand are used, or else the first seeds in your pockets.',
-            say: ["Turned soil. I could grow something here.", "...And there are seeds in my pocket. I didn't put them there. (Stand at a plot and press E. Hold E and walk to do a whole row.)"],
+            say: ["Turned soil. I could grow something here.", "...And there are seeds in my pocket. I didn't put them there. The packet's labelled in my handwriting. (Stand at a plot and press E. Hold E and walk to do a whole row.)"],
     },
     water: {
             objective: 'Fill the can at the well and water the seeds',
@@ -58,7 +58,7 @@ export const TUTORIAL = {
     take: {
             objective: 'Take the food out of the pot',
             detail: 'Press E at the pot when it has finished. Food is hot out of the pot and cools by the hour.',
-            say: ["Lamps, then. I'll stay near them. The pot should be about done. (Press E at the pot to take it.)"],
+            say: ["Light, then. Lamps, candles, the porch. I'll keep near them.", "...The pot should be done. (Press E at the pot to take it.)"],
     },
     sign: {
             objective: 'Find the signpost up the road, past the barn',
@@ -72,13 +72,13 @@ export const TUTORIAL = {
     },
     meet: {
             objective: 'Talk to Barnaby, the shopkeeper',
-            detail: 'Barnaby stands by his store on the west side of the square. He sells seeds, his scales buy what you carry, and his order book sells land, pots and animals.',
+            detail: 'Barnaby stands by his store on the west side of the square. He sells seeds, buys what you carry, and his order book sells land, pots and animals.',
             say: ['A village. Lamps. People. ...Mostly people.', "The goat by the store looks like he runs the place. (Walk up to him and press E.)"],
     },
     deliver: {
             objective: 'Bring a villager what they ask for',
-            detail: 'A ! marks someone with a request. Talk to them to hear it, come back with the goods, and choose "Hand over". Press J for the list. The scales at the store buy anything else, for half its worth.',
-            say: ["So the store sells seeds, and the scales beside it buy whatever I carry, at half what it's worth.", 'The ones with a ! over their head pay better. (Talk to one to hear what they want, come back with it, and choose "Hand over". J opens my notebook.)'],
+            detail: 'A ! marks someone with a request. Talk to them to hear it, come back with the goods, and choose "Hand over". Press J for the list. Barnaby buys anything else, for half its worth.',
+            say: ["So Barnaby sells seeds, and buys whatever I carry, at half what it's worth.", 'The ones with a ! over their head pay better. (Talk to one to hear what they want, come back with it, and choose "Hand over". J opens my notebook.)'],
             after: ["Paid. So that's the job: grow it, cook it, carry it to whoever asks.", "Nobody here will say what's out in the fog. They only say to be indoors by dark. I'm on my own from here."],
     },
     sleep: {

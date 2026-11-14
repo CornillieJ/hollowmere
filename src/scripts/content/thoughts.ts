@@ -36,7 +36,7 @@ export const THOUGHTS: Record<string, string[]> = {
     ],
     golden: [
         "It's gold. Not the colour of gold: gold, all through, and heavy with it.",
-        'Things grow how they like here. I am not going to complain about this one.',
+        "Things grow how they like here. I'm not going to complain about this one.",
     ],
     bloom: [
         "It came away in my hand like it wanted to. Still glowing.",
@@ -64,7 +64,7 @@ export const THOUGHTS: Record<string, string[]> = {
         "Cold. And it drags at my legs. I'm not getting anywhere fast in this.",
     ],
     night: [
-        "Night. There are 3 of them now for every one I saw by day, and they've stopped wandering.",
+        "Night. There are more of them now, and they've stopped wandering. They're standing still, facing the house.",
         "A lamp, a candle, a door. Or the bicycle, and I don't stop.",
     ],
     scent: [
@@ -108,8 +108,8 @@ export const THOUGHTS: Record<string, string[]> = {
         "A lamp, a door, or the bicycle. Not the open road.",
     ],
     hollow: [
-        "It's seen me.",
-        "It's slow. I'm not. If I walk away it loses interest.",
+        "It's seen me. It doesn't hurry. It doesn't need to, I think.",
+        "(They're slow. Walk away and they lose interest.)",
     ],
     'first-hollow': [
         "There. Out past the trees. That's not a person. It stands like a coat on a hook.",
@@ -149,7 +149,7 @@ export const THOUGHTS: Record<string, string[]> = {
     'wrong-sign': ['"{bottom}." It did not say that. It said a mile.', 'Nobody has painted it. The paint is old and cracked right through the letters.'],
 
     note: [
-        "A sheet of paper, weighed down with a stone. Brown, dry letters, done with a finger:",
+        "A sheet of paper, weighed down with a stone. Red letters, dried hard, written with a fingertip:",
         '"THEY STOP AT THE LIGHT. REMEMBER THAT."',
         "That isn't ink. Somebody wanted me to know it badly enough to bleed for it. Lamps, candles, a lit porch. I'll remember.",
     ],
