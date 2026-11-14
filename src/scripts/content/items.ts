@@ -19,7 +19,7 @@ const food = (heal: number): NonNullable<ItemDefinition['use']> => ({ onUse: ({ 
 export const ITEMS: ItemDefinition[] = [
     { id: 'watering-can', name: 'Watering can', icon: ':item-watering-can:', category: 'tool', maxStack: 1, keep: true, description: 'Water a planted plot. Watered crops grow twice as fast that day. Fill it at the well.' },
     { id: 'axe', name: 'Axe', icon: ':item-axe:', category: 'tool', maxStack: 1, keep: true, description: 'Hold it and press E at a dead tree. Four swings bring one down.' },
-    { id: 'fence-kit', name: 'Fence kit', icon: ':item-fence-kit:', category: 'tool', price: 14, description: 'Press F to put a length of fence down. Holds the walkers back for a while. Nothing holds them for long.' },
+    { id: 'fence-kit', name: 'Fence kit', icon: ':item-fence-kit:', category: 'tool', price: 14, description: 'Press F to put a length of fence down. Holds the walkers back for a while. Nothing holds them for long. The wood is already scratched on one side.' },
 
     { id: 'turnip-seed', name: 'Turnip seeds', icon: ':item-turnip-seed:', category: 'material', price: 4, description: 'Quick to grow. Pale inside.' },
     { id: 'wheat-seed', name: 'Wheat seeds', icon: ':item-wheat-seed:', category: 'material', price: 5, description: 'For bread. It leans away from the road as it grows.' },
@@ -72,10 +72,10 @@ export const ITEMS: ItemDefinition[] = [
     { id: 'backpack-1', name: 'Stitched backpack', icon: ':item-backpack-1:', category: 'tool', maxStack: 1, keep: true, price: 150, description: '6 slots instead of 3. Worn as soon as it is bought.' },
     { id: 'backpack-2', name: 'Leather backpack', icon: ':item-backpack-2:', category: 'tool', maxStack: 1, keep: true, price: 400, description: '10 slots. Worn as soon as it is bought.' },
     { id: 'backpack-3', name: "Postman's satchel", icon: ':item-backpack-3:', category: 'tool', maxStack: 1, keep: true, price: 900, description: '16 slots. Fen will not say where the last postman went.' },
-    { id: 'candle', name: 'Grave candle', icon: ':item-candle:', category: 'tool', price: 18, description: 'Press F to set it down and light it. The walkers keep out of its light for a minute and a half.' },
-    { id: 'lantern', name: 'Lantern', icon: ':item-lantern:', category: 'tool', price: 45, description: 'Press F to put it up where you stand, with a day of oil in it. They keep out of its light and the Veil thins round it. Keep it in oil.' },
+    { id: 'candle', name: 'Grave candle', icon: ':item-candle:', category: 'tool', price: 18, description: 'Press F to set it down and light it. The walkers keep out of its light for a minute and a half. They are sold for graves. Nobody says whose.' },
+    { id: 'lantern', name: 'Lantern', icon: ':item-lantern:', category: 'tool', price: 45, description: 'Press F to put it up where you stand, with a day of oil in it. They keep out of its light and the Veil thins round it. Keep it in oil. Pell bought 6 of these. None of them are on the farm.' },
     { id: 'scarecrow', name: 'Weeping scarecrow', icon: ':item-scarecrow:', category: 'tool', price: 260, description: 'Press F in the field to stand it on the corner between plots. Each morning the plots within 2 steps of it are found watered. Press E at it to take it down.' },
-    { id: 'lamp-oil', name: 'Lamp oil', icon: ':item-lamp-oil:', category: 'material', price: 9, description: 'One flask burns for a day. Press E at a lantern to fill it: it holds 2.' },
+    { id: 'lamp-oil', name: 'Lamp oil', icon: ':item-lamp-oil:', category: 'material', price: 9, description: 'One flask burns for a day. Press E at a lantern to fill it: it holds 2. Barnaby will not say what it is pressed from.' },
     { id: 'name-slip', name: 'Folded slip', icon: ':item-name-slip:', category: 'quest', maxStack: 1, keep: true, description: 'Your name, in your own hand. You do not remember writing it. Read it every morning.' },
 ];
 

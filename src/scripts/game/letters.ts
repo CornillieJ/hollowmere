@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 
+import { SAY } from '../content/thoughts';
 import { SYSTEM_ORDER } from '../core/systems';
 import { createBillboardLabel, faceCamera } from '../helpers/text';
 import { DialogueBox } from '../ui/dialogue-box';
@@ -85,7 +86,7 @@ export function setupLetters(game: Game, options: LettersOptions): LettersHandle
         if (!letter || !waiting()) return;
         await show(letter.lines, `A letter (${read + 1} of ${LETTERS.length})`, ':letter:');
         read += 1;
-        if (read === 1) void options.narration.speak(['No stamp. And it knows which bed I woke in.']);
+        if (read === 1) void options.narration.speak(SAY.firstLetter);
     }
 
     game.interactions.add(mailbox, {
@@ -124,7 +125,7 @@ export function setupLetters(game: Game, options: LettersOptions): LettersHandle
         }
         let spoke = false;
         await session(async () => void (spoke = await options.deal(box)));
-        if (!spoke) void options.narration.speak(['Taller than the others, and wrapped in a shawl. It does not turn. It does not reach.', 'It is looking out over the fog, at the farm. I will leave it be. For now.']);
+        if (!spoke) void options.narration.speak(SAY.pellSilent);
     }
 
     game.interactions.add(rig.root, { prompt: () => (read >= 2 ? 'Talk to Pell' : 'Look at the tall one'), range: 2.6, onInteract: () => void greetPell() });

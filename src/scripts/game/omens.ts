@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 import type { Terrain } from '../kit';
+import { OMENS, type OmenKind } from '../content/wrongness';
 
 /**
  * What the valley leaves lying about as the days go by: blood on the road, a
@@ -8,41 +9,6 @@ import type { Terrain } from '../kit';
  * Each sign appears on a set day and stays, so the plains get worse to cross
  * the longer the farmer lives here.
  */
-export type OmenKind = 'blood' | 'trail' | 'boot' | 'basket' | 'lantern' | 'shawl' | 'wheel';
-
-type Omen = { kind: OmenKind; x: number; z: number; fromDay: number; yaw?: number };
-
-/** Mostly along the road and across the open ground between it and the pool. */
-const OMENS: Omen[] = [
-    { kind: 'blood', x: -30, z: 33, fromDay: 2 },
-    { kind: 'boot', x: -17, z: 19.5, fromDay: 2, yaw: 0.8 },
-    { kind: 'trail', x: -2, z: 9, fromDay: 3, yaw: 2.3 },
-    { kind: 'basket', x: 14, z: -7, fromDay: 3 },
-    { kind: 'blood', x: 15.5, z: -6, fromDay: 3 },
-    { kind: 'lantern', x: 31, z: -22, fromDay: 4, yaw: 1 },
-    { kind: 'blood', x: 40, z: 12, fromDay: 4 },
-    { kind: 'trail', x: 42, z: 14, fromDay: 4, yaw: 0.6 },
-    { kind: 'shawl', x: -40, z: 2, fromDay: 5 },
-    { kind: 'wheel', x: -22, z: 52, fromDay: 5, yaw: 0.4 },
-    { kind: 'blood', x: -38.5, z: 24, fromDay: 6 },
-    { kind: 'trail', x: -37, z: 22.5, fromDay: 6, yaw: -0.4 },
-    { kind: 'boot', x: 46, z: -8, fromDay: 7, yaw: 2 },
-    { kind: 'blood', x: -55, z: 22, fromDay: 8 },
-    { kind: 'basket', x: 60, z: 20, fromDay: 8 },
-    { kind: 'blood', x: 36, z: -31, fromDay: 9 },
-    { kind: 'trail', x: 34, z: -33, fromDay: 9, yaw: 1.2 },
-    { kind: 'shawl', x: -8, z: 40, fromDay: 10 },
-];
-
-export const OMEN_THOUGHTS: Record<OmenKind, string[]> = {
-    blood: ['Blood. A lot of it, and not old.', 'Nobody in the village said anyone was hurt.'],
-    trail: ['Something heavy was dragged through here. Into the trees.'],
-    boot: ['One boot. Laced. Whoever wore it did not take it off.'],
-    basket: ['A market basket, tipped over. The eggs are still in it.'],
-    lantern: ['A lantern, broken. The glass is on the inside. It was dropped while it was lit.'],
-    shawl: ['One of Mother Hollis\'s shawls, lying in the grass. Finished. Folded.'],
-    wheel: ['A cart wheel. No cart.'],
-};
 
 const BLOOD = new THREE.MeshBasicMaterial({ color: 0x3a0a08, transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
 const WOOD = new THREE.MeshStandardMaterial({ color: 0x40342a, roughness: 1, flatShading: true });

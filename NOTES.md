@@ -303,3 +303,9 @@ Work on branch `fun-iteration`, one addition per commit.
 ## Batch 23: golden crops
 
 - `golden.ts`: once the tutorial is over, 1 ripe crop in 20 comes up gold: a turning gold diamond above it, a glow on the soil and sparks. Picking it gives 3 times the produce and a banner. Not saved: a reload rolls again. Dev button "Turn ripe crops gold". Probes set `world.golden.chance = 0`.
+
+## Batch 24: text in content files, first rewrites
+
+- Text and lists live in `src/scripts/content/`: `thoughts.ts` (every once-only thought by id in `THOUGHTS`, repeated speech in `SAY`, `{name}` slots filled with `fill`), `tutorial.ts` (`INTRO`, step texts), `progress.ts` (`ORDER_BOOK`, `DEEDS`; what they do stays in `boot.ts` as `orderEffects` and `deedChecks`), `wrongness.ts` (notes, denials, signpost texts, night rows, omens, voices, `MORNING_SIGNS`), `endings.ts` (slides, `SCREENS`), `guide.ts` (notebook guide). `think(id)` looks its lines up in `THOUGHTS`.
+- Still inline: short toasts, button labels and prompts, and `WEATHER` (text mixed with numbers).
+- Rewrites: death screen, no more "scales" in the tutorial, letter 3 points at the note under the door, red letters on the paper, clearer cook, night and Hollow lines, an odd last line on the fence kit, candle, lantern and lamp oil, Barnaby's store topic, Barnaby and Wren know the dog, Barnaby topic about the cart, labelled seed packet, Pell's speech with pauses, a dim morning line every other day from day 3.

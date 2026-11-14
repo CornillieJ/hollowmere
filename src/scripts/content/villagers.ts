@@ -41,6 +41,7 @@ export const VILLAGERS: VillagerContent[] = [
             'Store is open. Store is always open. I do not remember closing it, so it must be.',
             `Day ${day} for you here. I wrote it down. I write everyone's days down, it is only polite.`,
             'If they lean on your fence, they are only curious. Mostly curious.',
+            ...(day >= 2 ? ["I see you have the dog. Pell's dog. Or the one before Pell's. They do not age, that sort."] : []),
             hearts >= 2 ? 'You came back again. I set a cup out for you this morning before I knew you would. That is how I knew you would.' : 'You are the new one at the old Pell place. Nice house. Good strong door. You will want the door.',
             'The Veil is thick today. That is what we call the fog here; you will pick it up. I find it cosy, like a blanket somebody else is also under.',
             hearts >= 3 ? 'I worry when you are late. Then I check the ledger, and your name is still in the right book, and I can breathe.' : 'Eat something warm before the walk home. A full stomach walks faster. I have noticed that about people.',
@@ -61,9 +62,18 @@ export const VILLAGERS: VillagerContent[] = [
                 id: 'store',
                 label: 'Ask about the store',
                 lines: [
-                    'Seeds, fence kits, candles on the counter. The order book beside it is for bigger things: land, a better pot, animals.',
+                    'Seeds and candles on the counter. Bigger things go in the order book: land, a better pot, animals. I write them down and they arrive. I do not ask how.',
                     'I buy what you grow, too. Half price. I am fond of you, not foolish.',
-                    'Bring cooked food to the folk who ask for it and you will do far better than selling to me. Do not tell them I said so.',
+                    'Folk who ask for food pay far better than I do. Do not tell them I said so. They do not count the way I count.',
+                ],
+            },
+            {
+                id: 'cart',
+                label: 'Ask about the cart on the road',
+                minDay: 3,
+                lines: [
+                    'A cart? On that road? No one comes up that road.',
+                    'I would not buy from anyone who did. And if they paid you, count it again at home. In the light.',
                 ],
             },
             {
@@ -117,8 +127,9 @@ export const VILLAGERS: VillagerContent[] = [
         spot: { x: 5, z: 7, yaw: -Math.PI / 3 },
         home: 0,
         hours: [7.5, 18.5],
-        lines: ({ hearts }) => [
+        lines: ({ hearts, day }) => [
             'Hi! Sorry, I can only wave with the one. It saves time, really.',
+            ...(day >= 2 ? ['You found him! He always goes to whoever is at that farm. He waits on the porch until somebody wakes up in there.'] : []),
             'I counted eleven walkers by the chapel this morning. A new record! I gave them all names. Three of them already had names.',
             'Mum says not to stand still near the hedges after dark. I forget why. I think the hedges get lonely.',
             hearts >= 3 ? 'You are my favourite. I told the others. They said that was fine. They say everything is fine.' : 'Are you staying? Please stay. The last one stayed a whole year!',
