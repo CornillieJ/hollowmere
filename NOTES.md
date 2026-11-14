@@ -266,3 +266,15 @@ orders (`PREMIUM` 1.7, every 3 days, 3 days' patience); `WRONG_FROM` days.
 - Signpost moved 22 m up the road, past the pen and the barn.
 - Compass task marker is a map pin (icon name is still `arrow`).
 - Intro, story lines and thoughts rewritten with contractions and a drier voice.
+
+## fun-iteration
+
+Work on branch `fun-iteration`, one addition per commit.
+
+1. Veilblooms (`blooms.ts`, `BLOOMS` in `content/world.ts`): open at night only, 1 flower a night each, item `veilbloom` 120c, `bloom-tea` in the iron pot.
+2. Bicycle lamp: order book entry `bikelamp` 240c. A spot light while riding, and `veilAt` thins to 35% of its extra thickness.
+3. The day's craving: `craving()` in `boot.ts` picks 1 thing the farm can make each day. The stall and the crate pay double for it, a request for it pays 50% more. Chalkboard by the store and a row in the morning panel.
+4. The dog (`dog.ts`): arrives on day 2, follows, can be petted, and goes stiff and growls when a Hollow is within 24 m and the farmer is not in a safe place.
+5. Finds: 7% of harvests (after the 6th crop) turn up 1 of 8 buried things (`FINDS` in `content/items.ts`, `dig()` in `boot.ts`), unseen ones first. Worth 100 to 320c, listed in the notebook, deed `finds` for all 8. Probes set `world.finds.chance = 0`.
+6. The dog brings a gift the first time it is petted each day: 2 wood, a pale cap, an egg, or (12%) a find.
+7. Fishing (`fishing.ts`): a rod on the jetty at the pool, by day. Cast with E, press E within 0.85 s of the float going under. 5 bites a day. Pale fish (80c), eel (150c), a boot (1 wood) or a find; `fish-supper` in any pot.
