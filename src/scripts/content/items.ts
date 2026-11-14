@@ -35,12 +35,29 @@ export const ITEMS: ItemDefinition[] = [
     { id: 'wood', name: 'Wood', icon: ':wood:', category: 'material', price: 6, description: 'Dead wood burns well. Every dish needs one piece for the fire.' },
     { id: 'mushroom', name: 'Pale cap', icon: ':mushroom:', category: 'treasure', price: 24, description: 'Grows by the black pool and among the standing stones. Faintly warm.' },
 
+    { id: 'veilbloom', name: 'Veilbloom', icon: ':bloom:', category: 'treasure', price: 120, description: 'Opens only after dark, far from any lamp. Barnaby pays well and does not ask where you were.' },
+
+    // Turned up by the hoe now and then: see `FINDS`. Barnaby buys them and never asks to look twice.
+    { id: 'find-coin', name: 'Worn coin', icon: ':coin:', category: 'treasure', price: 120, description: 'Rubbed smooth. The face on it has its eyes shut.' },
+    { id: 'find-key', name: 'Small key', icon: ':key:', category: 'treasure', price: 160, description: 'Too small for any door on this farm.' },
+    { id: 'find-tooth', name: 'Tooth', icon: ':tooth:', category: 'treasure', price: 140, description: 'Not from any animal you keep.' },
+    { id: 'find-ring', name: 'Wedding ring', icon: ':ring:', category: 'treasure', price: 260, description: 'A date inside it, and the word "wake".' },
+    { id: 'find-button', name: 'Bone button', icon: ':button:', category: 'treasure', price: 100, description: 'It matches the ones on the scarecrow.' },
+    { id: 'find-spoon', name: 'Bent spoon', icon: ':spoon:', category: 'treasure', price: 110, description: 'Bent on purpose, and bent back, many times.' },
+    { id: 'find-bell', name: 'Cow bell', icon: ':bell:', category: 'treasure', price: 180, description: 'No clapper in it. Your cow will not go near it.' },
+    { id: 'find-locket', name: 'Locket', icon: ':locket:', category: 'treasure', price: 320, description: 'Inside, a picture of this farmhouse. Someone is at the window.' },
+
+    { id: 'pale-fish', name: 'Pale fish', icon: ':fish:', category: 'treasure', price: 80, description: 'From the black pool. No eyes to speak of. It does not need them down there.' },
+    { id: 'eel', name: 'Black eel', icon: ':eel:', category: 'treasure', price: 150, description: 'It was still moving an hour after. Barnaby sells them to somebody.' },
+
     { id: 'turnip-soup', name: 'Turnip soup', icon: ':pot:', badge: ':turnip:', category: 'consumable', price: 70, description: 'Restores 35 health.', use: food(35) },
     { id: 'boiled-egg', name: 'Boiled egg', icon: ':egg:', badge: ':hot:', category: 'consumable', price: 54, description: 'Restores 25 health.', use: food(25) },
     { id: 'bread', name: 'Bread', icon: ':bread:', category: 'consumable', price: 64, description: 'Restores 30 health.', use: food(30) },
     { id: 'corn-chowder', name: 'Corn chowder', icon: ':bowl:', badge: ':corn:', category: 'consumable', price: 180, description: 'Restores 60 health.', use: food(60) },
     { id: 'omelette', name: 'Omelette', icon: ':pan:', category: 'consumable', price: 160, description: 'Restores 55 health.', use: food(55) },
     { id: 'pale-broth', name: 'Pale broth', icon: ':bowl:', badge: ':mushroom:', category: 'consumable', price: 150, description: 'Restores 50 health. Glows a little.', use: food(50) },
+    { id: 'bloom-tea', name: 'Bloom tea', icon: ':cup:', badge: ':bloom:', category: 'consumable', price: 340, description: 'Restores 70 health. It tastes of a night you got away with.', use: food(70) },
+    { id: 'fish-supper', name: 'Fish supper', icon: ':fish:', badge: ':hot:', category: 'consumable', price: 230, description: 'Restores 60 health. Pale fish and turnip, fried. Better than it has any right to be.', use: food(60) },
     { id: 'pumpkin-pie', name: 'Pumpkin pie', icon: ':pie:', category: 'consumable', price: 300, description: 'Restores 80 health.', use: food(80) },
     { id: 'hollow-stew', name: 'Hollowveil stew', icon: ':pot:', badge: ':pumpkin:', category: 'consumable', price: 420, description: 'Restores all health. The village eats it at funerals and at weddings.', use: food(100) },
 
@@ -82,10 +99,12 @@ export const POT_TIERS = ['Clay pot', 'Iron pot', 'Cauldron'];
 export const COOKING: Recipe[] = [
     { id: 'turnip-soup', output: { itemId: 'turnip-soup' }, ingredients: [{ itemId: 'turnip', amount: 2 }, { itemId: 'wood', amount: 1 }], seconds: 20 },
     { id: 'boiled-egg', output: { itemId: 'boiled-egg' }, ingredients: [{ itemId: 'egg', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 12 },
+    { id: 'fish-supper', output: { itemId: 'fish-supper' }, ingredients: [{ itemId: 'pale-fish', amount: 1 }, { itemId: 'turnip', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 22 },
     { id: 'bread', output: { itemId: 'bread' }, ingredients: [{ itemId: 'wheat', amount: 2 }, { itemId: 'wood', amount: 1 }], seconds: 25 },
     { id: 'corn-chowder', output: { itemId: 'corn-chowder' }, ingredients: [{ itemId: 'corn', amount: 2 }, { itemId: 'milk', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 30, tier: 2 },
     { id: 'omelette', output: { itemId: 'omelette' }, ingredients: [{ itemId: 'egg', amount: 2 }, { itemId: 'milk', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 22, tier: 2 },
     { id: 'pale-broth', output: { itemId: 'pale-broth' }, ingredients: [{ itemId: 'mushroom', amount: 2 }, { itemId: 'turnip', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 28, tier: 2 },
+    { id: 'bloom-tea', output: { itemId: 'bloom-tea' }, ingredients: [{ itemId: 'veilbloom', amount: 1 }, { itemId: 'milk', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 24, tier: 2 },
     { id: 'pumpkin-pie', output: { itemId: 'pumpkin-pie' }, ingredients: [{ itemId: 'pumpkin', amount: 1 }, { itemId: 'egg', amount: 1 }, { itemId: 'wheat', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 40, tier: 3 },
     { id: 'hollow-stew', output: { itemId: 'hollow-stew' }, ingredients: [{ itemId: 'pumpkin', amount: 1 }, { itemId: 'corn', amount: 1 }, { itemId: 'mushroom', amount: 2 }, { itemId: 'milk', amount: 1 }, { itemId: 'wood', amount: 1 }], seconds: 50, tier: 3 },
 ];
@@ -101,3 +120,6 @@ export const WOODWORK: Recipe[] = [
 
 /** What the collection crate takes: produce and dishes, not tools or seeds. */
 export const SHIPPABLE = new Set(ITEMS.filter((item) => item.category === 'treasure' || item.category === 'consumable' || item.id === 'wood').map((item) => item.id));
+
+/** What lies in the field under the crops, in the order it tends to come up. */
+export const FINDS = ['find-button', 'find-coin', 'find-spoon', 'find-tooth', 'find-key', 'find-bell', 'find-ring', 'find-locket'];

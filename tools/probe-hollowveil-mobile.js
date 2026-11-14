@@ -8,6 +8,7 @@
     const expect = (condition, message) => condition || failures.push(message);
 
     world.saves.newGame();
+    world.finds.chance = 0;
     // Weather comes when it likes: not during a test.
     world.weather.hold(true);
     await sleep(700);

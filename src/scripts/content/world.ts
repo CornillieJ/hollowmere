@@ -188,3 +188,19 @@ export function homeOf(house: number): { x: number; z: number; yaw: number } {
     const distance = Math.hypot(dx, dz);
     return { x: spot.x + (dx / distance) * 7, z: spot.z + (dz / distance) * 7, yaw: Math.atan2(dx, dz) };
 }
+
+/** Where veilblooms grow: beside the road and the paths, out of reach of every lamp. */
+export const BLOOMS: Array<{ x: number; z: number }> = [
+    { x: -12, z: 30 },
+    { x: -14, z: 12 },
+    { x: 4, z: 14 },
+    { x: 14, z: -18 },
+    { x: 30, z: 4 },
+    { x: 50, z: 16 },
+    { x: -30, z: -6 },
+    { x: -50, z: -30 },
+    { x: -6, z: 46 },
+    { x: 8, z: 66 },
+    { x: -24, z: -44 },
+    { x: 36, z: -62 },
+];

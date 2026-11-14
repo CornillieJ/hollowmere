@@ -38,9 +38,9 @@ import {
 } from '../kit';
 import { createFolk, createHeldTool, dressFolk, FolkAnimator, type FolkRig } from '../content/folk';
 import { createBike } from '../content/bike';
-import { COOKING, CROPS, ITEMS, NEEDS_CROP, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
+import { COOKING, CROPS, FINDS, ITEMS, NEEDS_CROP, POT_TIERS, STORE_STOCK, WOODWORK } from '../content/items';
 import { REQUESTS, VILLAGERS } from '../content/villagers';
-import { FARM, HAUNTS, POOL_LEVEL, PELL_SPOT, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF, WRAP_AT, homeOf } from '../content/world';
+import { BLOOMS, FARM, HAUNTS, POOL_LEVEL, PELL_SPOT, PLACES, SAFE_ZONES, VILLAGE, WORLD_HALF, WRAP_AT, homeOf } from '../content/world';
 import { buildWorld, solid, stump } from './world';
 import { setupMood } from './mood';
 import { setupFarming } from './farming';
@@ -69,6 +69,9 @@ import { takePortrait } from './portraits';
 import { setupJournal } from './journal';
 import { setupLetters } from './letters';
 import { DAYS_LOST, ESCAPE, setupEscape } from './escape';
+import { setupBlooms } from './blooms';
+import { setupDog } from './dog';
+import { setupFishing } from './fishing';
 import { setupHappenings } from './happenings';
 
 /**
@@ -281,7 +284,7 @@ export async function boot(): Promise<void> {
     const lateCall = (): void => think('late', ["They weren't expecting anybody at the door after dark. They paid half as much again and didn't count it.", '(Every delivery made at night pays 50% more. The road there is the price.)']);
 
     /** Counted for the story and the journal, and saved with the day. */
-    const tally = { harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0, bestStreak: 0, bestDay: 0, dodged: 0, regulars: 0, stayed: 0, burned: 0 };
+    const tally = { fished: 0, harvested: 0, cooked: 0, wood: 0, wrapped: 0, bigJobs: 0, bestStreak: 0, bestDay: 0, dodged: 0, regulars: 0, stayed: 0, burned: 0 };
     const thoughts = new Set<string>();
 
     /** The watering can holds this many waterings, and is filled at the well. */
@@ -320,12 +323,38 @@ export async function boot(): Promise<void> {
         },
     });
     game.save.register('scarecrows', { save: () => scarecrows.toJSON(), load: (data) => scarecrows.fromJSON(data) });
+    /**
+     * Things lie in this field under the crops. Now and then a harvest turns one up: worth good
+     * coin at the stall, and there are 8 to find, so no row is ever only a row.
+     */
+    const found = new Set<string>();
+    game.save.register('finds', { save: () => [...found], load: (data) => (found.clear(), (Array.isArray(data) ? (data as string[]) : []).forEach((id) => found.add(id))) });
+    /** The chance per harvest. A test sets it to 0 so its counts stay its own. */
+    const finds = { chance: 0.07 };
+    function dig(position: THREE.Vector3, sure = false, how = 'Dug up in the field.'): string | undefined {
+        // Not before the first lessons are over, and the ones not yet seen come first.
+        if (!sure && (tally.harvested < 6 || Math.random() > finds.chance)) return undefined;
+        const fresh = FINDS.filter((id) => !found.has(id));
+        const itemId = (fresh[0] ?? FINDS[Math.floor(Math.random() * FINDS.length)]) as string;
+        if (!give(itemId, 1)) return undefined;
+        const isNew = !found.has(itemId);
+        found.add(itemId);
+        const item = pockets.inventory.registry.resolve(itemId);
+        juice.banner(`${item.icon ?? ''} ${item.name}`, isNew ? `${how} ${found.size} of ${FINDS.length} found.` : 'Another one, under the same row.', { color: '#e8d8a0', seconds: 4 });
+        juice.chime('fanfare');
+        juice.sparkle(position.clone().setY(position.y + 0.5), 0xe8d8a0, 16);
+        game.effects.shakeCamera(0.08);
+        think('find', ["Something hard under the roots. That isn't a stone.", "Somebody's things are in this field. Barnaby will buy them, I'd bet, and I'd bet he won't ask where they came from."]);
+        if (found.size === FINDS.length) think('finds-all', ["That's 8 things out of 1 field. A whole life's worth of small things.", "Nobody loses all that by accident. Whoever farmed here before me didn't leave. They were put away."]);
+        return itemId;
+    }
     const farming = setupFarming(game, { farm, pockets, hotbar, barriers, give, nodes: () => nodes,
         water: { left: () => can.left, use: () => (can.left -= 1) },
         enabled: () => !dayCycle.stalled,
         onHarvest: (itemId, amount, seeds, plot) => {
             tally.harvested += amount;
             today.picked += amount;
+            dig(plot.position);
             const name = pockets.inventory.registry.resolve(itemId).name.toLowerCase();
             juice.reward(plot.position.clone().setY(1.1), `+${amount} ${name}${seeds > 0 ? `  +${seeds} seed${seeds > 1 ? 's' : ''}` : ''}`, { color: seeds > 1 ? 0xb8f0a0 : 0xffe9a8 });
         },
@@ -434,6 +463,35 @@ export async function boot(): Promise<void> {
         wheels: ['front-wheel', 'rear-wheel'],
     });
 
+    /**
+     * The carbide lamp, bought from the order book: a beam down the road while riding, and the
+     * Veil thins round it. It is dark while the bicycle stands, so it is no place to hide.
+     */
+    const bikeLamp = new THREE.Group();
+    bikeLamp.position.set(0, 0.74, 0.74);
+    const lampGlass = new THREE.MeshBasicMaterial({ color: 0x3a3428 });
+    const lampCase = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 0.12), new THREE.MeshStandardMaterial({ color: 0x8a7a48, roughness: 0.5, metalness: 0.6, flatShading: true }));
+    const lampFace = new THREE.Mesh(new THREE.CircleGeometry(0.06, 8), lampGlass);
+    lampFace.position.z = 0.065;
+    const beam = new THREE.SpotLight(0xffe6b0, 0, 26, 0.5, 0.6, 1.2);
+    beam.target.position.set(0, -0.35, 6);
+    const beamCone = new THREE.Mesh(new THREE.ConeGeometry(2.2, 9, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe6b0, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }));
+    beamCone.rotation.x = -Math.PI / 2 - 0.06;
+    beamCone.position.z = 4.5;
+    bikeLamp.add(lampCase, lampFace, beam, beam.target, beamCone);
+    bikeLamp.visible = false;
+    bikeModel.add(bikeLamp);
+    const lampLit = (): boolean => bikeLamp.visible && bike.mounted;
+    game.systems.add({
+        name: 'bike-lamp',
+        update: () => {
+            const lit = lampLit();
+            beam.intensity = lit ? 90 : 0;
+            (beamCone.material as THREE.MeshBasicMaterial).opacity = lit ? 0.03 : 0;
+            lampGlass.color.setHex(lit ? 0xfff0c0 : 0x3a3428);
+        },
+    });
+
     //#endregion Farm, animals and the bike
 
     //#region Gathering and making
@@ -475,6 +533,22 @@ export async function boot(): Promise<void> {
             if (node.kindId === 'tree') synth.tone({ frequency: 60, duration: 0.5, type: 'triangle', gain: 0.2, sweep: 0.5 });
         },
         persist: 'nodes',
+    });
+
+    // The best pay in the valley only opens after dark, out where the lamps do not reach.
+    const blooms = setupBlooms(game, {
+        spots: BLOOMS.filter((spot) => !SAFE_ZONES.some((zone) => Math.hypot(zone.position.x - spot.x, zone.position.z - spot.z) < zone.radius + 6)),
+        ground,
+        night: () => isNight(dayCycle),
+        day: () => dayCycle.day,
+        hour: () => dayCycle.hour,
+        give: () => give('veilbloom', 1),
+        onPicked: (position) => {
+            juice.reward(position, '+1 veilbloom');
+            juice.sparkle(position, 0xbfe8e0, 14);
+            synth.tone({ frequency: 880, duration: 0.5, type: 'sine', gain: 0.08, sweep: 1.5 });
+            think('bloom', ["It came away in my hand like it wanted to. Still glowing.", "They only open in the dark, away from the lamps. Of course they do. Barnaby will pay for this, and I'll have earned it."]);
+        },
     });
 
     // Dishes are hot out of the pot and cool by the hour; hot ones pay more.
@@ -647,8 +721,11 @@ export async function boot(): Promise<void> {
             // Read before the visit takes its hours: it is as hot as it was when it was handed over.
             const heat = warmth.heatOf(request.itemId);
             const heatBonus = Math.round(request.reward * warmth.bonus(request.itemId));
-            const nightBonus = isNight(dayCycle) ? Math.round(request.reward * NIGHT_PAY) : 0;
-            if (nightBonus > 0) lateCall();
+            const craveBonus = request.itemId === craving() ? Math.round(request.reward * CRAVE.request) : 0;
+            if (craveBonus > 0) game.toasts.push(`The whole village wanted that today: +${coin(craveBonus)}`, { color: '#ffe14a' });
+            const nightPay = isNight(dayCycle) ? Math.round(request.reward * NIGHT_PAY) : 0;
+            if (nightPay > 0) lateCall();
+            const nightBonus = nightPay + craveBonus;
             // A delivery is a visit: hours go by.
             dayCycle.advance(visitHours());
             growFor(visitHours());
@@ -710,6 +787,78 @@ export async function boot(): Promise<void> {
         juice.chime('fanfare');
     });
     const shop = addInventory(game, { items: ITEMS, mode: 'shop', title: "Barnaby's store", catalogue: stock, primary: false, customer: pockets, currency: { resource: coins, label: 'purse', format: coin }, filters: false });
+    /**
+     * What the village cannot get enough of today. Barnaby chalks it up and pays double for it at
+     * the stall and in the crate, and whoever asked for it pays half as much again. It changes each
+     * morning, and it is only ever something the farm can make, so every day has its own best plan.
+     */
+    const CRAVE = { stall: 2, request: 0.5 };
+    let craved = { day: 0, itemId: '' };
+    const craving = (): string => {
+        if (craved.day === dayCycle.day) return craved.itemId;
+        const pool = [...CROPS.filter((crop) => canGrow(crop.id)).map((crop) => crop.produce as string), 'egg', 'milk', ...potRecipes.filter((recipe) => (recipe.tier ?? 1) <= cookpot.station.tier).map((recipe) => recipe.output.itemId)];
+        // Never the same thing 2 days running.
+        let pick = pool[(dayCycle.day * 7 + 3) % pool.length] as string;
+        if (pick === craved.itemId) pick = pool[(dayCycle.day * 7 + 4) % pool.length] as string;
+        craved = { day: dayCycle.day, itemId: pick };
+        return pick;
+    };
+    const stallPrice = (itemId: string): number => shop.inventory.sellPrice(itemId) * (itemId === craving() ? CRAVE.stall : 1);
+    const nameOf = (itemId: string): string => pockets.inventory.registry.resolve(itemId).name;
+
+    // The chalkboard by the counter says what it is.
+    const chalkCanvas = document.createElement('canvas');
+    chalkCanvas.width = 128;
+    chalkCanvas.height = 96;
+    const chalkTexture = new THREE.CanvasTexture(chalkCanvas);
+    chalkTexture.magFilter = THREE.NearestFilter;
+    chalkTexture.colorSpace = THREE.SRGBColorSpace;
+    let chalked = '';
+    const chalk = (): void => {
+        const itemId = craving();
+        if (chalked === itemId) return;
+        chalked = itemId;
+        const context = chalkCanvas.getContext('2d');
+        if (!context) return;
+        context.fillStyle = '#1c2420';
+        context.fillRect(0, 0, 128, 96);
+        context.fillStyle = '#e8e4d0';
+        context.textAlign = 'center';
+        context.font = 'bold 15px Arial, sans-serif';
+        context.fillText('TODAY', 64, 22);
+        context.font = '900 19px Arial Black, Impact, sans-serif';
+        const words = nameOf(itemId).toUpperCase().split(' ');
+        const lines = words.length > 1 ? [words.slice(0, Math.ceil(words.length / 2)).join(' '), words.slice(Math.ceil(words.length / 2)).join(' ')] : words;
+        lines.forEach((line, index) => context.fillText(line, 64, (lines.length > 1 ? 44 : 54) + index * 20, 120));
+        context.fillStyle = '#ffe14a';
+        context.font = 'bold 15px Arial, sans-serif';
+        context.fillText('PAYS DOUBLE', 64, 88);
+        chalkTexture.needsUpdate = true;
+    };
+    const chalkboard = new THREE.Group();
+    chalkboard.name = 'chalkboard';
+    const chalkWood = new THREE.MeshStandardMaterial({ color: 0x4a3a2a, roughness: 1, flatShading: true });
+    const chalkFace = new THREE.MeshStandardMaterial({ map: chalkTexture, roughness: 1, emissive: 0xffffff, emissiveMap: chalkTexture, emissiveIntensity: 0.85 });
+    const slate = new THREE.Mesh(new THREE.BoxGeometry(2, 1.5, 0.08), [chalkWood, chalkWood, chalkWood, chalkWood, chalkFace, chalkWood]);
+    slate.position.y = 1.75;
+    slate.rotation.x = -0.14;
+    for (const x of [-0.86, 0.86]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.5, 0.08), chalkWood);
+        leg.position.set(x, 1.2, -0.1);
+        leg.rotation.x = -0.14;
+        chalkboard.add(leg);
+    }
+    chalkboard.add(slate);
+    chalkboard.position.copy(at({ x: VILLAGE.store.x + 0.6, z: VILLAGE.store.z + 9.4 }));
+    chalkboard.rotation.y = VILLAGE.store.yaw;
+    game.scene.add(chalkboard);
+    game.systems.add({ name: 'chalkboard', update: chalk });
+    game.interactions.add(chalkboard, {
+        prompt: 'Read the chalkboard',
+        range: 2.4,
+        onInteract: () => game.toasts.push(`Today the village wants ${nameOf(craving()).toLowerCase()}. Barnaby pays double for it, and whoever asked for it pays half as much again.`, { color: '#ffe14a' }),
+    });
+
     const counter = modelled(game, 'stall', storeFurniture(false));
     counter.position.copy(at({ x: VILLAGE.store.x + 3, z: VILLAGE.store.z + 6 }));
     counter.rotation.y = VILLAGE.store.yaw;
@@ -727,7 +876,7 @@ export async function boot(): Promise<void> {
         solids: refs.solids,
         carried,
         coins,
-        stallPrice: (itemId) => shop.inventory.sellPrice(itemId),
+        stallPrice,
         share: 1,
         title: 'Sell to Barnaby',
         intro: { title: 'Half price, counted twice', detail: 'Barnaby buys crops, food and wood out of your pockets and your backpack. A villager who asked for something pays far more.' },
@@ -804,6 +953,13 @@ export async function boot(): Promise<void> {
                 // It comes full.
                 apply: () => (can.left = canSize()),
             },
+            {
+                id: 'bikelamp',
+                name: 'A lamp for the bicycle',
+                icon: ':lantern:',
+                levels: [{ cost: 240, name: 'Carbide lamp', description: 'Lights the road ahead while you ride, and the Veil thins round it.' }],
+                apply: (level) => (bikeLamp.visible = level > 0),
+            },
             { id: 'hen', name: 'Another hen', icon: ':hen:', description: 'One more hen in the pen, laying eggs.', levels: [{ cost: 90 }, { cost: 120 }, { cost: 160 }], apply: (level) => setHerd('hen', 2 + level) },
             { id: 'cow', name: 'Another cow', icon: ':cow:', description: 'One more cow in the pen, giving milk.', levels: [{ cost: 260 }, { cost: 360 }], apply: (level) => setHerd('cow', 1 + level) },
         ],
@@ -826,7 +982,7 @@ export async function boot(): Promise<void> {
         coins,
         // In Barnaby's green book the crate pays what the stall does.
         share: () => (regulars.has('ledger') ? 1 : 0.8),
-        stallPrice: (itemId) => shop.inventory.sellPrice(itemId),
+        stallPrice,
         wantedBy: (itemId) => wantedBy(itemId),
         format: coin,
     });
@@ -960,7 +1116,8 @@ export async function boot(): Promise<void> {
         const far = THREE.MathUtils.smoothstep(toLight, 4, 55);
         const hour = dayCycle.hour;
         const late = hour < 5.5 ? 1 : THREE.MathUtils.smoothstep(hour, 12, 19.5);
-        return 1 + far * (0.2 + 0.8 * late) * 0.9;
+        // The bicycle's lamp cuts most of it away, while it is ridden.
+        return 1 + far * (0.2 + 0.8 * late) * 0.9 * (lampLit() ? 0.35 : 1);
     };
 
     // The pool is knee deep: wading is slow, and the Hollow do not mind the water.
@@ -1153,6 +1310,7 @@ export async function boot(): Promise<void> {
         },
         achievements: [
             { id: 'harvest', icon: ':sprout:', title: 'Soil is soil', description: 'Pick your first crop.', done: () => tally.harvested > 0 },
+            { id: 'finds', icon: ':locket:', title: 'Put away', description: 'Dig all 8 things out of the field.', hidden: true, done: () => found.size >= FINDS.length },
             { id: 'dish', icon: ':pot:', title: 'Something hot', description: 'Cook a dish.', done: () => tally.cooked > 0 },
             { id: 'delivery', icon: ':alert:', title: 'Worth keeping', description: 'Fill a request.', done: () => (villagers.requests?.completed ?? 0) >= 1 },
             { id: 'regular', icon: ':basket:', title: 'Part of the village', description: 'Fill 10 requests.', done: () => (villagers.requests?.completed ?? 0) >= 10 },
@@ -1208,6 +1366,39 @@ export async function boot(): Promise<void> {
     });
 
     // What the farmer carried when they died is kept by the black pool, and given back there after dark.
+    // A rod on the jetty: by day the pool gives fish, a few bites and then it goes still.
+    const jettyAt = { x: PLACES.pool.x - 9, z: PLACES.pool.z - 13 };
+    const jettyYaw = Math.atan2(PLACES.pool.x - jettyAt.x, PLACES.pool.z - jettyAt.z);
+    const alongJetty = (far: number, side = 0, lift = 0.4): THREE.Vector3 => new THREE.Vector3(jettyAt.x + Math.sin(jettyYaw) * far + Math.cos(jettyYaw) * side, POOL_LEVEL + lift, jettyAt.z + Math.cos(jettyYaw) * far - Math.sin(jettyYaw) * side);
+    const fishing = setupFishing(game, {
+        rod: alongJetty(2.2, 0.9),
+        water: alongJetty(6.4, 0.6, 0.02),
+        yaw: jettyYaw,
+        night: () => isNight(dayCycle),
+        day: () => dayCycle.day,
+        say: (line) => game.toasts.push(line, { color: '#b8c8c0' }),
+        onCast: () => {
+            body.play('reach');
+            synth.noise({ duration: 0.12, gain: 0.08, filter: 1200 });
+            think('fishing', ["Somebody left a rod here, and the line's still good. Black water, no wind. Something lives in it, I've seen the rings.", "(When the float goes under, press E at once. Too soon or too late and the hook comes back bare.)"]);
+        },
+        onBite: () => {
+            synth.tone({ frequency: 520, duration: 0.12, type: 'square', gain: 0.1 });
+            game.effects.shakeCamera(0.05);
+        },
+        onCatch: (position) => {
+            const roll = Math.random();
+            juice.chime('fanfare');
+            juice.sparkle(position, 0xb8d8e0, 14);
+            game.effects.particles.burst(position, { count: 12, color: 0x9ab0b0, size: 0.07, speed: 2.4, lifetime: 0.5 });
+            if (roll < 0.07 && dig(position, true, 'Hooked out of the pool.')) return;
+            const [itemId, amount] = (roll < 0.62 ? ['pale-fish', 1] : roll < 0.84 ? ['eel', 1] : ['wood', 1]) as [string, number];
+            if (give(itemId, amount)) juice.reward(position, itemId === 'wood' ? 'An old boot. It will burn. +1 wood' : `+1 ${nameOf(itemId).toLowerCase()}`);
+            tally.fished += 1;
+            if (itemId === 'eel') think('eel', ["That's not a fish. It's as long as my arm and it hasn't got a face.", "It's still pulling. Barnaby can have it."]);
+        },
+    });
+
     const pool = setupPool(game, {
         terrain,
         night: () => isNight(dayCycle),
@@ -1441,6 +1632,7 @@ export async function boot(): Promise<void> {
         wrong: () => wrongness.rows(),
         extra: () => [
             ...regulars.rows(),
+            ...(found.size > 0 ? [{ heading: true, title: `Dug up in the field (${found.size}/${FINDS.length})` }, ...FINDS.map((id) => (found.has(id) ? { icon: pockets.inventory.registry.resolve(id).icon ?? ':mark:', title: pockets.inventory.registry.resolve(id).name, detail: pockets.inventory.registry.resolve(id).description ?? '' } : { icon: ':mark:', title: '???', dim: true }))] : []),
             ...(escape.pledge.state === 'running' && escape.met
                 ? [
                       { heading: true, title: 'Going home' },
@@ -1549,6 +1741,37 @@ export async function boot(): Promise<void> {
         },
     });
 
+    // A stray on the porch after the first night. Its nose is better than the farmer's eyes.
+    const dog = setupDog(game, {
+        ground,
+        threat: (position, within) => world.enemies.nearest(position, within)?.root.position,
+        wary: () => !safeZones.playerSafe && !barn.inside,
+        here: () => dayCycle.day >= 2,
+        growl: () => {
+            synth.noise({ duration: 0.7, gain: 0.09, filter: 160 });
+            synth.tone({ frequency: 82, duration: 0.7, type: 'sawtooth', gain: 0.05, sweep: 0.85 });
+            think('dog-growl', ["The dog's gone stiff. It's growling at the fog, and I can't see a thing out there.", "It can smell them before I can see them. That's worth more than the lamp."]);
+        },
+        day: () => dayCycle.day,
+        onPet: (position, first, gift) => {
+            juice.sparkle(position, 0xff9ab0, 8);
+            juice.chime('tick');
+            body.play('reach');
+            // The first petting of the day is paid for: it has been out, and it brings what it found.
+            if (gift && !first) {
+                const roll = Math.random();
+                const brought = roll < 0.12 ? dig(position, true, 'The dog brought it in.') : undefined;
+                if (!brought) {
+                    const [itemId, amount] = (roll < 0.55 ? ['wood', 2] : roll < 0.8 ? ['mushroom', 1] : ['egg', 1]) as [string, number];
+                    if (give(itemId, amount)) juice.reward(position, `+${amount} ${nameOf(itemId).toLowerCase()}`);
+                    game.toasts.push('The dog drops something at your feet and looks pleased with itself', { color: '#ffc8d8' });
+                }
+            }
+            if (first) think('dog-pet', ["Thin as a rake, and it leans on my leg like it's known me for years.", "All right. You can stay. I don't know what I'll call you."]);
+        },
+        onArrive: () => think('dog', ["There's a dog on the porch. Grey, thin, one ear down. It looks at me as if I were late.", "It isn't afraid of the fog. I wish I knew whether that was a good sign. (Press E to pet it. It follows you, and it growls when one of them is near.)"]),
+    });
+
     /**
      * The lit ground round every lamp is not drawn until the farmer has seen what it is for.
      * The places are as safe as ever; there is only nothing yet to be safe from.
@@ -1653,6 +1876,7 @@ export async function boot(): Promise<void> {
             { icon: ':sprout:', title: 'Crops picked', meta: String(today.picked) },
             ...nightRows,
             { heading: true, title: 'Today' },
+            { icon: ':star:', title: `The village wants ${nameOf(craving()).toLowerCase()}`, detail: 'Barnaby pays double for it today, at the stall and in the crate. Whoever asked for it pays half as much again.' },
             ...planRows(),
             ...(letters.waiting ? [{ icon: ':letter:', title: 'There is a letter in the mailbox' }] : []),
             ...(cookpot.station.ready.length > 0 ? [{ icon: ':pot:', title: 'The pot finished overnight' }] : []),
@@ -1882,7 +2106,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
+    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, blooms, craving, dog, fishing, dig, found, finds, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         weather,

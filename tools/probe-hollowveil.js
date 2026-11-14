@@ -38,6 +38,7 @@
     expect(game.state.current === 'menu', `starts on the title screen, got ${game.state.current}`);
     expect(!document.querySelector('.menu:not(.is-hidden) .menu-dynamic:not(.is-hidden)'), 'no Continue button without a save');
     world.saves.newGame();
+    world.finds.chance = 0;
     // Weather comes when it likes: not during a test.
     world.weather.hold(true);
     await sleep(700);
@@ -503,6 +504,23 @@
     expect(!document.querySelector('.inventory:not(.is-hidden) [data-item="axe"]'), 'the store does not offer to buy your axe');
     world.shop.close();
 
+    // 13h2. What the village wants today pays double at the stall, and the chalkboard says so.
+    expect(world.scales.priceOf(world.craving()) === world.shop.inventory.sellPrice(world.craving()) * 2, `today's craving (${world.craving()}) pays double at the stall`);
+    expect(game.scene.getObjectByName('chalkboard') !== undefined, 'a chalkboard stands by the store');
+
+    // 13h3. Things come up out of the field: the unseen ones first, and the notebook counts them.
+    {
+        const first = world.dig(game.player.position, true);
+        await sleep(300);
+        await quiet();
+        const second = world.dig(game.player.position, true);
+        await sleep(300);
+        await quiet();
+        expect(first === 'find-button' && second === 'find-coin' && world.found.size === 2, `the field gives up its things in order: ${first}, ${second}`);
+        expect(have('find-button') === 1 && world.scales.priceOf('find-coin') >= 60, 'they are carried, and the stall buys them');
+        for (const id of ['find-button', 'find-coin']) for (const inventory of [world.pockets, world.bag]) inventory.remove(id, 1);
+    }
+
     // 13i. A farmer with nothing left is given seeds, once a day.
     const stash = { coins: world.coins.value(), field: world.farm.toJSON() };
     for (const inventory of [world.pockets, world.bag]) for (const slot of [...inventory.inventory.slots]) if (/seed|turnip|wheat/.test(slot.itemId)) inventory.remove(slot.itemId, slot.amount);
@@ -765,6 +783,69 @@
         expect(warmth.heatOf('turnip-soup') === 'cold', 'a dish that left the hands is cold when it comes back');
         world.pockets.remove('turnip-soup', 1);
         dayCycle.setHour(10);
+    }
+
+    // 14e3. Veilblooms: shut by day, open at night, 1 flower a night each.
+    {
+        const { blooms, dayCycle } = world;
+        dayCycle.setHour(12);
+        await sleep(1800);
+        expect(blooms.blooms.length >= 8 && blooms.blooms.every((bloom) => !bloom.open), 'the veilblooms are shut by day');
+        dayCycle.setHour(22);
+        world.population.clear();
+        const spot = blooms.blooms[2].position;
+        await go(spot.x + 0.9, spot.z + 0.6);
+        await sleep(1800);
+        const before = have('veilbloom');
+        await press('KeyE');
+        await sleep(300);
+        await quiet();
+        expect(have('veilbloom') === before + 1, `a veilbloom is picked at night, got ${have('veilbloom') - before}`);
+        await sleep(1500);
+        await press('KeyE');
+        await sleep(200);
+        expect(have('veilbloom') === before + 1 && !blooms.blooms[2].open, 'and that plant gives no more that night');
+        // The dog came after the first night, and it smells them before they are seen.
+        expect(world.dog.object.visible && world.dog.object.position.distanceTo(game.player.position) < 8, 'the dog has turned up and keeps close');
+        const smelled = world.spawnKind(spot.x + 12, spot.z + 3, 'walker');
+        await sleep(900);
+        await quiet();
+        expect(world.dog.alert, 'the dog goes stiff when a Hollow is near');
+        world.enemies.despawn(smelled);
+        world.pockets.remove('veilbloom', have('veilbloom'));
+        world.bag.remove('veilbloom', 9);
+        dayCycle.setHour(10);
+        world.population.clear();
+    }
+
+    // 14e3b. Fishing off the jetty: cast, wait for the float, pull in time.
+    {
+        const { fishing, dayCycle } = world;
+        dayCycle.setHour(13);
+        world.population.clear();
+        const rod = fishing.rod.position;
+        game.player.body.teleport({ x: rod.x - 0.9, y: rod.y + 0.4, z: rod.z - 0.3 });
+        await sleep(900);
+        await quiet();
+        const carriedBefore = [...world.pockets.inventory.slots, ...world.bag.inventory.slots].reduce((sum, slot) => sum + slot.amount, 0);
+        await press('KeyE');
+        await sleep(500);
+        await quiet();
+        if (fishing.state === 'idle') {
+            await press('KeyE');
+            await sleep(500);
+        }
+        expect(fishing.state === 'waiting' && game.player.frozen, `E at the rod casts the line, state ${fishing.state}`);
+        fishing.hurry();
+        await sleep(200);
+        expect(fishing.state === 'bite', 'the float goes under');
+        await press('KeyE');
+        await sleep(700);
+        await quiet();
+        const carriedAfter = [...world.pockets.inventory.slots, ...world.bag.inventory.slots].reduce((sum, slot) => sum + slot.amount, 0);
+        expect(fishing.state === 'idle' && !game.player.frozen && carriedAfter === carriedBefore + 1 && fishing.bitesLeft === 4, `a pull in time lands something: ${carriedAfter - carriedBefore}, ${fishing.bitesLeft} bites left`);
+        for (const id of ['pale-fish', 'eel']) for (const inventory of [world.pockets, world.bag]) inventory.remove(id, 9);
+        await sleep(500);
     }
 
     // 14e4. The Veil thickens far from light and late; a lantern makes a hole in it and a ring they keep out of.
