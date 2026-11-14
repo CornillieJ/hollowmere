@@ -73,6 +73,7 @@ import { setupBlooms } from './blooms';
 import { setupDevMode } from './devmode';
 import { setupDog } from './dog';
 import { setupFishing } from './fishing';
+import { PEDLAR, PEDLAR_STOCK, setupPedlar } from './pedlar';
 import { setupHappenings } from './happenings';
 
 /**
@@ -1706,6 +1707,7 @@ export async function boot(): Promise<void> {
             return [
                 { glyph: ':house:', position: { x: FARM.door.x, y: 0, z: FARM.door.z }, hideWithin: 14 },
                 { glyph: ':candle:', position: { x: VILLAGE.center.x, y: 0, z: VILLAGE.center.z }, hideWithin: 22 },
+                ...(pedlar.here ? [{ glyph: ':cart:', position: { x: pedlar.object.position.x, y: 0, z: pedlar.object.position.z }, hideWithin: 6 }] : []),
                 ...(escape.waiting ? [{ glyph: ':hill:', position: { x: PELL_SPOT.x, y: 0, z: PELL_SPOT.z }, hideWithin: 4 }] : []),
                 // Whoever can be paid a call right now, with what is being carried.
                 ...(story.finished ? VILLAGERS.filter((villager) => owed(villager.id)).flatMap((villager) => { const spot = villagerSpot(villager.id); return spot ? [{ glyph: ':alert:', position: { x: spot.x, y: 0, z: spot.z }, hideWithin: 6 }] : []; }) : []),
@@ -1806,6 +1808,21 @@ export async function boot(): Promise<void> {
         onArrive: () => think('dog', ["There's a dog on the porch. Grey, thin, one ear down. It looks at me as if I were late.", "It isn't afraid of the fog. I wish I knew whether that was a good sign. (Press E to pet it. It follows you, and it growls when one of them is near.)"]),
     });
 
+    // Every third day a pedlar stands by the road with a handcart, and pays better than Barnaby.
+    const pedlarDay = (): boolean => story.over && (dayCycle.day % PEDLAR.every === 0 || pedlarForced === dayCycle.day);
+    let pedlarForced = 0;
+    const pedlarShop = addInventory(game, { items: ITEMS, mode: 'shop', title: 'The pedlar\'s cart', catalogue: PEDLAR_STOCK, primary: false, customer: pockets, currency: { resource: coins, label: 'purse', format: coin, sellMultiplier: PEDLAR.pays }, filters: false });
+    const roadSide = { x: -7.5, z: 23 };
+    const pedlar = setupPedlar(game, {
+        position: at(roadSide),
+        yaw: Math.atan2(-11 - roadSide.x, 21 - roadSide.z),
+        here: () => pedlarDay() && dayCycle.hour >= PEDLAR.from && dayCycle.hour < PEDLAR.until,
+        onTalk: () => {
+            think('pedlar', ["Nobody comes up this road. And yet here's a cart, and a fox in a hat behind it, smiling like we'd arranged it.", '"I pay better than the shopkeeper," it says. "Anything at all. I\'m not from round here either."']);
+            pedlarShop.open();
+        },
+    });
+
     /**
      * The lit ground round every lamp is not drawn until the farmer has seen what it is for.
      * The places are as safe as ever; there is only nothing yet to be safe from.
@@ -1842,6 +1859,7 @@ export async function boot(): Promise<void> {
             ...nightRows,
             { heading: true, title: 'Today' },
             { icon: ':star:', title: `The village wants ${nameOf(craving()).toLowerCase()}`, detail: 'Barnaby pays double for it today, at the stall and in the crate. Whoever asked for it pays half as much again.' },
+            ...(pedlarDay() ? [{ icon: ':cart:', title: 'The pedlar is on the road today', detail: `By the road below the farm until dusk. Pays ${Math.round(PEDLAR.pays * 100)}% of an item's worth, Barnaby pays 50%.` }] : []),
             ...planRows(),
             ...(letters.waiting ? [{ icon: ':letter:', title: 'There is a letter in the mailbox' }] : []),
             ...(cookpot.station.ready.length > 0 ? [{ icon: ':pot:', title: 'The pot finished overnight' }] : []),
@@ -2062,6 +2080,7 @@ export async function boot(): Promise<void> {
         { label: 'Go to the black pool', run: () => moveTo({ x: PLACES.pool.x - 10, z: PLACES.pool.z - 15 }) },
         { label: 'Dig up a buried thing', run: () => void dig(game.player?.position ?? at(FARM.start), true) },
         { label: 'Make the dog arrive now', run: () => (dayCycle.day = Math.max(2, dayCycle.day)) },
+        { label: 'Bring the pedlar today', run: () => (pedlarForced = dayCycle.day) },
     ]);
 
     const settings = addSettings(game, {
@@ -2124,7 +2143,7 @@ export async function boot(): Promise<void> {
     give('candle', 1);
     villagers.newDay();
 
-    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, devmode, wrongnessSign: SIGN_SPOT, blooms, craving, dog, fishing, dig, found, finds, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
+    game.world = { ...world, scarecrows, narration, body, pack, chest, chestPack, escape, devmode, wrongnessSign: SIGN_SPOT, blooms, craving, dog, fishing, pedlar, pedlarShop, dig, found, finds, happenings, deeds, terrain, farm, dayCycle, villagers, bike, barriers, population, pockets, bag, hotbar, coins, safeZones, nodes, cookpot, bench, upgrades, story, journal, saves, settings, shop, tally, can, restock, letters, morning, lightCandle, goToBed, omens, wake, hunting, crate, crateSpot, plates, warmth, scentLevel, wrongness, ending, goToBedNow: () => goToBed(), regulars, potRecipes, visitHours, lanterns, veilAt, atmosphere, barn, scales, drops, dropInWorld,
         // For the probe and for trying things out from the console.
         hollowTarget: () => hollowTarget(dayCycle, hunting()),
         weather,

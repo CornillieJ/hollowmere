@@ -844,6 +844,16 @@
         world.pockets.remove('veilbloom', have('veilbloom'));
         world.bag.remove('veilbloom', 9);
         dayCycle.setHour(10);
+        // A pedlar on the road every third day, who pays more than Barnaby.
+        const pedlarWas = dayCycle.day;
+        dayCycle.day = Math.ceil((pedlarWas + 1) / 3) * 3;
+        await sleep(200);
+        expect(world.pedlar.here && world.pedlar.object.visible, `the pedlar stands by the road on day ${dayCycle.day}`);
+        expect(world.pedlarShop.inventory.sellPrice('find-locket') > world.shop.inventory.sellPrice('find-locket'), 'and pays more than Barnaby');
+        dayCycle.day += 1;
+        await sleep(200);
+        expect(!world.pedlar.here, 'and is gone the day after');
+        dayCycle.day = pedlarWas;
         world.population.clear();
     }
 
