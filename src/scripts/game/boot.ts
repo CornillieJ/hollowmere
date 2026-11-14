@@ -36,7 +36,7 @@ import {
     addVillagers,
     type AnimalDefinition,
 } from '../kit';
-import { fill, SAY, THOUGHTS } from '../content/thoughts';
+import { BURNED, fill, SAY, THOUGHTS } from '../content/thoughts';
 import { DEEDS, ORDER_BOOK, type OrderId } from '../content/progress';
 import { INTRO } from '../content/tutorial';
 import { SCREENS, STAY_SLIDES, WAKE_SLIDES } from '../content/endings';
@@ -827,10 +827,12 @@ export async function boot(): Promise<void> {
      * morning, and it is only ever something the farm can make, so every day has its own best plan.
      */
     const CRAVE = { stall: 2, request: 0.5 };
+    // Dishes that need something fished or picked in the dark are never asked for: a new player may not know where to get it.
+    const WILD = ['pale-fish', 'veilbloom'];
     let craved = { day: 0, itemId: '' };
     const craving = (): string => {
         if (craved.day === dayCycle.day) return craved.itemId;
-        const pool = [...CROPS.filter((crop) => canGrow(crop.id)).map((crop) => crop.produce as string), 'egg', 'milk', ...potRecipes.filter((recipe) => (recipe.tier ?? 1) <= cookpot.station.tier).map((recipe) => recipe.output.itemId)];
+        const pool = [...CROPS.filter((crop) => canGrow(crop.id)).map((crop) => crop.produce as string), 'egg', 'milk', ...potRecipes.filter((recipe) => (recipe.tier ?? 1) <= cookpot.station.tier && !recipe.ingredients.some((part) => WILD.includes(part.itemId))).map((recipe) => recipe.output.itemId)];
         // Never the same thing 2 days running.
         let pick = pool[(dayCycle.day * 7 + 3) % pool.length] as string;
         if (pick === craved.itemId) pick = pool[(dayCycle.day * 7 + 4) % pool.length] as string;
@@ -1517,16 +1519,10 @@ export async function boot(): Promise<void> {
         },
     });
 
-    // The price is burned in quarters: each one puts green on the old tree and is spoken of once.
-    const QUARTERS: Array<{ title: string; sub: string; lines: string[] }> = [
-        { title: 'A quarter burned', sub: 'The old tree on the hill has put out leaves.', lines: ['A quarter of it, gone up green.', 'Pell says that tree has not had a leaf since before he came. It has a handful now, low down, where the smoke went.'] },
-        { title: 'Half burned', sub: 'More green on the old tree.', lines: ['Half. I caught myself humming this morning: a tune from the other kitchen. I had forgotten I knew it.', 'Pell did not know it. He asked me to hum it again, slowly, and stood very still.'] },
-        { title: 'Three quarters burned', sub: 'The old tree is almost in leaf.', lines: ['Three quarters. Pell asked me the name of my street and I had it at once.', 'He wrote it down and put it in my pocket. In case I do not have it, later. "Read it on the last night," he said.'] },
-    ];
     const treeGreen = new THREE.Group();
     const leafMaterial = new THREE.MeshBasicMaterial({ color: 0x86e89a, side: THREE.DoubleSide });
     const leafShape = new THREE.PlaneGeometry(0.55, 0.32);
-    QUARTERS.forEach((_quarter, tier) => {
+    BURNED.forEach((_quarter, tier) => {
         const cluster = new THREE.Group();
         for (let index = 0; index < 9; index += 1) {
             const leaf = new THREE.Mesh(leafShape, leafMaterial);
@@ -1548,7 +1544,7 @@ export async function boot(): Promise<void> {
         order: SYSTEM_ORDER.EFFECTS,
         update: () => {
             const { pledge } = escape;
-            const reached = pledge.state === 'idle' ? 0 : pledge.state === 'kept' ? QUARTERS.length : Math.min(QUARTERS.length, Math.floor((pledge.paid / ESCAPE.price) * 4));
+            const reached = pledge.state === 'idle' ? 0 : pledge.state === 'kept' ? BURNED.length : Math.min(BURNED.length, Math.floor((pledge.paid / ESCAPE.price) * 4));
             treeGreen.children.forEach((cluster, tier) => {
                 if (cluster !== treeLight) cluster.visible = tier < reached;
             });
@@ -1556,7 +1552,7 @@ export async function boot(): Promise<void> {
             tally.burned = Math.min(tally.burned, reached);
             if (reached <= tally.burned || !game.state.is('playing') || pledge.state !== 'running') return;
             tally.burned = reached;
-            const quarter = QUARTERS[reached - 1] as (typeof QUARTERS)[number];
+            const quarter = BURNED[reached - 1] as (typeof BURNED)[number];
             juice.banner(`:fire: ${quarter.title}`, quarter.sub, { color: '#9af0a8', seconds: 4.5 });
             juice.chime('fanfare');
             juice.sparkle(treeGreen.position.clone().setY(treeGreen.position.y + 3), 0x86e89a, 30);

@@ -76,11 +76,12 @@ export function setupEscape(game: Game, options: { coins: ResourceHandle; day: (
     async function pay(dialogue: DialogueBox): Promise<void> {
         const purse = coins.value();
         const amounts = [500, 2000].filter((amount) => amount < purse && amount < pledge.remaining);
+        const asks = fill(SAY.pellAsks, { remaining: format(pledge.remaining), daysLeft: pledge.daysLeft, purse: format(purse) });
         const amount = await dialogue.say<number>(
             [
-                line(`${format(pledge.remaining)} still to burn, and ${pledge.daysLeft} days to find it in.`),
+                line(asks[0] as string),
                 {
-                    text: `You have ${format(purse)} on you. How much goes on the fire today?`,
+                    text: asks[1] as string,
                     portrait: PELL,
                     choices: [
                         ...amounts.map((value) => ({ label: `Burn ${format(value)}`, value })),
@@ -93,8 +94,8 @@ export function setupEscape(game: Game, options: { coins: ResourceHandle; day: (
         );
         if (!amount) return;
         const paid = pledge.pay(amount);
-        if (pledge.state === 'running') await dialogue.say([line(`${format(paid)}. It burns green. ${format(pledge.remaining)} to go.`)], 'Pell');
-        else await dialogue.say([line('That is the last of it. I did not think anyone would.'), line('Go home. Sleep. Mean it. And when you wake, plant something for me.')], 'Pell');
+        if (pledge.state === 'running') await dialogue.say(fill(SAY.pellBurned, { paid: format(paid), remaining: format(pledge.remaining) }).map(line), 'Pell');
+        else await dialogue.say(SAY.pellPaidAll.map(line), 'Pell');
     }
 
     return {
@@ -108,8 +109,8 @@ export function setupEscape(game: Game, options: { coins: ResourceHandle; day: (
         talk: async (dialogue) => {
             if (pledge.state === 'running' && !met) await explain(dialogue);
             else if (pledge.state === 'running') await pay(dialogue);
-            else if (pledge.state === 'missed') await dialogue.say([line('The day passed. I am sorry. I did say.'), line('You will stop minding. That is the worst thing I can tell you, and it is also the kindest.')], 'Pell');
-            else if (pledge.state === 'kept') await dialogue.say([line('It is paid. Go home and sleep.')], 'Pell');
+            else if (pledge.state === 'missed') await dialogue.say(SAY.pellMissed.map(line), 'Pell');
+            else if (pledge.state === 'kept') await dialogue.say(SAY.pellKept.map(line), 'Pell');
             else return false;
             return true;
         },
