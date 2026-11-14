@@ -49,7 +49,7 @@
     const shown = () => getComputedStyle(pockets).display !== 'none';
     expect(Boolean(held), 'there is a button for what is in the hand');
     expect(!shown(), 'the pockets are folded away on a phone');
-    expect(held?.textContent.includes(':drop:'), `the button shows the watering can, got ${held?.textContent}`);
+    expect(held?.textContent.includes(':item-watering-can:'), `the button shows the watering can, got ${held?.textContent}`);
     held?.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 97, bubbles: true }));
     expect(shown(), 'a tap on it opens the pockets');
     // A tap is a press and then a click.
@@ -58,7 +58,7 @@
     axe.click();
     await sleep(200);
     expect(!shown() && world.hotbar.selectedId === 'axe', 'choosing something takes it in hand and folds them again');
-    expect(held?.textContent.includes(':axe:'), 'and the button shows it');
+    expect(held?.textContent.includes(':item-axe:'), 'and the button shows it');
     expect(!document.querySelector('.hv-quest').textContent.includes('J for'), 'no keyboard hints in the task');
 
     // Every window can be closed without a keyboard.
