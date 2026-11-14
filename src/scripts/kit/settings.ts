@@ -55,6 +55,11 @@ export type AddSettingsOptions = {
     fullscreen?: boolean;
     /** Sound sliders to add: `'master'` and any bus. */
     volume?: Array<Bus | 'master'>;
+    /**
+     * Add a field for typed codes at the bottom of the menu. Called with what was typed;
+     * what it returns is shown under the field, e.g. `'Unknown code'`.
+     */
+    console?: (code: string) => string | void;
     title?: string;
     /** Menu id. Defaults to `'settings'`. */
     id?: string;
@@ -146,6 +151,7 @@ export function addSettings(game: Game, options: AddSettingsOptions): SettingsHa
             action: () => void (isFullscreen() ? exitFullscreen() : requestFullscreen()),
         });
     }
+    if (options.console) buttons.push({ label: 'Code', field: { placeholder: 'Enter a code', onSubmit: options.console } });
     buttons.push({ label: 'Back', primary: true, action: () => (returnTo ? game.menus.show(returnTo) : game.menus.hide(menuId)) });
     game.menus.register(menuId, { title: options.title ?? 'Settings', buttons });
 

@@ -284,3 +284,10 @@ Work on branch `fun-iteration`, one addition per commit.
 - `tutorial.ts` replaces `story.ts`: wake, plant, water (the can starts empty), chop (crops wait 1 stage short of ripe until wood is cut), harvest, cook, note (the paper appears in front of the scarecrow while the pot is on), take, sign, ride, meet, deliver. The farm can be left after `take`; before that the farmer is turned back and told the current step, and a bicycle is put back 6 m inside. The Hollow start hunting after `deliver` (`story.over`), not after the first night.
 - Yard: tool shed and its woodpile moved behind the west end of the north fence, the crate by the road is gone, the boot omen moved up the road, signpost 5 m off the road, darker ruts on the road through the yard.
 - Barn inside is 16 by 12 m with hay heaps, round bales and 2 horses in stalls.
+
+## Batch 20: dev mode, road, horses
+
+- Dev mode (`devmode.ts`): type `devmode` in the code field at the bottom of the settings. Opens "Dev tools" (also in the pause menu from then on; `devmode off` hides it). Template: `MenuButton.field` and `addSettings({ console })`.
+- Barnaby asks for the first dish that leaves the pot (`firstDish` in `boot.ts`).
+- The road goes round the south side of the barn. North fence runs unbroken to the barn's corner. Shed is inside the fence.
+- Horses are Blender models `horse-bay` and `horse-black` (parts `neck`, `tail`).

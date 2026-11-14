@@ -245,6 +245,7 @@
 
     // 7. Hand a villager what they asked for, out of the backpack.
     const request = world.villagers.requests.open[0];
+    expect(request?.from === 'barnaby' && request?.itemId === 'turnip-soup', `Barnaby asks for the first dish that was cooked, got ${request?.from} ${request?.itemId}`);
     expect(Boolean(request) && request.tier === 0, 'the first requests are the easy tier');
     if (request) {
         world.bag.add(request.itemId, request.amount);
@@ -530,6 +531,23 @@
         expect(first === 'find-button' && second === 'find-coin' && world.found.size === 2, `the field gives up its things in order: ${first}, ${second}`);
         expect(have('find-button') === 1 && world.scales.priceOf('find-coin') >= 60, 'they are carried, and the stall buys them');
         for (const id of ['find-button', 'find-coin']) for (const inventory of [world.pockets, world.bag]) inventory.remove(id, 1);
+    }
+
+    // 13h4. Dev mode: a code in the settings opens a menu of shortcuts.
+    {
+        expect(world.devmode.code('nonsense') === 'Unknown code', 'an unknown code says so');
+        const purse = world.coins.value();
+        world.devmode.code('devmode');
+        await sleep(200);
+        const give = [...document.querySelectorAll('.menu:not(.is-hidden) .menu-button')].find((button) => button.textContent.includes('Give 1000c'));
+        expect(world.devmode.on && Boolean(give), 'typing devmode opens the dev tools');
+        give?.click();
+        expect(world.coins.value() === purse + 1000, 'a dev button gives 1000c');
+        world.coins.set(purse);
+        [...document.querySelectorAll('.menu:not(.is-hidden) .menu-button')].find((button) => button.textContent === 'Back')?.click();
+        world.devmode.code('devmode off');
+        await sleep(200);
+        expect(game.state.current === 'playing' && !world.devmode.on, `back in the game after the dev menu, state ${game.state.current}`);
     }
 
     // 13i. A farmer with nothing left is given seeds, once a day.

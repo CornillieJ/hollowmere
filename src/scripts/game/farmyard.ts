@@ -61,17 +61,27 @@ export function buildFarmyard(game: Game, root: THREE.Object3D, terrain: Terrain
     washingLine(context, { x: -57, z: 62 }, { x: -52.5, z: 63.2 });
 
     // A fence along the north of the fields. The short run is turned a little and joined to the long one: no gap.
-    const rail = (x: number, z: number, yaw: number): void => {
-        put(railFence(4), x, z, yaw, false);
-        for (const along of [-1.5, -0.5, 0.5, 1.5]) {
-            const px = x + Math.cos(yaw) * along;
-            const pz = z - Math.sin(yaw) * along;
-            game.physics.add({ kind: 'fixed', shape: { type: 'box', size: { x: 1.1, y: 1.2, z: 0.3 } }, position: new THREE.Vector3(px, terrain.heightAt(px, pz) + 0.6, pz), syncObject: false, tag: 'wall' });
+    const run = (from: { x: number; z: number }, to: { x: number; z: number }, pieces: number): void => {
+        const length = Math.hypot(to.x - from.x, to.z - from.z) / pieces;
+        const yaw = Math.atan2(-(to.z - from.z), to.x - from.x);
+        for (let piece = 0; piece < pieces; piece += 1) {
+            const t = (piece + 0.5) / pieces;
+            const x = from.x + (to.x - from.x) * t;
+            const z = from.z + (to.z - from.z) * t;
+            put(railFence(length), x, z, yaw, false);
+            for (let post = 0; post < 4; post += 1) {
+                const along = ((post + 0.5) / 4 - 0.5) * length;
+                const px = x + Math.cos(yaw) * along;
+                const pz = z - Math.sin(yaw) * along;
+                game.physics.add({ kind: 'fixed', shape: { type: 'box', size: { x: length / 4 + 0.1, y: 1.2, z: 0.3 } }, position: new THREE.Vector3(px, terrain.heightAt(px, pz) + 0.6, pz), syncObject: false, tag: 'wall' });
+            }
         }
     };
-    for (const x of [-58, -54, -50]) rail(x, FENCE_Z, 0);
-    const turn = 0.3;
-    for (const along of [2, 6]) rail(-48 + Math.cos(turn) * along, FENCE_Z - Math.sin(turn) * along, turn);
+    const corner = { x: -40.4, z: 22.8 };
+    run({ x: -60, z: FENCE_Z }, { x: -48, z: FENCE_Z }, 3);
+    run({ x: -48, z: FENCE_Z }, corner, 2);
+    // And on to the barn's corner: the farm is closed along the north, and the way out is the road south of the barn.
+    run(corner, { x: -34.6, z: 33.6 }, 3);
     return { scarecrow: yardScarecrow };
 }
 

@@ -359,6 +359,31 @@ footer {
 	cursor: pointer;
 }
 
+.menu-field {
+	display: grid;
+	gap: 4px;
+	text-align: left;
+}
+
+.menu-field-input {
+	padding: 9px 12px;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: var(--ui-radius);
+	background: rgba(0, 0, 0, 0.35);
+	color: var(--ui-fg);
+	font: inherit;
+	font-size: 14px;
+}
+
+.menu-field-answer {
+	font-size: 12px;
+	color: var(--ui-muted);
+}
+
+.menu-field-answer:empty {
+	display: none;
+}
+
 .menu-button:hover,
 .menu-button:focus-visible {
 	border-color: var(--ui-accent);

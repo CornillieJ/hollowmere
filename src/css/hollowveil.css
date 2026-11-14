@@ -1188,3 +1188,24 @@ footer { display: none; }
 	text-shadow: none;
 	animation: hv-rec 0.24s steps(2) infinite;
 }
+
+/* ---- The code field at the bottom of the settings ---- */
+
+.menu-field-input {
+	border: 2px solid var(--ui-fg);
+	border-radius: 0;
+	background: var(--tape-ink);
+	color: var(--ui-fg);
+	font-family: var(--ui-font);
+	font-size: 22px;
+	padding: 4px 12px;
+}
+
+.menu-field-input::placeholder {
+	color: var(--ui-muted);
+}
+
+.menu-field-answer {
+	font-size: 18px;
+	color: var(--ui-accent);
+}

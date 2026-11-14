@@ -16,6 +16,8 @@ export type MenuButton = {
     primary?: boolean;
     /** Show a slider instead of a button: volume, sensitivity, brightness. */
     slider?: MenuSlider;
+    /** Show a text field instead of a button: a code, a name. Enter submits; what `onSubmit` returns is shown under it. */
+    field?: { placeholder?: string; onSubmit: (text: string) => string | void };
     /** Asked each time the menu opens; false hides the button, e.g. "Continue" without a save. */
     visible?: () => boolean;
     /** Asked each time the menu opens, e.g. "Continue (day 4)". Replaces `label`. */
@@ -59,6 +61,27 @@ export function createSlider(parent: HTMLElement, label: string, slider: MenuSli
     };
     sync();
     (row as HTMLElement & { sync?: () => void }).sync = sync;
+    return row;
+}
+
+function createField(parent: HTMLElement, label: string, field: NonNullable<MenuButton['field']>): HTMLElement {
+    const row = div('menu-field', undefined, parent);
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'menu-field-input';
+    input.placeholder = field.placeholder ?? label;
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.setAttribute('aria-label', label);
+    const answer = div('menu-field-answer', '', row);
+    // Typing must not also walk the player around or close the menu.
+    input.addEventListener('keydown', (event) => {
+        event.stopPropagation();
+        if (event.key !== 'Enter') return;
+        setText(answer, field.onSubmit(input.value.trim()) ?? '');
+        input.value = '';
+    });
+    row.insertBefore(input, answer);
     return row;
 }
 
@@ -116,7 +139,9 @@ export class Menus {
 
         const actions = div('menu-actions', undefined, card);
         for (const entry of config.buttons) {
-            const element = entry.slider
+            const element = entry.field
+                ? createField(actions, entry.label, entry.field)
+                : entry.slider
                 ? createSlider(actions, entry.label, entry.slider)
                 : button(entry.label, () => {
                       entry.action?.();
