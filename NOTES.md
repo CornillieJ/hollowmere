@@ -299,3 +299,7 @@ Work on branch `fun-iteration`, one addition per commit.
 ## Batch 22: the pedlar
 
 - `pedlar.ts`: a fox with a handcart stands by the road at (-7.5, 23) every third day from 07:00 to 19:00, once the tutorial is over. Its cart (`pedlarShop`) sells corn and pumpkin seeds before Barnaby stocks them, lanterns, oil and eggs, and buys anything at 75% of its worth (Barnaby pays 50%). Compass shows `:cart:` while it is there; the morning panel says when it comes. Dev button "Bring the pedlar today".
+
+## Batch 23: golden crops
+
+- `golden.ts`: once the tutorial is over, 1 ripe crop in 20 comes up gold: a turning gold diamond above it, a glow on the soil and sparks. Picking it gives 3 times the produce and a banner. Not saved: a reload rolls again. Dev button "Turn ripe crops gold". Probes set `world.golden.chance = 0`.
