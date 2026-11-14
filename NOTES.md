@@ -295,3 +295,7 @@ Work on branch `fun-iteration`, one addition per commit.
 ## Batch 21: item pictures
 
 - Every item has its own coloured picture: `icon: ':item-<id>:'`, a 32 px PNG in `static/icons/items/`. The drawings are SVG in `tools/item-art.mjs`; `node tools/build-item-art.mjs [sheet.png]` renders them (and a contact sheet). Item badges are gone. A new item needs an entry in `ART` and a rebuild.
+
+## Batch 22: the pedlar
+
+- `pedlar.ts`: a fox with a handcart stands by the road at (-7.5, 23) every third day from 07:00 to 19:00, once the tutorial is over. Its cart (`pedlarShop`) sells corn and pumpkin seeds before Barnaby stocks them, lanterns, oil and eggs, and buys anything at 75% of its worth (Barnaby pays 50%). Compass shows `:cart:` while it is there; the morning panel says when it comes. Dev button "Bring the pedlar today".
