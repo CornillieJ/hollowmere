@@ -68,7 +68,7 @@ import { registerGameIcons } from '../content/icons';
 import { takePortrait } from './portraits';
 import { setupJournal } from './journal';
 import { setupLetters } from './letters';
-import { ESCAPE, setupEscape } from './escape';
+import { DAYS_LOST, ESCAPE, setupEscape } from './escape';
 import { setupHappenings } from './happenings';
 
 /**
@@ -1039,7 +1039,6 @@ export async function boot(): Promise<void> {
     }
 
     // They kill. The farmer is found, days later, and wakes in the infirmary with nothing but their tools.
-    const DAYS_LOST = 3;
     game.events.on('player:death', () => {
         if (bike.mounted) bike.dismount();
         game.effects.flash(1.6, 0x1a0000, 0.95);
@@ -1166,7 +1165,7 @@ export async function boot(): Promise<void> {
             { id: 'wrap', icon: ':fog:', title: 'There is no out', description: 'Walk out of the valley and come in by the other side.', done: () => tally.wrapped > 0 },
             { id: 'candle', icon: ':candle:', title: 'A little light', description: 'Light a grave candle.', done: () => thoughts.has('candle') },
             { id: 'letters', icon: ':letter:', title: 'Your neighbour, Pell', description: 'Read every letter.', done: () => letters.read >= letters.total },
-            { id: 'bargain', icon: ':dawn:', title: 'A way home', description: 'Say yes to Pell.', done: () => escape.pledge.state !== 'idle' },
+            { id: 'bargain', icon: ':dawn:', title: 'A way home', description: 'Hear Pell out.', done: () => escape.met },
             { id: 'halfway', icon: ':fire:', title: 'It burns green', description: 'Burn half the price.', done: () => escape.pledge.paid >= ESCAPE.price / 2 },
             { id: 'siege', icon: ':village:', title: 'Shoulder to shoulder', description: 'Be in the village square while they ring the wall.', hidden: true, done: () => happenings.active === 'siege' && inVillage() },
             { id: 'overrun', icon: ':ruin:', title: 'Only the porch is mine', description: 'Stand on your porch while the farm is overrun.', hidden: true, done: () => happenings.active === 'overrun' && atHome() },
@@ -1442,13 +1441,13 @@ export async function boot(): Promise<void> {
         wrong: () => wrongness.rows(),
         extra: () => [
             ...regulars.rows(),
-            ...(escape.pledge.state === 'running'
+            ...(escape.pledge.state === 'running' && escape.met
                 ? [
                       { heading: true, title: 'Going home' },
-                      { icon: ':dawn:', title: `Burn ${coin(escape.pledge.remaining)} more at the old tree`, detail: `${escape.pledge.daysLeft} days left, to the end of day ${escape.pledge.deadline}. Paid so far: ${coin(escape.pledge.paid)}. Dying costs 3 days.`, progress: escape.pledge.paid / ESCAPE.price },
+                      { icon: ':dawn:', title: `Burn ${coin(escape.pledge.remaining)} more at the old tree`, detail: `${escape.pledge.daysLeft} days left, to the end of day ${escape.pledge.deadline}. Paid so far: ${coin(escape.pledge.paid)}. Dying costs ${DAYS_LOST} days.`, progress: escape.pledge.paid / ESCAPE.price },
                   ]
                 : escape.waiting
-                  ? [{ heading: true, title: 'Going home' }, { icon: ':candle:', title: 'Pell is waiting on the hill', detail: 'Up the west path from the chapel, to the old tree on the lookout. He has something to say about going home.' }]
+                  ? [{ heading: true, title: 'Going home' }, { icon: ':candle:', title: 'Pell is waiting on the hill', detail: `Up the west path from the chapel, to the old tree on the lookout. His note says ${coin(ESCAPE.price)} by the end of day ${escape.pledge.deadline}, and that the days are counting.` }]
                   : []),
         ],
     });
